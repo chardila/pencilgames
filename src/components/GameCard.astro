@@ -1,0 +1,45 @@
+---
+interface Props {
+  href: string;
+  icono: string;
+  title: string;
+  description: string;
+}
+
+const { href, icono, title, description } = Astro.props;
+---
+
+<a class="game-card" href={href}>
+  <span class="game-card__icono" aria-hidden="true">{icono}</span>
+  <span class="game-card__title">{title}</span>
+  <span class="game-card__description">{description}</span>
+</a>
+
+<style>
+  .game-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    text-decoration: none;
+    color: var(--color-text);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    min-height: var(--tap-target-min);
+  }
+
+  .game-card__icono {
+    font-size: 2.5rem;
+  }
+
+  .game-card__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .game-card__description {
+    font-size: 0.95rem;
+    opacity: 0.8;
+  }
+</style>

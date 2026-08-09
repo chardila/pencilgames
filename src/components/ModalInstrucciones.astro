@@ -1,0 +1,99 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<div
+  id="modal-instrucciones"
+  class="modal-instrucciones"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-instrucciones-titulo"
+>
+  <div class="modal-instrucciones__contenido">
+    <h2 id="modal-instrucciones-titulo">Cómo se juega {title}</h2>
+    <div class="modal-instrucciones__cuerpo">
+      <slot />
+    </div>
+    <button type="button" id="modal-instrucciones-cerrar" class="modal-instrucciones__jugar">
+      ¡Jugar!
+    </button>
+  </div>
+</div>
+
+<button
+  type="button"
+  id="modal-instrucciones-abrir"
+  class="modal-instrucciones__reabrir"
+  aria-label="Ver instrucciones"
+>
+  ?
+</button>
+
+<style>
+  .modal-instrucciones {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing);
+    z-index: 20;
+  }
+
+  .modal-instrucciones[hidden] {
+    display: none;
+  }
+
+  .modal-instrucciones__contenido {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 32rem;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .modal-instrucciones__jugar {
+    margin-top: 1rem;
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--color-accent);
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .modal-instrucciones__reabrir {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-accent);
+    font-size: 1.25rem;
+    font-weight: 700;
+    z-index: 10;
+  }
+</style>
+
+<script>
+  const modal = document.getElementById('modal-instrucciones')!;
+  const cerrar = document.getElementById('modal-instrucciones-cerrar')!;
+  const abrir = document.getElementById('modal-instrucciones-abrir')!;
+
+  cerrar.addEventListener('click', () => {
+    modal.hidden = true;
+  });
+
+  abrir.addEventListener('click', () => {
+    modal.hidden = false;
+  });
+</script>
