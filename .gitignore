@@ -1,1 +1,5 @@
 .claude/settings.local.json.tmp.*
+
+# Índice/caché auto-generado por herramientas de análisis (tldr MCP)
+.tldr/
+.tldrignore
