@@ -85,10 +85,21 @@ const SIZE = 4;
     z-index: 1;
   }
 
+  /*
+   * Las líneas horizontales y verticales se cruzan sobre cada punto: ambas
+   * piden 44px en su eje corto dentro de una pista de 14px, así que se
+   * solapan en cuadrados de 15x15 en las esquinas. Sólo una puede ganar cada
+   * esquina. Las verticales van después en el DOM, así que sin z-index
+   * explícito ganaban siempre y cada horizontal perdía sus cuatro esquinas.
+   * Con z-index: 2 la horizontal gana su propio rectángulo completo y la
+   * vertical conserva igualmente una zona limpia de 44px de ancho en el
+   * tramo central de su pista.
+   */
   .linea--h {
     align-self: center;
     width: 100%;
     min-height: 2.75rem;
+    z-index: 2;
   }
 
   .linea--h::before {
