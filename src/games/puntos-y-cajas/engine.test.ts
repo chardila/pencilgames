@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialState, playLine, type PuntosYCajasState } from './engine';
+import { createInitialState, playLine, type LineId, type PuntosYCajasState } from './engine';
 
 describe('puntos y cajas engine', () => {
   it('empieza sin líneas, sin cajas y le toca al jugador 1', () => {
@@ -64,5 +64,39 @@ describe('puntos y cajas engine', () => {
     expect(next.boxOwners[0][0]).not.toBeNull();
     expect(next.boxOwners[1][0]).not.toBeNull();
     expect(next.scores[1] + next.scores[2]).toBe(totalAntes + 2);
+  });
+
+  it('juega un tablero de tamaño 4 (el que se publica) completo hasta terminar', () => {
+    // Board.astro fija SIZE = 4: 4x4 puntos, 24 líneas (12 h + 12 v) y 9 cajas.
+    let state: PuntosYCajasState = createInitialState(4);
+    expect(state.size).toBe(4);
+    expect(state.horizontalLines).toHaveLength(4);
+    expect(state.horizontalLines[0]).toHaveLength(3);
+    expect(state.verticalLines).toHaveLength(3);
+    expect(state.verticalLines[0]).toHaveLength(4);
+    expect(state.boxOwners.flat()).toHaveLength(9);
+
+    const jugadas: LineId[] = [];
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 3; col++) jugadas.push({ type: 'h', row, col });
+    }
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 4; col++) jugadas.push({ type: 'v', row, col });
+    }
+    expect(jugadas).toHaveLength(24);
+
+    for (const jugada of jugadas) {
+      expect(state.status).toBe('playing'); // sólo la jugada 24 puede terminarla
+      state = playLine(state, jugada);
+    }
+
+    expect(state.status).toBe('finished');
+    expect(state.boxOwners.flat().every(dueno => dueno !== null)).toBe(true);
+    expect(state.scores[1] + state.scores[2]).toBe(9);
+    expect(state.boxOwners.flat().filter(d => d === 1)).toHaveLength(state.scores[1]);
+    expect(state.boxOwners.flat().filter(d => d === 2)).toHaveLength(state.scores[2]);
+
+    // Una vez terminada, ninguna jugada adicional cambia el estado.
+    expect(playLine(state, { type: 'h', row: 0, col: 0 })).toEqual(state);
   });
 });

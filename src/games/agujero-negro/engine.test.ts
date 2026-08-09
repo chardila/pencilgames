@@ -84,6 +84,38 @@ describe('agujero negro — partida', () => {
     expect(state.scores).toEqual(sumaEsperada);
   });
 
+  it('un agujero negro interior destruye 6 celdas y las puntuaciones se calculan a mano', () => {
+    // Dejamos vacía la posición 7 (fila 3, columna 1): interior, 6 vecinos.
+    const orden = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+    expect(orden).toHaveLength(20);
+    expect(orden).not.toContain(7);
+
+    let state: AgujeroNegroState = createInitialState();
+    for (const posicion of orden) {
+      state = placeNumber(state, posicion);
+    }
+
+    expect(state.status).toBe('finished');
+    expect(state.blackHole).toBe(7);
+
+    // Vecinos de 7 calculados a mano sobre el triángulo:
+    //   misma fila: 6 y 8 · fila de arriba: 3 y 4 · fila de abajo: 11 y 12
+    expect([...state.destroyedCells].sort((a, b) => a - b)).toEqual([3, 4, 6, 8, 11, 12]);
+
+    // Reparto a mano: la jugada k (0-indexada) la hace el jugador (k par -> 1,
+    // k impar -> 2) con el valor floor(k/2) + 1.
+    //   id 3  -> k=3  -> J2, valor 2
+    //   id 4  -> k=4  -> J1, valor 3
+    //   id 6  -> k=6  -> J1, valor 4
+    //   id 8  -> k=7  -> J2, valor 4
+    //   id 11 -> k=10 -> J1, valor 6
+    //   id 12 -> k=11 -> J2, valor 6
+    // Cada jugador colocó 1..10 = 55 puntos en total.
+    //   J1 pierde 3 + 4 + 6 = 13  -> 55 - 13 = 42
+    //   J2 pierde 2 + 4 + 6 = 12  -> 55 - 12 = 43
+    expect(state.scores).toEqual({ 1: 42, 2: 43 });
+  });
+
   it('no permite jugar después de terminada la partida', () => {
     let state: AgujeroNegroState = createInitialState();
     for (let posicion = 0; posicion < 20; posicion++) {

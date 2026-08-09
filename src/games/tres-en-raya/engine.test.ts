@@ -41,6 +41,38 @@ describe('tres en raya engine', () => {
     expect(state.winningLine).toEqual([0, 1, 2]);
   });
 
+  // Tabla con las 8 líneas ganadoras: 3 filas, 3 columnas y 2 diagonales.
+  // Se escriben aquí a mano (no se importan de engine.ts) para que una errata
+  // en cualquier entrada de WINNING_LINES haga fallar el test.
+  const LINEAS_GANADORAS: Array<{ nombre: string; linea: number[] }> = [
+    { nombre: 'fila superior', linea: [0, 1, 2] },
+    { nombre: 'fila central', linea: [3, 4, 5] },
+    { nombre: 'fila inferior', linea: [6, 7, 8] },
+    { nombre: 'columna izquierda', linea: [0, 3, 6] },
+    { nombre: 'columna central', linea: [1, 4, 7] },
+    { nombre: 'columna derecha', linea: [2, 5, 8] },
+    { nombre: 'diagonal principal', linea: [0, 4, 8] },
+    { nombre: 'diagonal inversa', linea: [2, 4, 6] },
+  ];
+
+  it.each(LINEAS_GANADORAS)('detecta la línea ganadora: $nombre', ({ linea }) => {
+    // X ocupa las 3 casillas de la línea; O responde en dos casillas de fuera
+    // (con sólo 2 fichas O nunca puede ganar antes).
+    const fuera = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter(i => !linea.includes(i));
+    const jugadasO = fuera.slice(0, 2);
+
+    let state = createInitialState();
+    state = playMove(state, linea[0]); // X
+    state = playMove(state, jugadasO[0]); // O
+    state = playMove(state, linea[1]); // X
+    state = playMove(state, jugadasO[1]); // O
+    state = playMove(state, linea[2]); // X cierra la línea
+
+    expect(state.status).toBe('won');
+    expect(state.winner).toBe('X');
+    expect(state.winningLine).toEqual(linea);
+  });
+
   it('detecta un empate', () => {
     // Resultado final:
     // X O X
