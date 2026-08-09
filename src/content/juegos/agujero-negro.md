@@ -6,8 +6,6 @@ minJugadores: 2
 maxJugadores: 2
 ---
 
-## Cómo se juega
-
 1. Hay un tablero triangular de 21 posiciones. Cada jugador tiene los números del 1 al 10.
 2. Por turnos, cada jugador coloca su siguiente número (empezando por el 1) en cualquier posición vacía.
 3. Después de colocar los 20 números, queda **una sola posición vacía**: ese es el Agujero Negro.
