@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk ls *)",
+      "Bash(rtk git *)",
+      "WebFetch(domain:www.instagram.com)",
+      "Bash(git init *)"
+    ]
+  }
+}
