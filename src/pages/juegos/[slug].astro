@@ -26,8 +26,42 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
 ---
 
 <BaseLayout title={juego.data.title}>
+  <header class="cabecera-juego">
+    <a href="/" class="cabecera-juego__volver">← Juegos</a>
+    <h1 class="cabecera-juego__titulo">{juego.data.title}</h1>
+  </header>
   <ModalInstrucciones title={juego.data.title}>
     <Content />
   </ModalInstrucciones>
   <Board />
 </BaseLayout>
+
+<style>
+  .cabecera-juego {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 var(--spacing);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .cabecera-juego__volver {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-target-min);
+    min-width: var(--tap-target-min);
+    color: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  .cabecera-juego__titulo {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
