@@ -1,0 +1,29 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ModalInstrucciones from '../../components/ModalInstrucciones.astro';
+import TresEnRayaBoard from '../../games/tres-en-raya/Board.astro';
+
+const BOARDS = {
+  'tres-en-raya': TresEnRayaBoard,
+} as const;
+
+export async function getStaticPaths() {
+  const juegos = await getCollection('juegos');
+  return juegos.map(juego => ({
+    params: { slug: juego.id },
+    props: { juego },
+  }));
+}
+
+const { juego } = Astro.props;
+const { Content } = await render(juego);
+const Board = BOARDS[juego.id as keyof typeof BOARDS];
+---
+
+<BaseLayout title={juego.data.title}>
+  <ModalInstrucciones title={juego.data.title}>
+    <Content />
+  </ModalInstrucciones>
+  <Board />
+</BaseLayout>
