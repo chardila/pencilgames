@@ -3,3 +3,7 @@
 # Índice/caché auto-generado por herramientas de análisis (tldr MCP)
 .tldr/
 .tldrignore
+
+node_modules/
+dist/
+.astro/
