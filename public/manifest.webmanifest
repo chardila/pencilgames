@@ -1,0 +1,13 @@
+{
+  "name": "Pencilgames",
+  "short_name": "Pencilgames",
+  "description": "Juegos de lápiz y papel para jugar en familia",
+  "theme_color": "#fdf6ec",
+  "background_color": "#fdf6ec",
+  "display": "standalone",
+  "start_url": "/",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
