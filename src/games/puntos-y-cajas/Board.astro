@@ -1,0 +1,239 @@
+---
+const SIZE = 4;
+---
+
+<div class="tablero-puntos-y-cajas">
+  <div id="indicador-turno" class="indicador-turno" data-jugador="1"></div>
+  <div id="tablero" class="tablero-pyc">
+    {Array.from({ length: SIZE }).map((_, r) => (
+      <Fragment>
+        {Array.from({ length: SIZE }).map((_, c) => (
+          <span class="punto" style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 1};`} />
+        ))}
+        {Array.from({ length: SIZE - 1 }).map((_, c) => (
+          <button
+            type="button"
+            class="linea linea--h"
+            data-tipo="h"
+            data-fila={r}
+            data-columna={c}
+            style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 2};`}
+            aria-label={`Línea horizontal, fila ${r + 1}, posición ${c + 1}`}
+          />
+        ))}
+      </Fragment>
+    ))}
+    {Array.from({ length: SIZE - 1 }).map((_, r) => (
+      <Fragment>
+        {Array.from({ length: SIZE }).map((_, c) => (
+          <button
+            type="button"
+            class="linea linea--v"
+            data-tipo="v"
+            data-fila={r}
+            data-columna={c}
+            style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 1};`}
+            aria-label={`Línea vertical, fila ${r + 1}, posición ${c + 1}`}
+          />
+        ))}
+        {Array.from({ length: SIZE - 1 }).map((_, c) => (
+          <span
+            class="caja"
+            data-fila={r}
+            data-columna={c}
+            style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 2};`}
+          />
+        ))}
+      </Fragment>
+    ))}
+  </div>
+  <div id="banner-ganador" class="banner-ganador" hidden></div>
+</div>
+
+<style>
+  .tablero-puntos-y-cajas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: var(--spacing);
+  }
+
+  .tablero-pyc {
+    display: grid;
+    grid-template-columns: 14px minmax(2.75rem, 1fr) 14px minmax(2.75rem, 1fr) 14px minmax(2.75rem, 1fr) 14px;
+    grid-template-rows: 14px minmax(2.75rem, 1fr) 14px minmax(2.75rem, 1fr) 14px minmax(2.75rem, 1fr) 14px;
+    width: min(92vw, 26rem);
+    aspect-ratio: 1;
+    margin: 0 auto;
+  }
+
+  .punto {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-text);
+    justify-self: center;
+    align-self: center;
+  }
+
+  .linea {
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  .linea--h {
+    align-self: center;
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .linea--h::before {
+    content: '';
+    display: block;
+    height: 6px;
+    background: #ddd;
+    border-radius: 3px;
+    margin: auto 0;
+  }
+
+  .linea--h[data-trazada='true']::before {
+    background: var(--color-player-1);
+  }
+
+  .linea--v {
+    justify-self: center;
+    height: 100%;
+    min-width: 2.75rem;
+  }
+
+  .linea--v::before {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 100%;
+    background: #ddd;
+    border-radius: 3px;
+    margin: 0 auto;
+  }
+
+  .linea--v[data-trazada='true']::before {
+    background: var(--color-player-1);
+  }
+
+  .caja {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+
+  .caja[data-jugador='1'] {
+    background: color-mix(in srgb, var(--color-player-1) 25%, transparent);
+  }
+
+  .caja[data-jugador='2'] {
+    background: color-mix(in srgb, var(--color-player-2) 25%, transparent);
+  }
+
+  .indicador-turno {
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-height: 2rem;
+    text-align: center;
+  }
+
+  .banner-ganador {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 15;
+  }
+
+  .banner-ganador[hidden] {
+    display: none;
+  }
+
+  .banner-ganador :global(.banner-ganador__contenido) {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    text-align: center;
+  }
+</style>
+
+<script>
+  import { createInitialState, playLine, type PuntosYCajasState, type LineId } from './engine';
+  import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
+  import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
+
+  const tablero = document.getElementById('tablero')!;
+  const lineas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.linea'));
+  const cajas = Array.from(tablero.querySelectorAll<HTMLElement>('.caja'));
+  const indicadorTurno = document.getElementById('indicador-turno')!;
+  const bannerGanador = document.getElementById('banner-ganador')!;
+
+  let state: PuntosYCajasState = createInitialState(4);
+
+  function render(): void {
+    for (const linea of lineas) {
+      const tipo = linea.dataset.tipo as 'h' | 'v';
+      const fila = Number(linea.dataset.fila);
+      const columna = Number(linea.dataset.columna);
+      const trazada = tipo === 'h' ? state.horizontalLines[fila][columna] : state.verticalLines[fila][columna];
+      linea.dataset.trazada = String(trazada);
+      linea.disabled = trazada || state.status !== 'playing';
+    }
+
+    for (const caja of cajas) {
+      const fila = Number(caja.dataset.fila);
+      const columna = Number(caja.dataset.columna);
+      const dueno = state.boxOwners[fila][columna];
+      if (dueno) {
+        caja.dataset.jugador = String(dueno);
+        caja.textContent = dueno === 1 ? '●' : '■';
+      } else {
+        delete caja.dataset.jugador;
+        caja.textContent = '';
+      }
+    }
+
+    if (state.status === 'playing') {
+      renderTurnIndicator(indicadorTurno, {
+        jugador: state.currentPlayer,
+        etiqueta: `Jugador ${state.currentPlayer}`,
+        detalle: `Puntuación: ${state.scores[1]} - ${state.scores[2]}`,
+      });
+      hideWinnerBanner(bannerGanador);
+    } else {
+      ocultarTurnIndicator(indicadorTurno);
+      const ganador = state.scores[1] === state.scores[2] ? null : state.scores[1] > state.scores[2] ? 1 : 2;
+      showWinnerBanner(bannerGanador, {
+        titulo: ganador ? `🎉 ¡Ganó el Jugador ${ganador}!` : '🤝 ¡Empate!',
+        detalle: `Puntuación final: ${state.scores[1]} - ${state.scores[2]}`,
+        onReiniciar: reiniciar,
+      });
+    }
+  }
+
+  function reiniciar(): void {
+    state = createInitialState(4);
+    render();
+  }
+
+  for (const linea of lineas) {
+    linea.addEventListener('click', () => {
+      const tipo = linea.dataset.tipo as LineId['type'];
+      const fila = Number(linea.dataset.fila);
+      const columna = Number(linea.dataset.columna);
+      state = playLine(state, { type: tipo, row: fila, col: columna });
+      render();
+    });
+  }
+
+  render();
+</script>

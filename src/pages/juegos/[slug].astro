@@ -3,9 +3,11 @@ import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ModalInstrucciones from '../../components/ModalInstrucciones.astro';
 import TresEnRayaBoard from '../../games/tres-en-raya/Board.astro';
+import PuntosYCajasBoard from '../../games/puntos-y-cajas/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
+  'puntos-y-cajas': PuntosYCajasBoard,
 } as const;
 
 export async function getStaticPaths() {
