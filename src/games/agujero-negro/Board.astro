@@ -1,0 +1,167 @@
+---
+function idsDeFila(row: number): number[] {
+  const start = (row * (row + 1)) / 2;
+  return Array.from({ length: row + 1 }, (_, i) => start + i);
+}
+---
+
+<div class="tablero-agujero-negro">
+  <div id="indicador-turno" class="indicador-turno" data-jugador="1"></div>
+  <div id="tablero" class="tablero-an">
+    {[0, 1, 2, 3, 4, 5].map(row => (
+      <div class="fila-an">
+        {idsDeFila(row).map(id => (
+          <button type="button" class="posicion-an" data-id={id} aria-label={`Posición ${id + 1}`} />
+        ))}
+      </div>
+    ))}
+  </div>
+  <div id="banner-ganador" class="banner-ganador" hidden></div>
+</div>
+
+<style>
+  .tablero-agujero-negro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: var(--spacing);
+  }
+
+  .tablero-an {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .fila-an {
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-top: -0.5rem;
+  }
+
+  .fila-an:first-child {
+    margin-top: 0;
+  }
+
+  .posicion-an {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    border: 2px solid #ddd;
+    background: var(--color-surface);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .posicion-an[data-jugador='1'] {
+    color: var(--color-player-1);
+    border-color: var(--color-player-1);
+  }
+
+  .posicion-an[data-jugador='2'] {
+    color: var(--color-player-2);
+    border-color: var(--color-player-2);
+  }
+
+  .posicion-an[data-agujero='true'] {
+    background: var(--color-text);
+    color: var(--color-bg);
+  }
+
+  .posicion-an[data-destruida='true'] {
+    opacity: 0.35;
+    text-decoration: line-through;
+  }
+
+  .indicador-turno {
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-height: 2rem;
+    text-align: center;
+  }
+
+  .banner-ganador {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 15;
+  }
+
+  .banner-ganador[hidden] {
+    display: none;
+  }
+
+  .banner-ganador :global(.banner-ganador__contenido) {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    text-align: center;
+  }
+</style>
+
+<script>
+  import { createInitialState, placeNumber, type AgujeroNegroState } from './engine';
+  import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
+  import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
+
+  const tablero = document.getElementById('tablero')!;
+  const posiciones = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.posicion-an'));
+  const indicadorTurno = document.getElementById('indicador-turno')!;
+  const bannerGanador = document.getElementById('banner-ganador')!;
+
+  let state: AgujeroNegroState = createInitialState();
+
+  function render(): void {
+    for (const boton of posiciones) {
+      const id = Number(boton.dataset.id);
+      const celda = state.cells.find(c => c.id === id)!;
+
+      boton.textContent = celda.value !== null ? String(celda.value) : '';
+      if (celda.player) {
+        boton.dataset.jugador = String(celda.player);
+      } else {
+        delete boton.dataset.jugador;
+      }
+      boton.dataset.agujero = String(state.blackHole === id);
+      boton.dataset.destruida = String(state.destroyedCells.includes(id));
+      boton.disabled = celda.value !== null || state.status !== 'playing';
+    }
+
+    if (state.status === 'playing') {
+      renderTurnIndicator(indicadorTurno, {
+        jugador: state.currentPlayer,
+        etiqueta: `Jugador ${state.currentPlayer}`,
+        detalle: `Coloca el número ${state.nextValue[state.currentPlayer]}`,
+      });
+      hideWinnerBanner(bannerGanador);
+    } else {
+      ocultarTurnIndicator(indicadorTurno);
+      const ganador = state.scores[1] === state.scores[2] ? null : state.scores[1] > state.scores[2] ? 1 : 2;
+      showWinnerBanner(bannerGanador, {
+        titulo: ganador ? `🎉 ¡Ganó el Jugador ${ganador}!` : '🤝 ¡Empate!',
+        detalle: `Jugador 1: ${state.scores[1]} puntos · Jugador 2: ${state.scores[2]} puntos`,
+        onReiniciar: reiniciar,
+      });
+    }
+  }
+
+  function reiniciar(): void {
+    state = createInitialState();
+    render();
+  }
+
+  for (const boton of posiciones) {
+    boton.addEventListener('click', () => {
+      const id = Number(boton.dataset.id);
+      state = placeNumber(state, id);
+      render();
+    });
+  }
+
+  render();
+</script>
