@@ -6,13 +6,13 @@
 
 **Architecture:** Astro static site, no UI framework. Each game is a vanilla-TypeScript `engine.ts` (pure state machine, unit-tested with Vitest) plus a `Board.astro` component whose inline `<script>` renders the DOM and calls the engine. Shared UI (turn indicator, winner banner, instructions modal, game card) lives in `src/lib/` and `src/components/` and is designed once against all three games' needs. A single dynamic route (`src/pages/juegos/[slug].astro`) renders every game via a static `slug → component` import map.
 
-**Tech Stack:** Astro 5.18.2, TypeScript (strict), Vitest, `@vite-pwa/astro` 1.2.0, no CSS framework (hand-written CSS custom properties), npm, Node 20+ (developed on Node 22.23.2), deployed on Cloudflare Pages.
+**Tech Stack:** Astro 7.2.0, TypeScript (strict), Vitest, a hand-written service worker for offline support (no PWA library), no CSS framework (hand-written CSS custom properties), npm, Node 20+ (developed on Node 22.23.2), deployed on Cloudflare Pages.
 
 ## Global Constraints
 
-- **Astro version is pinned to `5.18.2`.** Do not upgrade to Astro 6/7 during this plan — `@vite-pwa/astro@1.2.0`'s declared peer range tops out at `astro@^5.0.0`, and Astro 7 was not yet supported by it as of this writing (verified 2026-08-09).
-- **`@vite-pwa/astro` is pinned to `1.2.0`.**
-- Content collections use the **Astro 5 shape**: `src/content.config.ts` (not `src/content/config.ts`), collections defined with `loader: glob(...)` from `astro/loaders`, and rendering via the standalone `render(entry)` function imported from `astro:content` (not `entry.render()`).
+- **Astro version is pinned to `7.2.0`** — the latest release as of 2026-08-09. This plan's exact code patterns (content collections with `content.config.ts` + `glob` loader, the standalone `render(entry)` function, `getStaticPaths`, `<Fragment>`, inline `<script>` in `.astro` files) were empirically verified against a real `npm install astro@7.2.0 && astro build` before this plan was written — not just documentation. **If you're executing this plan significantly later than 2026-08-09, re-check the latest Astro version and re-verify before assuming `7.2.0` is still current** — pin whatever you verify, don't blindly bump to a newer major without re-running an equivalent smoke test.
+- No PWA/service-worker library is used (see Task 11) — deliberately, so nothing constrains the Astro version from that direction. Earlier drafts of this plan considered `@vite-pwa/astro`, whose declared peer range excluded current Astro majors; a ~30-line hand-rolled service worker sidesteps that dependency entirely and is simpler to audit for security than a third-party build-integration package.
+- Content collections use the **Astro 5+ shape**: `src/content.config.ts` (not `src/content/config.ts`), collections defined with `loader: glob(...)` from `astro/loaders`, and rendering via the standalone `render(entry)` function imported from `astro:content` (not `entry.render()`).
 - **Language:** all UI text, game names, and instructions are in Spanish only.
 - **Tablet/touch constraints (numeric, not adjectival):**
   - Every interactive element (buttons, including Puntos y Cajas line hit-areas) has a computed size of **at least 44×44 CSS px**.
@@ -58,11 +58,10 @@ Do not use the interactive `npm create astro@latest` wizard — it prompts for i
     "test:watch": "vitest"
   },
   "dependencies": {
-    "astro": "5.18.2"
+    "astro": "7.2.0"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
-    "@vite-pwa/astro": "1.2.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }
@@ -2248,16 +2247,21 @@ git commit -m "feat: add agujero negro game"
 
 ---
 
-## Task 11: PWA — offline support
+## Task 11: PWA — offline support (hand-rolled service worker)
+
+No PWA library is used (see Global Constraints) — this task writes the service worker, manifest, and icons directly. The caching strategy is **network-first with cache fallback**: every successful GET response gets cached as it's fetched, and offline requests are served from that cache. This means there's no fixed list of URLs to precache and nothing to update in this task when a new game is added later — a page becomes available offline the first time it's visited online, automatically.
 
 **Files:**
 - Create: `scripts/generate-icons.mjs`
 - Create: `public/icon-192.png`, `public/icon-512.png` (generated, not hand-written)
-- Modify: `astro.config.mjs`
+- Create: `public/manifest.webmanifest`
+- Create: `public/sw.js`
+- Modify: `astro.config.mjs` (adds a small custom integration that stamps a fresh cache version into `sw.js` on every build)
+- Modify: `src/layouts/BaseLayout.astro` (manifest link, theme-color, service worker registration)
 - Modify: `package.json` (add `sharp` devDependency)
 
 **Interfaces:**
-- Produces: `dist/sw.js` and `dist/manifest.webmanifest` after build; the site becomes installable and works offline after a first online visit.
+- Produces: `dist/sw.js` and `dist/manifest.webmanifest` after build; the site becomes installable and works offline for any page already visited once online.
 
 - [ ] **Step 1: Install the icon-generation dependency**
 
@@ -2293,54 +2297,124 @@ console.log('Íconos generados en public/icon-192.png y public/icon-512.png');
 Run: `node scripts/generate-icons.mjs`
 Expected: prints the confirmation message; `public/icon-192.png` and `public/icon-512.png` exist.
 
-- [ ] **Step 4: Add the PWA integration to `astro.config.mjs`**
+- [ ] **Step 4: Create `public/manifest.webmanifest`**
+
+```json
+{
+  "name": "Pencilgames",
+  "short_name": "Pencilgames",
+  "description": "Juegos de lápiz y papel para jugar en familia",
+  "theme_color": "#fdf6ec",
+  "background_color": "#fdf6ec",
+  "display": "standalone",
+  "start_url": "/",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+```
+
+- [ ] **Step 5: Create `public/sw.js`**
+
+The `__CACHE_VERSION__` placeholder is replaced with a real timestamp at build time by the integration added in Step 6 — this file as checked into git always contains the literal placeholder string.
+
+```js
+const CACHE_NAME = 'pencilgames-__CACHE_VERSION__';
+
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request).then(cached => cached ?? Response.error()))
+  );
+});
+```
+
+- [ ] **Step 6: Add the cache-busting integration to `astro.config.mjs`**
+
+This custom integration runs after every build and stamps a fresh version into `dist/sw.js`, so each deploy gets a new `CACHE_NAME` and the service worker's `activate` handler purges the previous deploy's cached (now stale) pages.
 
 ```js
 import { defineConfig } from 'astro/config';
-import AstroPWA from '@vite-pwa/astro';
+import { readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+
+/** @type {import('astro').AstroIntegration} */
+const swVersionStamp = {
+  name: 'sw-version-stamp',
+  hooks: {
+    'astro:build:done': async ({ dir }) => {
+      const swPath = fileURLToPath(new URL('sw.js', dir));
+      const contents = await readFile(swPath, 'utf-8');
+      await writeFile(swPath, contents.replace('__CACHE_VERSION__', String(Date.now())));
+    },
+  },
+};
 
 export default defineConfig({
   // TODO(carlos): reemplaza esta URL por tu subdominio real (ver Task 8).
   site: 'https://juegos.tudominio.com',
-  integrations: [
-    AstroPWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
-      manifest: {
-        name: 'Pencilgames',
-        short_name: 'Pencilgames',
-        description: 'Juegos de lápiz y papel para jugar en familia',
-        theme_color: '#fdf6ec',
-        background_color: '#fdf6ec',
-        display: 'standalone',
-        start_url: '/',
-        icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{html,css,js,svg,png,ico}'],
-      },
-    }),
-  ],
+  integrations: [swVersionStamp],
 });
 ```
 
-- [ ] **Step 5: Verify the build produces a service worker and manifest**
+- [ ] **Step 7: Wire the manifest and service worker registration into `src/layouts/BaseLayout.astro`**
 
-Run: `npm run build && test -f dist/sw.js && test -f dist/manifest.webmanifest && echo OK`
-Expected: prints `OK`.
+Add inside `<head>`, right after the existing `<link rel="icon" ...>` line:
 
-- [ ] **Step 6: Manual offline check**
+```astro
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#fdf6ec" />
+```
 
-Run: `npm run preview`, open the site in a browser, load every game page once (so the service worker caches them), then use the browser devtools' Network panel to switch to "Offline" and reload each page (`/`, `/juegos/tres-en-raya`, `/juegos/puntos-y-cajas`, `/juegos/agujero-negro`) — confirm they still load and are playable. Switch back online afterward.
+Add right before the closing `</body>` tag (after `<slot />`):
 
-- [ ] **Step 7: Commit**
+```astro
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
+```
+
+- [ ] **Step 8: Verify the build stamps a real cache version**
+
+Run: `npm run build && grep -q "pencilgames-[0-9]\{10,\}" dist/sw.js && echo OK`
+Expected: prints `OK` (confirms `__CACHE_VERSION__` was replaced with a numeric timestamp, not left as the literal placeholder).
+
+- [ ] **Step 9: Manual offline check**
+
+Run: `npm run preview`, open the site in a browser, load every game page once (so the service worker caches them — check devtools' Application → Service Workers panel shows it as "activated and running"), then use the browser devtools' Network panel to switch to "Offline" and reload each page (`/`, `/juegos/tres-en-raya`, `/juegos/puntos-y-cajas`, `/juegos/agujero-negro`) — confirm they still load and are playable. Switch back online afterward.
+
+- [ ] **Step 10: Commit**
 
 ```bash
-git add scripts/generate-icons.mjs public/icon-192.png public/icon-512.png astro.config.mjs package.json package-lock.json
-git commit -m "feat: add PWA support for offline play"
+git add scripts/generate-icons.mjs public/icon-192.png public/icon-512.png public/manifest.webmanifest public/sw.js astro.config.mjs src/layouts/BaseLayout.astro package.json package-lock.json
+git commit -m "feat: add hand-rolled service worker for offline play"
 ```
 
 ---
