@@ -82,14 +82,14 @@
   const indicadorTurno = document.getElementById('indicador-turno')!;
   const bannerGanador = document.getElementById('banner-ganador')!;
 
-  const ETIQUETAS = { X: 'X', O: 'O' } as const;
+  const ETIQUETAS = { X: '✕', O: '●' } as const;
 
   let state: TresEnRayaState = createInitialState();
 
   function render(): void {
     casillas.forEach((casilla, i) => {
       const valor = state.board[i];
-      casilla.textContent = valor ?? '';
+      casilla.textContent = valor ? ETIQUETAS[valor] : '';
       if (valor) {
         casilla.dataset.valor = valor;
       } else {
