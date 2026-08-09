@@ -1,7 +1,86 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import GameCard from '../components/GameCard.astro';
+import { getCollection } from 'astro:content';
+
+const juegos = (await getCollection('juegos')).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title, 'es')
+);
 ---
 
-<BaseLayout title="Inicio">
-  <p>Scaffold OK con layout — reemplazado en la Tarea 5.</p>
+<BaseLayout title="Juegos">
+  <main class="indice">
+    <h1>Pencilgames</h1>
+    <p>Juegos de lápiz y papel para jugar en familia, en una sola tableta.</p>
+    <input
+      type="search"
+      id="buscador"
+      class="indice__buscador"
+      placeholder="Buscar un juego..."
+      aria-label="Buscar un juego"
+    />
+    <div id="grid-juegos" class="indice__grid">
+      {
+        juegos.map(juego => (
+          <div
+            class="indice__item"
+            data-nombre={juego.data.title.toLowerCase()}
+            data-descripcion={juego.data.description.toLowerCase()}
+          >
+            <GameCard
+              href={`/juegos/${juego.id}`}
+              icono={juego.data.icono}
+              title={juego.data.title}
+              description={juego.data.description}
+            />
+          </div>
+        ))
+      }
+    </div>
+    <p id="sin-resultados" hidden>No encontramos ningún juego con ese nombre.</p>
+  </main>
 </BaseLayout>
+
+<style>
+  .indice {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: var(--spacing);
+  }
+
+  .indice__buscador {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border-radius: var(--radius);
+    border: 1px solid #ddd;
+    margin: 1rem 0;
+    min-height: var(--tap-target-min);
+  }
+
+  .indice__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 1rem;
+  }
+</style>
+
+<script>
+  const buscador = document.getElementById('buscador') as HTMLInputElement;
+  const items = Array.from(document.querySelectorAll<HTMLElement>('.indice__item'));
+  const sinResultados = document.getElementById('sin-resultados')!;
+
+  buscador.addEventListener('input', () => {
+    const consulta = buscador.value.trim().toLowerCase();
+    let visibles = 0;
+
+    for (const item of items) {
+      const coincide =
+        item.dataset.nombre!.includes(consulta) || item.dataset.descripcion!.includes(consulta);
+      item.hidden = !coincide;
+      if (coincide) visibles++;
+    }
+
+    sinResultados.hidden = visibles > 0;
+  });
+</script>
