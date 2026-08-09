@@ -39,20 +39,37 @@ function idsDeFila(row: number): number[] {
     justify-content: center;
     gap: 0.4rem;
     margin-top: -0.5rem;
+    /*
+     * Cada fila se solapa con la anterior, y al ir después en el DOM tapaba
+     * la parte baja de los círculos de arriba: esa zona dejaba de responder.
+     * La fila es sólo un contenedor de maquetación, así que no debe recibir
+     * eventos (mismo patrón que .punto/.caja en puntos y cajas).
+     */
+    pointer-events: none;
   }
 
   .fila-an:first-child {
     margin-top: 0;
   }
 
+  /*
+   * Las filas se solapan 0.5rem (ver .fila-an) para empaquetar el triángulo.
+   * Con círculos de 2.75rem (44px) los discos de filas contiguas llegaban a
+   * tocarse (distancia entre centros ≈ 43.9px < 44px), así que el círculo de
+   * abajo —pintado después— robaba parte del área tocable del de arriba.
+   * A 3.25rem (52px) la distancia entre centros pasa a ≈ 52.8px > 52px y los
+   * discos quedan disjuntos, conservando el mismo aspecto compacto.
+   */
   .posicion-an {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 3.25rem;
+    height: 3.25rem;
     border-radius: 50%;
     border: 2px solid #ddd;
     background: var(--color-surface);
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 700;
+    /* pointer-events se hereda: hay que reactivarlo tras apagarlo en .fila-an. */
+    pointer-events: auto;
   }
 
   .posicion-an[data-jugador='1'] {
