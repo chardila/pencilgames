@@ -1,0 +1,67 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title} · Pencilgames</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --color-bg: #fdf6ec;
+    --color-surface: #ffffff;
+    --color-text: #2b2b2b;
+    --color-player-1: #e0532c;
+    --color-player-2: #2c6fe0;
+    --color-accent: #ffb84c;
+    --tap-target-min: 44px;
+    --radius: 16px;
+    --spacing: 1rem;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  p {
+    margin: 0 0 0.5rem;
+  }
+
+  button {
+    font: inherit;
+    min-height: var(--tap-target-min);
+    min-width: var(--tap-target-min);
+    cursor: pointer;
+  }
+</style>
