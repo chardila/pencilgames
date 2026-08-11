@@ -1,0 +1,126 @@
+<div
+  id="modal-jugadores"
+  class="modal-jugadores"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-jugadores-titulo"
+  hidden
+>
+  <div class="modal-jugadores__contenido">
+    <h2 id="modal-jugadores-titulo">¿Quién juega?</h2>
+    <label class="modal-jugadores__campo">
+      Nombre del jugador 1
+      <input type="text" id="input-jugador-1" maxlength="16" placeholder="Jugador 1" />
+    </label>
+    <label class="modal-jugadores__campo">
+      Nombre del jugador 2
+      <input type="text" id="input-jugador-2" maxlength="16" placeholder="Jugador 2" />
+    </label>
+    <button type="button" id="modal-jugadores-guardar" class="modal-jugadores__guardar">
+      Guardar
+    </button>
+  </div>
+</div>
+
+<button type="button" id="modal-jugadores-abrir" class="modal-jugadores__abrir">
+  👤 Jugadores
+</button>
+
+<style>
+  .modal-jugadores {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing);
+    z-index: 20;
+  }
+
+  .modal-jugadores[hidden] {
+    display: none;
+  }
+
+  .modal-jugadores__contenido {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 24rem;
+    width: 100%;
+  }
+
+  .modal-jugadores__campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 1rem;
+    font-weight: 700;
+  }
+
+  .modal-jugadores__campo input {
+    padding: 0.75rem;
+    font-size: 1rem;
+    border-radius: var(--radius);
+    border: 1px solid #ddd;
+    min-height: var(--tap-target-min);
+    font-weight: 400;
+  }
+
+  .modal-jugadores__guardar {
+    margin-top: 1.5rem;
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--color-accent);
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-height: var(--tap-target-min);
+    min-width: var(--tap-target-min);
+  }
+
+  .modal-jugadores__abrir {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid #ddd;
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-weight: 700;
+    min-height: var(--tap-target-min);
+  }
+</style>
+
+<script>
+  import { getPlayerNames, hasStoredPlayerNames, savePlayerNames } from '../lib/players';
+
+  const modal = document.getElementById('modal-jugadores')!;
+  const abrir = document.getElementById('modal-jugadores-abrir')!;
+  const guardar = document.getElementById('modal-jugadores-guardar')!;
+  const inputJugador1 = document.getElementById('input-jugador-1') as HTMLInputElement;
+  const inputJugador2 = document.getElementById('input-jugador-2') as HTMLInputElement;
+
+  function cargarInputs(): void {
+    const nombres = getPlayerNames();
+    inputJugador1.value = nombres[1];
+    inputJugador2.value = nombres[2];
+  }
+
+  cargarInputs();
+
+  if (!hasStoredPlayerNames()) {
+    modal.hidden = false;
+  }
+
+  abrir.addEventListener('click', () => {
+    cargarInputs();
+    modal.hidden = false;
+  });
+
+  guardar.addEventListener('click', () => {
+    savePlayerNames({ 1: inputJugador1.value, 2: inputJugador2.value });
+    modal.hidden = true;
+  });
+</script>

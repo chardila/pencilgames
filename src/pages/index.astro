@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import GameCard from '../components/GameCard.astro';
+import ModalJugadores from '../components/ModalJugadores.astro';
 import { getCollection } from 'astro:content';
 
 const juegos = (await getCollection('juegos')).sort((a, b) =>
@@ -12,6 +13,7 @@ const juegos = (await getCollection('juegos')).sort((a, b) =>
   <main class="indice">
     <h1>Pencilgames</h1>
     <p>Juegos de lápiz y papel para jugar en familia, en una sola tableta.</p>
+    <ModalJugadores />
     <input
       type="search"
       id="buscador"
