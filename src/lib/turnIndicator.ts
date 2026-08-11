@@ -18,7 +18,9 @@ export function renderTurnIndicator(
   container.querySelector<HTMLElement>('.indicador-turno__etiqueta')!.textContent =
     `Turno de ${etiqueta}`;
   if (detalle) {
-    container.querySelector<HTMLElement>('.indicador-turno__detalle')!.textContent = detalle;
+    const detalleEl = container.querySelector<HTMLElement>('.indicador-turno__detalle')!;
+    detalleEl.textContent = detalle;
+    detalleEl.style.display = 'block';
   }
 }
 

@@ -58,6 +58,11 @@ describe('players', () => {
     expect(getPlayerNames()).toEqual({ 1: 'Jugador 1', 2: 'Jugador 2' });
   });
 
+  it('savePlayerNames aplica trim y defaults sobre el valor crudo guardado', () => {
+    savePlayerNames({ 1: '  Ana  ', 2: '   ' });
+    expect(localStorage.getItem('pencilgames:jugadores')).toBe('{"1":"Ana","2":"Jugador 2"}');
+  });
+
   it('hasStoredPlayerNames refleja si ya se guardó algo', () => {
     expect(hasStoredPlayerNames()).toBe(false);
     savePlayerNames({ 1: 'Ana', 2: 'Luis' });
