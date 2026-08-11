@@ -76,6 +76,7 @@
   import { createInitialState, playMove, type TresEnRayaState } from './engine';
   import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
   import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
+  import { getPlayerNames } from '../../lib/players';
 
   const tablero = document.getElementById('tablero')!;
   const casillas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.casilla'));
@@ -83,6 +84,7 @@
   const bannerGanador = document.getElementById('banner-ganador')!;
 
   const ETIQUETAS = { X: '✕', O: '●' } as const;
+  const nombres = getPlayerNames();
 
   let state: TresEnRayaState = createInitialState();
 
@@ -100,16 +102,19 @@
     });
 
     if (state.status === 'playing') {
+      const jugador = state.currentPlayer === 'X' ? 1 : 2;
       renderTurnIndicator(indicadorTurno, {
-        jugador: state.currentPlayer === 'X' ? 1 : 2,
-        etiqueta: ETIQUETAS[state.currentPlayer],
+        jugador,
+        etiqueta: `${nombres[jugador]} (${ETIQUETAS[state.currentPlayer]})`,
       });
       hideWinnerBanner(bannerGanador);
     } else {
       ocultarTurnIndicator(indicadorTurno);
       showWinnerBanner(bannerGanador, {
         titulo:
-          state.status === 'won' ? `🎉 ¡Ganó ${ETIQUETAS[state.winner!]}!` : '🤝 ¡Empate!',
+          state.status === 'won'
+            ? `🎉 ¡Ganó ${nombres[state.winner === 'X' ? 1 : 2]} (${ETIQUETAS[state.winner!]})!`
+            : '🤝 ¡Empate!',
         onReiniciar: reiniciar,
       });
     }
