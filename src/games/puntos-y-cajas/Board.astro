@@ -184,12 +184,14 @@ const SIZE = 4;
   import { createInitialState, playLine, type PuntosYCajasState, type LineId } from './engine';
   import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
   import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
+  import { getPlayerNames } from '../../lib/players';
 
   const tablero = document.getElementById('tablero')!;
   const lineas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.linea'));
   const cajas = Array.from(tablero.querySelectorAll<HTMLElement>('.caja'));
   const indicadorTurno = document.getElementById('indicador-turno')!;
   const bannerGanador = document.getElementById('banner-ganador')!;
+  const nombres = getPlayerNames();
 
   let state: PuntosYCajasState = createInitialState(4);
 
@@ -219,16 +221,16 @@ const SIZE = 4;
     if (state.status === 'playing') {
       renderTurnIndicator(indicadorTurno, {
         jugador: state.currentPlayer,
-        etiqueta: `Jugador ${state.currentPlayer}`,
-        detalle: `Puntuación: ${state.scores[1]} - ${state.scores[2]}`,
+        etiqueta: nombres[state.currentPlayer],
+        detalle: `${nombres[1]} ${state.scores[1]} · ${nombres[2]} ${state.scores[2]}`,
       });
       hideWinnerBanner(bannerGanador);
     } else {
       ocultarTurnIndicator(indicadorTurno);
       const ganador = state.scores[1] === state.scores[2] ? null : state.scores[1] > state.scores[2] ? 1 : 2;
       showWinnerBanner(bannerGanador, {
-        titulo: ganador ? `🎉 ¡Ganó el Jugador ${ganador}!` : '🤝 ¡Empate!',
-        detalle: `Puntuación final: ${state.scores[1]} - ${state.scores[2]}`,
+        titulo: ganador ? `🎉 ¡Ganó ${nombres[ganador]}!` : '🤝 ¡Empate!',
+        detalle: `${nombres[1]} ${state.scores[1]} · ${nombres[2]} ${state.scores[2]}`,
         onReiniciar: reiniciar,
       });
     }
