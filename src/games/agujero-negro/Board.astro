@@ -125,11 +125,13 @@ function idsDeFila(row: number): number[] {
   import { createInitialState, placeNumber, type AgujeroNegroState } from './engine';
   import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
   import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
+  import { getPlayerNames } from '../../lib/players';
 
   const tablero = document.getElementById('tablero')!;
   const posiciones = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.posicion-an'));
   const indicadorTurno = document.getElementById('indicador-turno')!;
   const bannerGanador = document.getElementById('banner-ganador')!;
+  const nombres = getPlayerNames();
 
   let state: AgujeroNegroState = createInitialState();
 
@@ -152,7 +154,7 @@ function idsDeFila(row: number): number[] {
     if (state.status === 'playing') {
       renderTurnIndicator(indicadorTurno, {
         jugador: state.currentPlayer,
-        etiqueta: `Jugador ${state.currentPlayer}`,
+        etiqueta: nombres[state.currentPlayer],
         detalle: `Coloca el número ${state.nextValue[state.currentPlayer]}`,
       });
       hideWinnerBanner(bannerGanador);
@@ -160,8 +162,8 @@ function idsDeFila(row: number): number[] {
       ocultarTurnIndicator(indicadorTurno);
       const ganador = state.scores[1] === state.scores[2] ? null : state.scores[1] > state.scores[2] ? 1 : 2;
       showWinnerBanner(bannerGanador, {
-        titulo: ganador ? `🎉 ¡Ganó el Jugador ${ganador}!` : '🤝 ¡Empate!',
-        detalle: `Jugador 1: ${state.scores[1]} puntos · Jugador 2: ${state.scores[2]} puntos`,
+        titulo: ganador ? `🎉 ¡Ganó ${nombres[ganador]}!` : '🤝 ¡Empate!',
+        detalle: `${nombres[1]}: ${state.scores[1]} puntos · ${nombres[2]}: ${state.scores[2]} puntos`,
         onReiniciar: reiniciar,
       });
     }

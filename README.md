@@ -26,7 +26,8 @@ npm run build    # build de producción en dist/
    taps al engine, usando `renderTurnIndicator`/`ocultarTurnIndicator`
    (`src/lib/turnIndicator.ts`) y `showWinnerBanner`/`hideWinnerBanner`
    (`src/lib/winnerBanner.ts`) para mantener la UI consistente con los
-   demás juegos.
+   demás juegos. Usa `getPlayerNames()` (`src/lib/players.ts`) para el
+   nombre de cada jugador en vez de "Jugador 1"/"Jugador 2" hardcodeado.
 4. Registra el juego en `src/pages/juegos/[slug].astro`: agrega un
    `import` estático del `Board.astro` y una entrada en el objeto `BOARDS`.
    No uses `import()` dinámico con el slug como variable — rompe el build
