@@ -11,9 +11,15 @@ export function renderTurnIndicator(
   container.hidden = false;
   container.dataset.jugador = String(jugador);
   container.innerHTML = `
-    <span class="indicador-turno__etiqueta">Turno de ${etiqueta}</span>
-    ${detalle ? `<span class="indicador-turno__detalle">${detalle}</span>` : ''}
+    <span class="indicador-turno__etiqueta"></span>
+    ${detalle ? `<span class="indicador-turno__detalle"></span>` : ''}
   `;
+
+  container.querySelector<HTMLElement>('.indicador-turno__etiqueta')!.textContent =
+    `Turno de ${etiqueta}`;
+  if (detalle) {
+    container.querySelector<HTMLElement>('.indicador-turno__detalle')!.textContent = detalle;
+  }
 }
 
 export function ocultarTurnIndicator(container: HTMLElement): void {

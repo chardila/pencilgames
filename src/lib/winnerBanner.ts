@@ -11,11 +11,17 @@ export function showWinnerBanner(
   container.hidden = false;
   container.innerHTML = `
     <div class="banner-ganador__contenido">
-      <p class="banner-ganador__titulo">${titulo}</p>
-      ${detalle ? `<p class="banner-ganador__detalle">${detalle}</p>` : ''}
+      <p class="banner-ganador__titulo"></p>
+      ${detalle ? `<p class="banner-ganador__detalle"></p>` : ''}
       <button type="button" class="banner-ganador__reiniciar">Jugar de nuevo</button>
     </div>
   `;
+
+  container.querySelector<HTMLElement>('.banner-ganador__titulo')!.textContent = titulo;
+  if (detalle) {
+    container.querySelector<HTMLElement>('.banner-ganador__detalle')!.textContent = detalle;
+  }
+
   const boton = container.querySelector<HTMLButtonElement>('.banner-ganador__reiniciar')!;
   boton.addEventListener('click', onReiniciar, { once: true });
 }
