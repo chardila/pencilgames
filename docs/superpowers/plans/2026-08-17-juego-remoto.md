@@ -18,6 +18,8 @@
 - TTL de credenciales TURN: **3600 segundos** (1 hora — de sobra para una sesión de juego, y muy por debajo del máximo de 48h que permite la API de Cloudflare Realtime).
 - No se toca la extracción del componente `<TableroJuego>` compartido (backlog separado) ni se agregan juegos nuevos en este plan.
 - Spec de referencia: `docs/superpowers/specs/2026-08-17-juego-remoto-design.md`.
+- `worker/vitest.config.ts` corre con `poolOptions.workers.isolatedStorage: false` + `singleWorker: true` (agregado en la Tarea 4 — requisito real de `@cloudflare/vitest-pool-workers` para poder testear WebSockets + Durable Objects, documentado como limitación conocida de esa librería). Consecuencia para cualquier test nuevo en `worker/` que toque storage de un Durable Object (Tareas 5-6 y en adelante): **el storage NO se aísla por test** — cada test debe usar su propia clave/código único (como ya hacen los tests de la Tarea 4) en vez de asumir que el storage se resetea entre tests.
+- Los tests de WebSocket en `worker/` que necesiten esperar un tipo de mensaje específico deben usar el patrón de "buzón" persistente (un listener adjuntado una sola vez al conectar, que reparte cada mensaje entrante a quien lo esté esperando o lo guarda en buffer) — nunca `addEventListener(..., {once:true})` registrado de nuevo en cada espera, que pierde mensajes llegados en la ventana entre dos `await`s (hallazgo de la Tarea 4, ver su Step 1 para la implementación de referencia).
 
 ---
 
@@ -643,9 +645,18 @@ git commit -m "feat: Durable Object Room con señalización, expiración y relay
 
 Reemplaza `worker/test/index.test.ts`:
 
+Nota de diseño (corregida tras la Tarea 4): el helper de espera de mensajes usa un patrón de "buzón" persistente por socket — un único listener se adjunta al conectar, y cada mensaje entrante resuelve la espera pendiente de su tipo o queda guardado en un buffer si nadie lo está esperando todavía. La Tarea 4 encontró que un helper que agrega/quita el listener en cada espera (`addEventListener(..., {once:true})`) **pierde mensajes** que llegan en la ventana entre dos `await`s — en particular, `Room.completarSala()` envía `ice-servers` y `rival-conectado` a ambos sockets de forma síncrona apenas se conecta el segundo jugador, antes de que el test tenga oportunidad de registrar el siguiente listener. Usa el mismo patrón aquí.
+
 ```ts
 import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+
+interface Buzon {
+  mensajes: any[];
+  esperas: Array<{ tipo: string; resolver: (mensaje: any) => void }>;
+}
+
+const buzones = new WeakMap<WebSocket, Buzon>();
 
 function conectar(path: string): Promise<WebSocket> {
   return SELF.fetch(`https://ejemplo.test${path}`, {
@@ -653,13 +664,35 @@ function conectar(path: string): Promise<WebSocket> {
   }).then(respuesta => {
     const ws = respuesta.webSocket!;
     ws.accept();
+    adjuntarBuzon(ws);
     return ws;
   });
 }
 
-function esperarMensaje(ws: WebSocket): Promise<any> {
+function adjuntarBuzon(ws: WebSocket): void {
+  const buzon: Buzon = { mensajes: [], esperas: [] };
+  buzones.set(ws, buzon);
+  ws.addEventListener('message', evento => {
+    const mensaje = JSON.parse(evento.data as string);
+    const indice = buzon.esperas.findIndex(e => e.tipo === mensaje.tipo);
+    if (indice >= 0) {
+      const [espera] = buzon.esperas.splice(indice, 1);
+      espera.resolver(mensaje);
+    } else {
+      buzon.mensajes.push(mensaje);
+    }
+  });
+}
+
+function esperarMensajeDeTipo(ws: WebSocket, tipo: string): Promise<any> {
+  const buzon = buzones.get(ws)!;
+  const indice = buzon.mensajes.findIndex(m => m.tipo === tipo);
+  if (indice >= 0) {
+    const [mensaje] = buzon.mensajes.splice(indice, 1);
+    return Promise.resolve(mensaje);
+  }
   return new Promise(resolve => {
-    ws.addEventListener('message', evento => resolve(JSON.parse(evento.data as string)), { once: true });
+    buzon.esperas.push({ tipo, resolver: resolve });
   });
 }
 
@@ -678,15 +711,14 @@ describe('Worker — flujo completo crear/unirse', () => {
 
   it('/crear seguido de /unirse con ese código conecta a los dos jugadores', async () => {
     const ws1 = await conectar('/crear');
-    const { codigo } = await esperarMensaje(ws1);
+    const { codigo } = await esperarMensajeDeTipo(ws1, 'conectado');
 
     const ws2 = await conectar(`/unirse?codigo=${codigo}`);
-    const conectado2 = await esperarMensaje(ws2);
+    const conectado2 = await esperarMensajeDeTipo(ws2, 'conectado');
     expect(conectado2.asiento).toBe(2);
 
     ws1.send(JSON.stringify({ tipo: 'movimiento', payload: 7 }));
-    await esperarMensaje(ws1); // rival-conectado, antes del mensaje de juego reenviado
-    const recibido = await esperarMensaje(ws2);
+    const recibido = await esperarMensajeDeTipo(ws2, 'movimiento');
     expect(recibido).toEqual({ tipo: 'movimiento', payload: 7 });
   });
 });
