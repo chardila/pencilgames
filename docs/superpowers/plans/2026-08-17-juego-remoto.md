@@ -378,25 +378,38 @@ git commit -m "feat: minteo de credenciales TURN de Cloudflare Realtime"
 
 - [ ] **Step 1: Escribir los tests que fallan primero**
 
+Nota de diseño: estos tests llaman al Durable Object **directamente** (vía `env.ROOMS`), no a través de las rutas públicas `/crear`/`/unirse` del Worker — esas rutas (y la generación del código de sala) las agrega recién la Tarea 5. `Room.fetch()` ya lee `rol` y `codigo` de los query params tal cual, así que se le pueden pasar directamente. Cada test usa un código de sala distinto para que las instancias del Durable Object no se pisen entre tests (cada nombre de código direcciona a una instancia separada).
+
 `worker/test/room.test.ts`:
 
 ```ts
-import { env, SELF } from 'cloudflare:test';
+import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 
-function conectar(path: string): Promise<{ respuesta: Response; ws: WebSocket }> {
-  return SELF.fetch(`https://ejemplo.test${path}`, {
-    headers: { Upgrade: 'websocket' },
-  }).then(respuesta => {
-    const ws = respuesta.webSocket!;
-    ws.accept();
-    return { respuesta, ws };
-  });
+function conectar(rol: 'crear' | 'unirse', codigo: string): Promise<WebSocket> {
+  const id = env.ROOMS.idFromName(codigo);
+  const stub = env.ROOMS.get(id);
+  return stub
+    .fetch(`https://ejemplo.test/conectar?rol=${rol}&codigo=${codigo}`, {
+      headers: { Upgrade: 'websocket' },
+    })
+    .then(respuesta => {
+      const ws = respuesta.webSocket!;
+      ws.accept();
+      return ws;
+    });
 }
 
-function esperarMensaje(ws: WebSocket): Promise<any> {
+function esperarMensajeDeTipo(ws: WebSocket, tipo: string): Promise<any> {
   return new Promise(resolve => {
-    ws.addEventListener('message', evento => resolve(JSON.parse(evento.data as string)), { once: true });
+    const manejador = (evento: MessageEvent) => {
+      const mensaje = JSON.parse(evento.data as string);
+      if (mensaje.tipo === tipo) {
+        ws.removeEventListener('message', manejador);
+        resolve(mensaje);
+      }
+    };
+    ws.addEventListener('message', manejador);
   });
 }
 
@@ -408,65 +421,67 @@ function esperarCierre(ws: WebSocket): Promise<number> {
 
 describe('Room', () => {
   it('crea una sala y confirma el asiento 1', async () => {
-    const { ws } = await conectar('/crear');
-    const mensaje = await esperarMensaje(ws);
-    expect(mensaje).toMatchObject({ tipo: 'conectado', asiento: 1 });
-    expect(mensaje.codigo).toMatch(/^[A-Z0-9]{6}$/);
+    const ws = await conectar('crear', 'CODIGO01');
+    const mensaje = await esperarMensajeDeTipo(ws, 'conectado');
+    expect(mensaje).toEqual({ tipo: 'conectado', asiento: 1, codigo: 'CODIGO01' });
   });
 
   it('permite unirse con un código válido y avisa a ambos que el rival se conectó', async () => {
-    const { ws: ws1 } = await conectar('/crear');
-    const { codigo } = await esperarMensaje(ws1);
+    const ws1 = await conectar('crear', 'CODIGO02');
+    await esperarMensajeDeTipo(ws1, 'conectado');
 
-    const { ws: ws2 } = await conectar(`/unirse?codigo=${codigo}`);
-    const conectado2 = await esperarMensaje(ws2);
-    expect(conectado2).toMatchObject({ tipo: 'conectado', asiento: 2, codigo });
+    const ws2 = await conectar('unirse', 'CODIGO02');
+    const conectado2 = await esperarMensajeDeTipo(ws2, 'conectado');
+    expect(conectado2).toEqual({ tipo: 'conectado', asiento: 2, codigo: 'CODIGO02' });
 
-    const rival1 = await esperarMensaje(ws1);
+    const rival1 = await esperarMensajeDeTipo(ws1, 'rival-conectado');
     expect(rival1.tipo).toBe('rival-conectado');
   });
 
   it('rechaza un código inexistente con cierre 4040', async () => {
-    const { ws } = await conectar('/unirse?codigo=ZZZZZZ');
+    const ws = await conectar('unirse', 'NOEXISTE');
     const codigoCierre = await esperarCierre(ws);
     expect(codigoCierre).toBe(4040);
   });
 
   it('rechaza unirse a una sala ya llena con cierre 4090', async () => {
-    const { ws: ws1 } = await conectar('/crear');
-    const { codigo } = await esperarMensaje(ws1);
-    await conectar(`/unirse?codigo=${codigo}`);
+    const ws1 = await conectar('crear', 'CODIGO03');
+    await esperarMensajeDeTipo(ws1, 'conectado');
+    const ws2 = await conectar('unirse', 'CODIGO03');
+    await esperarMensajeDeTipo(ws2, 'conectado');
 
-    const { ws: ws3 } = await conectar(`/unirse?codigo=${codigo}`);
+    const ws3 = await conectar('unirse', 'CODIGO03');
     const codigoCierre = await esperarCierre(ws3);
     expect(codigoCierre).toBe(4090);
   });
 
   it('retransmite un mensaje de un jugador al otro', async () => {
-    const { ws: ws1 } = await conectar('/crear');
-    const { codigo } = await esperarMensaje(ws1);
-    const { ws: ws2 } = await conectar(`/unirse?codigo=${codigo}`);
-    await esperarMensaje(ws2); // conectado
-    await esperarMensaje(ws1); // rival-conectado
+    const ws1 = await conectar('crear', 'CODIGO04');
+    await esperarMensajeDeTipo(ws1, 'conectado');
+    const ws2 = await conectar('unirse', 'CODIGO04');
+    await esperarMensajeDeTipo(ws2, 'conectado');
+    await esperarMensajeDeTipo(ws1, 'rival-conectado');
 
     ws1.send(JSON.stringify({ tipo: 'movimiento', payload: 4 }));
-    const recibido = await esperarMensaje(ws2);
+    const recibido = await esperarMensajeDeTipo(ws2, 'movimiento');
     expect(recibido).toEqual({ tipo: 'movimiento', payload: 4 });
   });
 
   it('avisa al rival cuando un jugador se desconecta', async () => {
-    const { ws: ws1 } = await conectar('/crear');
-    const { codigo } = await esperarMensaje(ws1);
-    const { ws: ws2 } = await conectar(`/unirse?codigo=${codigo}`);
-    await esperarMensaje(ws2);
-    await esperarMensaje(ws1);
+    const ws1 = await conectar('crear', 'CODIGO05');
+    await esperarMensajeDeTipo(ws1, 'conectado');
+    const ws2 = await conectar('unirse', 'CODIGO05');
+    await esperarMensajeDeTipo(ws2, 'conectado');
+    await esperarMensajeDeTipo(ws1, 'rival-conectado');
 
     ws2.close();
-    const aviso = await esperarMensaje(ws1);
+    const aviso = await esperarMensajeDeTipo(ws1, 'rival-desconectado');
     expect(aviso).toEqual({ tipo: 'rival-desconectado' });
   });
 });
 ```
+
+Si algún test falla por estado cruzado entre tests (en vez de por la lógica de `Room` en sí), repórtalo en vez de agregar limpieza de storage no especificada aquí (p. ej. `beforeEach`) — los códigos únicos por test ya deberían bastar dado que cada uno direcciona a una instancia de Durable Object distinta.
 
 - [ ] **Step 2: Correr los tests y verificar que fallan**
 
@@ -511,11 +526,23 @@ export class Room {
       const creadaEn = await this.state.storage.get<number>('creadaEn');
       const ahora = Date.now();
 
-      if (!creadaEn || ahora - creadaEn >= EXPIRACION_MS) {
+      // `!this.sockets.has(1)` cuenta como código inválido, no como sala
+      // llena: si el creador no está conectado (nunca lo estuvo en esta
+      // instancia del Durable Object, o se desconectó), no hay con quién
+      // jugar. Nota de limitación conocida y aceptada: `sockets` vive sólo
+      // en memoria, así que si el Durable Object se recicla entre que el
+      // creador se conecta y el segundo jugador se une, esta instancia
+      // despierta con `creadaEn` en el storage pero `sockets` vacío, y un
+      // jugador que se una en ese momento recibe "código inválido" aunque
+      // el creador siga con su pestaña abierta. Aceptado deliberadamente
+      // (coherente con "sin reconexión, sin persistencia" — sección 2 del
+      // spec) en vez de agregar la Hibernation API de WebSockets, fuera de
+      // alcance de este plan.
+      if (!creadaEn || ahora - creadaEn >= EXPIRACION_MS || !this.sockets.has(1)) {
         servidor.close(4040, 'codigo-invalido');
         return new Response(null, { status: 101, webSocket: cliente });
       }
-      if (!this.sockets.has(1) || this.sockets.has(2)) {
+      if (this.sockets.has(2)) {
         servidor.close(4090, 'sala-llena');
         return new Response(null, { status: 101, webSocket: cliente });
       }
@@ -902,11 +929,15 @@ class RTCDataChannelFalso {
 
 class RTCPeerConnectionFalso {
   onicecandidate: ((e: any) => void) | null = null;
+  ondatachannel: ((e: any) => void) | null = null;
   createDataChannel(_nombre: string) {
     return new RTCDataChannelFalso();
   }
   createOffer() {
     return Promise.resolve({ type: 'offer', sdp: 'oferta-falsa' });
+  }
+  createAnswer() {
+    return Promise.resolve({ type: 'answer', sdp: 'respuesta-falsa' });
   }
   setLocalDescription(_desc: any) {
     return Promise.resolve();
@@ -918,6 +949,11 @@ class RTCPeerConnectionFalso {
     return Promise.resolve();
   }
 }
+```
+
+Nota: este fake ahora cubre tanto el camino del asiento 1 (`createOffer`/`createDataChannel`) como el del asiento 2 (`createAnswer`/`ondatachannel`), aunque los tests de arriba solo ejercitan el camino del asiento 1 — se agregó `createAnswer`/`ondatachannel` de forma preventiva porque `CanalWebRTC.responderOferta()` (Step 4) los invoca, y un fake incompleto rompería cualquier test o ronda de fixes que sí ejercite ese camino.
+
+```ts
 
 beforeEach(() => {
   WebSocketFalso.instancias.length = 0;
