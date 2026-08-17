@@ -1,3 +1,5 @@
+export { Room } from './room';
+
 export interface Env {
   ROOMS: DurableObjectNamespace;
   TURN_KEY_ID?: string;

@@ -2,12 +2,10 @@ name = "pencilgames-signal"
 main = "src/index.ts"
 compatibility_date = "2026-08-17"
 
-# NOTE: Temporarily commented out until Task 4, when the Room class is implemented.
-# These will be uncommented in Task 4 when the Durable Object is ready.
-# [[durable_objects.bindings]]
-# name = "ROOMS"
-# class_name = "Room"
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
 
-# [[migrations]]
-# tag = "v1"
-# new_sqlite_classes = ["Room"]
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
