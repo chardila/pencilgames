@@ -2,6 +2,10 @@ name = "pencilgames-signal"
 main = "src/index.ts"
 compatibility_date = "2026-08-17"
 
+routes = [
+  { pattern = "signal.games.cardila.com", custom_domain = true }
+]
+
 [[durable_objects.bindings]]
 name = "ROOMS"
 class_name = "Room"
