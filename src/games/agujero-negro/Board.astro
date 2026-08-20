@@ -126,6 +126,7 @@ function idsDeFila(row: number): number[] {
   import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
   import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
   import { getPlayerNames } from '../../lib/players';
+  import type { MoveChannel, MensajeJuego } from '../../lib/remoto/types';
 
   const tablero = document.getElementById('tablero')!;
   const posiciones = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.posicion-an'));
@@ -134,8 +135,12 @@ function idsDeFila(row: number): number[] {
   const nombres = getPlayerNames();
 
   let state: AgujeroNegroState = createInitialState();
+  let canal: MoveChannel | null = null;
+  let miAsiento: 1 | 2 | null = null;
 
   function render(): void {
+    const noEsMiTurno = miAsiento !== null && state.currentPlayer !== miAsiento;
+
     for (const boton of posiciones) {
       const id = Number(boton.dataset.id);
       const celda = state.cells.find(c => c.id === id)!;
@@ -148,7 +153,7 @@ function idsDeFila(row: number): number[] {
       }
       boton.dataset.agujero = String(state.blackHole === id);
       boton.dataset.destruida = String(state.destroyedCells.includes(id));
-      boton.disabled = celda.value !== null || state.status !== 'playing';
+      boton.disabled = celda.value !== null || state.status !== 'playing' || noEsMiTurno;
     }
 
     if (state.status === 'playing') {
@@ -169,18 +174,59 @@ function idsDeFila(row: number): number[] {
     }
   }
 
-  function reiniciar(): void {
+  function aplicarReinicio(): void {
     state = createInitialState();
+    render();
+  }
+
+  function reiniciar(): void {
+    aplicarReinicio();
+    canal?.enviar({ tipo: 'reiniciar' });
+  }
+
+  function jugar(id: number): void {
+    state = placeNumber(state, id);
     render();
   }
 
   for (const boton of posiciones) {
     boton.addEventListener('click', () => {
       const id = Number(boton.dataset.id);
-      state = placeNumber(state, id);
-      render();
+      jugar(id);
+      canal?.enviar({ tipo: 'movimiento', payload: id });
     });
   }
+
+  document.addEventListener('canal-remoto-listo', evento => {
+    const detalle = (evento as CustomEvent<{ channel: MoveChannel; miNombre: string }>).detail;
+    canal = detalle.channel;
+    miAsiento = canal.asiento;
+    nombres[miAsiento] = detalle.miNombre;
+
+    canal.alRecibir((mensaje: MensajeJuego) => {
+      if (mensaje.tipo === 'movimiento') {
+        jugar(mensaje.payload as number);
+      } else if (mensaje.tipo === 'nombre') {
+        nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
+        render();
+      } else if (mensaje.tipo === 'reiniciar') {
+        aplicarReinicio();
+      }
+    });
+
+    canal.alCambiarEstado(estado => {
+      if (estado === 'desconectado') {
+        ocultarTurnIndicator(indicadorTurno);
+        showWinnerBanner(bannerGanador, {
+          titulo: '📡 Tu rival se desconectó',
+          onReiniciar: () => location.reload(),
+        });
+        for (const boton of posiciones) boton.disabled = true;
+      }
+    });
+
+    render();
+  });
 
   render();
 </script>
