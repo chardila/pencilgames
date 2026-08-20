@@ -50,8 +50,12 @@ export default {
 };
 
 // Devuelve una Response de rechazo si el Origin no coincide con
-// ALLOWED_ORIGIN, o null si la petición puede continuar.
-function verificarOrigen(request: Request, env: Env): Response | null {
+// ALLOWED_ORIGIN, o null si la petición puede continuar. Exportada para
+// poder probar directamente el camino "sin ALLOWED_ORIGIN configurada"
+// (el que usa `wrangler dev` y el que corre en producción hasta que se
+// configure el var/secret) sin depender de cómo esté fijado el binding en
+// el entorno de test — ver worker/test/index.test.ts.
+export function verificarOrigen(request: Request, env: Env): Response | null {
   if (!env.ALLOWED_ORIGIN) {
     // Sin ALLOWED_ORIGIN configurada (dev local con `wrangler dev`, o antes
     // de configurar el secreto/var en producción) no hay un origen único

@@ -1,5 +1,40 @@
 import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import { verificarOrigen } from '../src/index';
+import type { Env } from '../src/index';
+
+// verificarOrigen() se prueba directamente como función pura (sin pasar por
+// SELF.fetch/el pool de Workers) porque el entorno de test fija
+// ALLOWED_ORIGIN globalmente vía miniflare.bindings (ver vitest.config.ts):
+// eso deja bien cubierto el camino "Origin no coincide" a través de
+// SELF.fetch más abajo, pero no hay forma de simular ahí el camino "sin
+// ALLOWED_ORIGIN configurada" — que es justamente el que usa `wrangler dev`
+// y el que corre en producción hasta el paso operativo de configurarla.
+describe('verificarOrigen', () => {
+  it('sin ALLOWED_ORIGIN configurada, deja pasar la petición sin importar el Origin', () => {
+    const env = {} as Env;
+    const conOrigin = new Request('https://ejemplo.test/crear', { headers: { Origin: 'https://cualquiera.test' } });
+    const sinOrigin = new Request('https://ejemplo.test/crear');
+    expect(verificarOrigen(conOrigin, env)).toBeNull();
+    expect(verificarOrigen(sinOrigin, env)).toBeNull();
+  });
+
+  it('con ALLOWED_ORIGIN configurada y Origin coincidente, deja pasar la petición', () => {
+    const env = { ALLOWED_ORIGIN: 'https://games.cardila.com' } as Env;
+    const request = new Request('https://ejemplo.test/crear', {
+      headers: { Origin: 'https://games.cardila.com' },
+    });
+    expect(verificarOrigen(request, env)).toBeNull();
+  });
+
+  it('con ALLOWED_ORIGIN configurada y Origin ausente o distinto, rechaza con 403', () => {
+    const env = { ALLOWED_ORIGIN: 'https://games.cardila.com' } as Env;
+    const distinto = new Request('https://ejemplo.test/crear', { headers: { Origin: 'https://sitio-ajeno.test' } });
+    const ausente = new Request('https://ejemplo.test/crear');
+    expect(verificarOrigen(distinto, env)?.status).toBe(403);
+    expect(verificarOrigen(ausente, env)?.status).toBe(403);
+  });
+});
 
 // Debe coincidir con ALLOWED_ORIGIN definida en vitest.config.ts
 // (poolOptions.workers.miniflare.bindings) — configurada solo para el
