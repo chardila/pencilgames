@@ -246,6 +246,7 @@
   const parametros = new URLSearchParams(location.search);
   const codigoPrellenado = parametros.get('sala');
   if (codigoPrellenado) {
+    document.getElementById('modal-instrucciones')?.setAttribute('hidden', '');
     inputCodigo.value = codigoPrellenado.toUpperCase();
     mostrarPaso(pasoUnirse);
     modal.hidden = false;
