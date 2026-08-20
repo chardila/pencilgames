@@ -26,17 +26,40 @@ class WebSocketFalso {
 }
 
 class RTCDataChannelFalso {
+  static instancias: RTCDataChannelFalso[] = [];
   readyState: 'connecting' | 'open' | 'closed' = 'connecting';
   listeners: Record<string, Array<(e: any) => void>> = {};
+  enviados: string[] = [];
+  constructor() {
+    RTCDataChannelFalso.instancias.push(this);
+  }
   addEventListener(tipo: string, cb: (e: any) => void) {
     (this.listeners[tipo] ??= []).push(cb);
   }
-  send(_datos: string) {}
+  send(datos: string) {
+    this.enviados.push(datos);
+  }
+  emitirAbierto() {
+    this.readyState = 'open';
+    for (const cb of this.listeners['open'] ?? []) cb({});
+  }
+  emitirMensaje(datos: unknown) {
+    for (const cb of this.listeners['message'] ?? []) cb({ data: JSON.stringify(datos) });
+  }
 }
 
 class RTCPeerConnectionFalso {
+  static instancias: RTCPeerConnectionFalso[] = [];
   onicecandidate: ((e: any) => void) | null = null;
   ondatachannel: ((e: any) => void) | null = null;
+  llamadas: {
+    setRemoteDescription: any[];
+    createAnswer: number;
+    setLocalDescription: any[];
+  } = { setRemoteDescription: [], createAnswer: 0, setLocalDescription: [] };
+  constructor() {
+    RTCPeerConnectionFalso.instancias.push(this);
+  }
   createDataChannel(_nombre: string) {
     return new RTCDataChannelFalso();
   }
@@ -44,12 +67,15 @@ class RTCPeerConnectionFalso {
     return Promise.resolve({ type: 'offer', sdp: 'oferta-falsa' });
   }
   createAnswer() {
+    this.llamadas.createAnswer++;
     return Promise.resolve({ type: 'answer', sdp: 'respuesta-falsa' });
   }
-  setLocalDescription(_desc: any) {
+  setLocalDescription(desc: any) {
+    this.llamadas.setLocalDescription.push(desc);
     return Promise.resolve();
   }
-  setRemoteDescription(_desc: any) {
+  setRemoteDescription(desc: any) {
+    this.llamadas.setRemoteDescription.push(desc);
     return Promise.resolve();
   }
   addIceCandidate(_c: any) {
@@ -59,6 +85,8 @@ class RTCPeerConnectionFalso {
 
 beforeEach(() => {
   WebSocketFalso.instancias.length = 0;
+  RTCDataChannelFalso.instancias.length = 0;
+  RTCPeerConnectionFalso.instancias.length = 0;
   vi.stubGlobal('WebSocket', WebSocketFalso);
   vi.stubGlobal('RTCPeerConnection', RTCPeerConnectionFalso);
 });
@@ -145,5 +173,86 @@ describe('CanalWebRTC — fallback a relay tras timeout', () => {
 
     expect(estados).toContain('conectado');
     vi.useRealTimers();
+  });
+});
+
+describe('CanalWebRTC — camino feliz P2P (asiento 1)', () => {
+  it('pasa a conectado por P2P cuando el data channel emite open, y enviar() usa el data channel', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    const { channel } = await promesa;
+
+    const estados: string[] = [];
+    channel.alCambiarEstado(e => estados.push(e));
+
+    ws.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    ws.emitirMensaje({ tipo: 'rival-conectado' });
+
+    // createDataChannel() se llama de forma síncrona dentro de intentarIniciarNegociacion(),
+    // antes de que la negociación (createOffer/setLocalDescription) se resuelva.
+    const canal = RTCDataChannelFalso.instancias[0];
+    expect(canal).toBeDefined();
+    canal.emitirAbierto();
+
+    expect(estados).toEqual(['conectado']);
+
+    channel.enviar({ tipo: 'movimiento', payload: 4 });
+
+    expect(canal.enviados.some(m => JSON.parse(m).tipo === 'movimiento')).toBe(true);
+    expect(ws.enviados.some(m => JSON.parse(m).tipo === 'movimiento')).toBe(false);
+  });
+
+  it('entrega al callback de alRecibir un mensaje de juego llegado por el data channel', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    const { channel } = await promesa;
+
+    ws.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    ws.emitirMensaje({ tipo: 'rival-conectado' });
+
+    const canal = RTCDataChannelFalso.instancias[0];
+    canal.emitirAbierto();
+
+    const recibidos: unknown[] = [];
+    channel.alRecibir(m => recibidos.push(m));
+    canal.emitirMensaje({ tipo: 'movimiento', payload: 7 });
+
+    expect(recibidos).toEqual([{ tipo: 'movimiento', payload: 7 }]);
+  });
+});
+
+describe('CanalWebRTC — responde a una oferta (asiento 2)', () => {
+  it('unirse(): negocia setRemoteDescription/createAnswer/setLocalDescription, responde por WebSocket, y usa el canal recibido por ondatachannel para enviar', async () => {
+    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'ABC123');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 2, codigo: 'ABC123' });
+    const channel = await promesa;
+
+    ws.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    ws.emitirMensaje({ tipo: 'oferta', sdp: 'oferta-remota' });
+
+    // crearConexion() y la asignación de ondatachannel ocurren de forma síncrona
+    // dentro de responderOferta(), antes de que la cadena de negociación se resuelva.
+    const pc = RTCPeerConnectionFalso.instancias[0];
+    expect(pc).toBeDefined();
+
+    const canalRecibido = new RTCDataChannelFalso();
+    pc.ondatachannel!({ channel: canalRecibido });
+    canalRecibido.emitirAbierto();
+
+    channel.enviar({ tipo: 'movimiento', payload: 2 });
+    expect(canalRecibido.enviados.some(m => JSON.parse(m).tipo === 'movimiento')).toBe(true);
+
+    // deja que la cadena setRemoteDescription -> createAnswer -> setLocalDescription -> ws.send se resuelva
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(pc.llamadas.setRemoteDescription).toEqual([{ type: 'offer', sdp: 'oferta-remota' }]);
+    expect(pc.llamadas.createAnswer).toBe(1);
+    expect(pc.llamadas.setLocalDescription).toEqual([{ type: 'answer', sdp: 'respuesta-falsa' }]);
+
+    const respuestaEnviada = ws.enviados.map(m => JSON.parse(m)).find(m => m.tipo === 'respuesta');
+    expect(respuestaEnviada).toEqual({ tipo: 'respuesta', sdp: 'respuesta-falsa' });
   });
 });
