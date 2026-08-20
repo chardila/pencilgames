@@ -1,6 +1,12 @@
 import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 
+// Debe coincidir con ALLOWED_ORIGIN definida en vitest.config.ts
+// (poolOptions.workers.miniflare.bindings) — configurada solo para el
+// entorno de test, no en wrangler.toml (que la deja sin configurar hasta
+// que se fije el var/secret real en producción).
+const ORIGEN_PERMITIDO = 'https://ejemplo.test';
+
 interface Buzon {
   mensajes: any[];
   esperas: Array<{ tipo: string; resolver: (mensaje: any) => void }>;
@@ -10,7 +16,7 @@ const buzones = new WeakMap<WebSocket, Buzon>();
 
 function conectar(path: string): Promise<WebSocket> {
   return SELF.fetch(`https://ejemplo.test${path}`, {
-    headers: { Upgrade: 'websocket' },
+    headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
   }).then(respuesta => {
     const ws = respuesta.webSocket!;
     ws.accept();
@@ -54,9 +60,62 @@ describe('Worker — flujo completo crear/unirse', () => {
 
   it('responde 400 a /unirse sin código', async () => {
     const respuesta = await SELF.fetch('https://ejemplo.test/unirse', {
-      headers: { Upgrade: 'websocket' },
+      headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
     });
     expect(respuesta.status).toBe(400);
+  });
+
+  it('responde 400 a /unirse con un código de formato inválido, sin llegar al Durable Object', async () => {
+    const respuesta = await SELF.fetch('https://ejemplo.test/unirse?codigo=demasiado-largo-y-minusculas', {
+      headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
+    });
+    expect(respuesta.status).toBe(400);
+    // Si hubiera llegado al Durable Object, sería un upgrade (101 + webSocket)
+    // o un 426 por falta de header Upgrade — nunca un 400 con webSocket null.
+    expect(respuesta.webSocket).toBeNull();
+  });
+
+  it('responde 400 a /unirse con un código de longitud correcta pero alfabeto inválido (letras ambiguas I/O/0/1)', async () => {
+    const respuesta = await SELF.fetch('https://ejemplo.test/unirse?codigo=ABCIO1', {
+      headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
+    });
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.webSocket).toBeNull();
+  });
+
+  it('el chequeo de formato de código corre antes que el de Origin: un código inválido da 400 aunque el Origin tampoco coincida', async () => {
+    const respuesta = await SELF.fetch('https://ejemplo.test/unirse?codigo=demasiado-largo-y-minusculas', {
+      headers: { Upgrade: 'websocket', Origin: 'https://sitio-ajeno.test' },
+    });
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.webSocket).toBeNull();
+  });
+
+  it('rechaza /crear con 403 cuando el Origin no coincide con ALLOWED_ORIGIN', async () => {
+    const respuesta = await SELF.fetch('https://ejemplo.test/crear', {
+      headers: { Upgrade: 'websocket', Origin: 'https://sitio-ajeno.test' },
+    });
+
+    expect(respuesta.status).toBe(403);
+    expect(respuesta.webSocket).toBeNull();
+  });
+
+  it('rechaza /unirse con 403 cuando el Origin no coincide con ALLOWED_ORIGIN, incluso con código de formato válido', async () => {
+    const respuesta = await SELF.fetch('https://ejemplo.test/unirse?codigo=ABCDEF', {
+      headers: { Upgrade: 'websocket', Origin: 'https://sitio-ajeno.test' },
+    });
+
+    expect(respuesta.status).toBe(403);
+    expect(respuesta.webSocket).toBeNull();
+  });
+
+  it('permite /crear cuando el Origin coincide con ALLOWED_ORIGIN', async () => {
+    const respuesta = await SELF.fetch('https://ejemplo.test/crear', {
+      headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
+    });
+
+    expect(respuesta.status).toBe(101);
+    expect(respuesta.webSocket).not.toBeNull();
   });
 
   it('/crear seguido de /unirse con ese código conecta a los dos jugadores', async () => {
