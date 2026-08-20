@@ -63,6 +63,7 @@ export class CanalWebRTC implements MoveChannel {
   private callbacksMensaje: Array<(m: MensajeJuego) => void> = [];
   private callbacksEstado: Array<(e: EstadoConexion) => void> = [];
   private timeoutFallback: ReturnType<typeof setTimeout> | null = null;
+  private mensajesEnBuffer: MensajeJuego[] = [];
 
   private constructor(
     public readonly asiento: 1 | 2,
@@ -95,6 +96,11 @@ export class CanalWebRTC implements MoveChannel {
 
   alRecibir(callback: (mensaje: MensajeJuego) => void): void {
     this.callbacksMensaje.push(callback);
+    if (this.mensajesEnBuffer.length > 0) {
+      const pendientes = this.mensajesEnBuffer;
+      this.mensajesEnBuffer = [];
+      for (const mensaje of pendientes) callback(mensaje);
+    }
   }
 
   alCambiarEstado(callback: (estado: EstadoConexion) => void): void {
@@ -205,6 +211,10 @@ export class CanalWebRTC implements MoveChannel {
   }
 
   private recibirMensajeJuego(mensaje: MensajeJuego): void {
+    if (this.callbacksMensaje.length === 0) {
+      this.mensajesEnBuffer.push(mensaje);
+      return;
+    }
     for (const callback of this.callbacksMensaje) callback(mensaje);
   }
 }

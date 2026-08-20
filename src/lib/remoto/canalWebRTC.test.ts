@@ -137,6 +137,44 @@ describe('CanalWebRTC — envío de mensajes', () => {
 
     expect(recibidos).toEqual([{ tipo: 'movimiento', payload: 9 }]);
   });
+
+  it('no pierde un mensaje de juego llegado antes de registrar alRecibir: lo entrega en cuanto se registra', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    const { channel } = await promesa;
+
+    // El mensaje llega antes de que nadie haya llamado a alRecibir todavía
+    // (p. ej. el 'nombre' del rival llegando antes de que Board.astro registre su callback).
+    ws.emitirMensaje({ tipo: 'nombre', nombre: 'Rival' });
+
+    const recibidos: unknown[] = [];
+    channel.alRecibir(m => recibidos.push(m));
+
+    expect(recibidos).toEqual([{ tipo: 'nombre', nombre: 'Rival' }]);
+
+    // Un segundo mensaje, ya con el callback registrado, se entrega de inmediato sin pasar por el buffer.
+    ws.emitirMensaje({ tipo: 'movimiento', payload: 1 });
+    expect(recibidos).toEqual([{ tipo: 'nombre', nombre: 'Rival' }, { tipo: 'movimiento', payload: 1 }]);
+  });
+
+  it('el buffer solo se entrega una vez: un segundo alRecibir no vuelve a recibir mensajes ya entregados', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    const { channel } = await promesa;
+
+    ws.emitirMensaje({ tipo: 'nombre', nombre: 'Rival' });
+
+    const primerCallback: unknown[] = [];
+    channel.alRecibir(m => primerCallback.push(m));
+
+    const segundoCallback: unknown[] = [];
+    channel.alRecibir(m => segundoCallback.push(m));
+
+    expect(primerCallback).toEqual([{ tipo: 'nombre', nombre: 'Rival' }]);
+    expect(segundoCallback).toEqual([]);
+  });
 });
 
 describe('CanalWebRTC — desconexión', () => {
