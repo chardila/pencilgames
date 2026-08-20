@@ -185,6 +185,7 @@ const SIZE = 4;
   import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
   import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
   import { getPlayerNames } from '../../lib/players';
+  import type { MoveChannel, MensajeJuego } from '../../lib/remoto/types';
 
   const tablero = document.getElementById('tablero')!;
   const lineas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.linea'));
@@ -194,15 +195,19 @@ const SIZE = 4;
   const nombres = getPlayerNames();
 
   let state: PuntosYCajasState = createInitialState(4);
+  let canal: MoveChannel | null = null;
+  let miAsiento: 1 | 2 | null = null;
 
   function render(): void {
+    const noEsMiTurno = miAsiento !== null && state.currentPlayer !== miAsiento;
+
     for (const linea of lineas) {
       const tipo = linea.dataset.tipo as 'h' | 'v';
       const fila = Number(linea.dataset.fila);
       const columna = Number(linea.dataset.columna);
       const trazada = tipo === 'h' ? state.horizontalLines[fila][columna] : state.verticalLines[fila][columna];
       linea.dataset.trazada = String(trazada);
-      linea.disabled = trazada || state.status !== 'playing';
+      linea.disabled = trazada || state.status !== 'playing' || noEsMiTurno;
     }
 
     for (const caja of cajas) {
@@ -236,8 +241,18 @@ const SIZE = 4;
     }
   }
 
-  function reiniciar(): void {
+  function aplicarReinicio(): void {
     state = createInitialState(4);
+    render();
+  }
+
+  function reiniciar(): void {
+    aplicarReinicio();
+    canal?.enviar({ tipo: 'reiniciar' });
+  }
+
+  function jugar(line: LineId): void {
+    state = playLine(state, line);
     render();
   }
 
@@ -246,10 +261,42 @@ const SIZE = 4;
       const tipo = linea.dataset.tipo as LineId['type'];
       const fila = Number(linea.dataset.fila);
       const columna = Number(linea.dataset.columna);
-      state = playLine(state, { type: tipo, row: fila, col: columna });
-      render();
+      const line: LineId = { type: tipo, row: fila, col: columna };
+      jugar(line);
+      canal?.enviar({ tipo: 'movimiento', payload: line });
     });
   }
+
+  document.addEventListener('canal-remoto-listo', evento => {
+    const detalle = (evento as CustomEvent<{ channel: MoveChannel; miNombre: string }>).detail;
+    canal = detalle.channel;
+    miAsiento = canal.asiento;
+    nombres[miAsiento] = detalle.miNombre;
+
+    canal.alRecibir((mensaje: MensajeJuego) => {
+      if (mensaje.tipo === 'movimiento') {
+        jugar(mensaje.payload as LineId);
+      } else if (mensaje.tipo === 'nombre') {
+        nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
+        render();
+      } else if (mensaje.tipo === 'reiniciar') {
+        aplicarReinicio();
+      }
+    });
+
+    canal.alCambiarEstado(estado => {
+      if (estado === 'desconectado') {
+        ocultarTurnIndicator(indicadorTurno);
+        showWinnerBanner(bannerGanador, {
+          titulo: '📡 Tu rival se desconectó',
+          onReiniciar: () => location.reload(),
+        });
+        for (const linea of lineas) linea.disabled = true;
+      }
+    });
+
+    render();
+  });
 
   render();
 </script>
