@@ -77,6 +77,7 @@
   import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
   import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
   import { getPlayerNames } from '../../lib/players';
+  import type { MoveChannel, MensajeJuego } from '../../lib/remoto/types';
 
   const tablero = document.getElementById('tablero')!;
   const casillas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.casilla'));
@@ -87,6 +88,8 @@
   const nombres = getPlayerNames();
 
   let state: TresEnRayaState = createInitialState();
+  let canal: MoveChannel | null = null;
+  let miAsiento: 1 | 2 | null = null;
 
   function render(): void {
     casillas.forEach((casilla, i) => {
@@ -97,7 +100,9 @@
       } else {
         delete casilla.dataset.valor;
       }
-      casilla.disabled = valor !== null || state.status !== 'playing';
+      const jugadorDelTurno = state.currentPlayer === 'X' ? 1 : 2;
+      const noEsMiTurno = miAsiento !== null && jugadorDelTurno !== miAsiento;
+      casilla.disabled = valor !== null || state.status !== 'playing' || noEsMiTurno;
       casilla.classList.toggle('casilla--ganadora', state.winningLine?.includes(i) ?? false);
     });
 
@@ -120,16 +125,57 @@
     }
   }
 
-  function reiniciar(): void {
+  function aplicarReinicio(): void {
     state = createInitialState();
+    render();
+  }
+
+  function reiniciar(): void {
+    aplicarReinicio();
+    canal?.enviar({ tipo: 'reiniciar' });
+  }
+
+  function jugar(indice: number): void {
+    state = playMove(state, indice);
     render();
   }
 
   casillas.forEach((casilla, i) => {
     casilla.addEventListener('click', () => {
-      state = playMove(state, i);
-      render();
+      jugar(i);
+      canal?.enviar({ tipo: 'movimiento', payload: i });
     });
+  });
+
+  document.addEventListener('canal-remoto-listo', evento => {
+    const detalle = (evento as CustomEvent<{ channel: MoveChannel; miNombre: string }>).detail;
+    canal = detalle.channel;
+    miAsiento = canal.asiento;
+    nombres[miAsiento] = detalle.miNombre;
+
+    canal.alRecibir((mensaje: MensajeJuego) => {
+      if (mensaje.tipo === 'movimiento') {
+        jugar(mensaje.payload as number);
+      } else if (mensaje.tipo === 'nombre') {
+        nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
+        render();
+      } else if (mensaje.tipo === 'reiniciar') {
+        aplicarReinicio();
+      }
+    });
+
+    canal.alCambiarEstado(estado => {
+      if (estado === 'desconectado') {
+        ocultarTurnIndicator(indicadorTurno);
+        showWinnerBanner(bannerGanador, {
+          titulo: '📡 Tu rival se desconectó',
+          onReiniciar: () => location.reload(),
+        });
+        casillas.forEach(casilla => (casilla.disabled = true));
+      }
+    });
+
+    render();
   });
 
   render();
