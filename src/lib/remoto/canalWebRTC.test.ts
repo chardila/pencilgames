@@ -5,6 +5,8 @@ class WebSocketFalso {
   static instancias: WebSocketFalso[] = [];
   listeners: Record<string, Array<(e: any) => void>> = {};
   enviados: string[] = [];
+  readyState = 1; // WebSocket.OPEN
+  cerrado = false;
   constructor(public url: string) {
     WebSocketFalso.instancias.push(this);
   }
@@ -16,6 +18,10 @@ class WebSocketFalso {
   }
   send(datos: string) {
     this.enviados.push(datos);
+  }
+  close() {
+    this.cerrado = true;
+    this.readyState = 3; // WebSocket.CLOSED
   }
   emitirMensaje(datos: unknown) {
     for (const cb of this.listeners['message'] ?? []) cb({ data: JSON.stringify(datos) });
@@ -45,6 +51,9 @@ class RTCDataChannelFalso {
   }
   emitirMensaje(datos: unknown) {
     for (const cb of this.listeners['message'] ?? []) cb({ data: JSON.stringify(datos) });
+  }
+  close() {
+    this.readyState = 'closed';
   }
 }
 
@@ -81,6 +90,7 @@ class RTCPeerConnectionFalso {
   addIceCandidate(_c: any) {
     return Promise.resolve();
   }
+  close() {}
 }
 
 beforeEach(() => {
@@ -211,6 +221,88 @@ describe('CanalWebRTC — fallback a relay tras timeout', () => {
 
     expect(estados).toContain('conectado');
     vi.useRealTimers();
+  });
+});
+
+describe('CanalWebRTC — timeout de conexión inicial', () => {
+  it('crear() rechaza con ErrorSala("conexion") si "conectado" no llega en 10s, y cierra el WebSocket', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+
+    const expectativa = expect(promesa).rejects.toMatchObject({ codigo: 'conexion' });
+    await vi.advanceTimersByTimeAsync(10000);
+    await expectativa;
+
+    expect(ws.cerrado).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('unirse() rechaza con ErrorSala("conexion") si "conectado" no llega en 10s', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'ABC123');
+
+    const expectativa = expect(promesa).rejects.toMatchObject({ codigo: 'conexion' });
+    await vi.advanceTimersByTimeAsync(10000);
+    await expectativa;
+
+    vi.useRealTimers();
+  });
+
+  it('si "conectado" llega antes del timeout, no rechaza (el timeout se limpia)', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+
+    await vi.advanceTimersByTimeAsync(10000);
+    const { codigo } = await promesa;
+
+    expect(codigo).toBe('ABC123');
+    vi.useRealTimers();
+  });
+});
+
+describe('CanalWebRTC — enviar() no lanza si el WebSocket ya está cerrado', () => {
+  it('enviar() no lanza cuando no hay data channel abierto y el WebSocket ya cerró', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    const { channel } = await promesa;
+
+    ws.close();
+
+    expect(() => channel.enviar({ tipo: 'movimiento', payload: 1 })).not.toThrow();
+    // No debería haberse intentado agregar nada nuevo a enviados una vez cerrado
+    expect(ws.enviados.some(m => JSON.parse(m).tipo === 'movimiento')).toBe(false);
+  });
+});
+
+describe('CanalWebRTC — cerrar()', () => {
+  it('cierra el WebSocket subyacente', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    const { channel } = await promesa;
+
+    channel.cerrar();
+
+    expect(ws.cerrado).toBe(true);
+  });
+
+  it('cierra también el data channel y la conexión RTCPeerConnection si ya existen', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    const { channel } = await promesa;
+
+    ws.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    ws.emitirMensaje({ tipo: 'rival-conectado' });
+    const canal = RTCDataChannelFalso.instancias[0];
+    canal.emitirAbierto();
+
+    expect(() => channel.cerrar()).not.toThrow();
+    expect(canal.readyState).toBe('closed');
   });
 });
 

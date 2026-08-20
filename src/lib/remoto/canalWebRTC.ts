@@ -3,6 +3,12 @@ import { ErrorSala } from './types';
 
 const ICE_SERVERS_INICIALES: RTCIceServer[] = [{ urls: 'stun:stun.cloudflare.com:3478' }];
 const TIMEOUT_DATACHANNEL_MS = 15000;
+const TIMEOUT_CONEXION_MS = 10000;
+// Constante propia en vez de `WebSocket.OPEN`: el global `WebSocket` puede
+// venir stubeado (tests) sin esa propiedad estática. El valor 1 es el mismo
+// en el estándar WebSocket (readyState OPEN) que usan tanto el navegador
+// como cualquier doble de test que quiera simularlo.
+const WS_ABIERTO = 1;
 
 type MensajeControl =
   | { tipo: 'conectado'; asiento: 1 | 2; codigo: string }
@@ -29,6 +35,7 @@ function esperarConectado(ws: WebSocket): Promise<{ asiento: 1 | 2; codigo: stri
       ws.removeEventListener('message', alMensaje);
       ws.removeEventListener('close', alCerrar);
       ws.removeEventListener('error', alError);
+      clearTimeout(timeout);
     };
     const alMensaje = (evento: MessageEvent) => {
       const mensaje = JSON.parse(evento.data as string) as MensajeControl;
@@ -47,6 +54,15 @@ function esperarConectado(ws: WebSocket): Promise<{ asiento: 1 | 2; codigo: stri
       limpiar();
       reject(new ErrorSala('conexion', 'No pudimos conectar'));
     };
+    // Si el mensaje 'conectado' nunca llega (Worker colgado, respuesta
+    // lenta, red caída sin que WebSocket dispare close/error) esta promesa
+    // quedaría pendiente para siempre y la UI se congelaría sin mostrar
+    // error. Se cierra el socket y se rechaza tras un tiempo de espera.
+    const timeout = setTimeout(() => {
+      limpiar();
+      ws.close();
+      reject(new ErrorSala('conexion', 'No pudimos conectar'));
+    }, TIMEOUT_CONEXION_MS);
     ws.addEventListener('message', alMensaje);
     ws.addEventListener('close', alCerrar);
     ws.addEventListener('error', alError);
@@ -89,9 +105,23 @@ export class CanalWebRTC implements MoveChannel {
     const datos = JSON.stringify(mensaje);
     if (!this.usaRelay && this.dataChannel?.readyState === 'open') {
       this.dataChannel.send(datos);
-    } else {
+      return;
+    }
+    // El WebSocket puede haberse cerrado ya (p. ej. tras una desconexión) —
+    // llamar a send() sobre un WebSocket cerrado lanza InvalidStateError de
+    // forma síncrona, lo que aquí terminaría propagándose dentro de un
+    // manejador de click en Board.astro. El propio manejo de desconexión
+    // (evento 'close' -> estado 'desconectado') ya se encarga de avisarle
+    // al usuario, así que acá basta con no enviar y no lanzar.
+    if (this.ws.readyState === WS_ABIERTO) {
       this.ws.send(datos);
     }
+  }
+
+  cerrar(): void {
+    this.dataChannel?.close();
+    this.pc?.close();
+    this.ws.close();
   }
 
   alRecibir(callback: (mensaje: MensajeJuego) => void): void {

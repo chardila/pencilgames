@@ -33,11 +33,13 @@
     </div>
 
     <div id="modal-remoto-esperando" class="modal-remoto__paso" hidden>
-      <p>Comparte este código con tu rival:</p>
-      <p id="modal-remoto-codigo" class="modal-remoto__codigo"></p>
-      <button type="button" id="modal-remoto-copiar" class="modal-remoto__boton">
-        Copiar link para compartir
-      </button>
+      <div id="modal-remoto-compartir">
+        <p>Comparte este código con tu rival:</p>
+        <p id="modal-remoto-codigo" class="modal-remoto__codigo"></p>
+        <button type="button" id="modal-remoto-copiar" class="modal-remoto__boton">
+          Copiar link para compartir
+        </button>
+      </div>
       <p id="modal-remoto-estado">Esperando al otro jugador…</p>
     </div>
 
@@ -111,6 +113,12 @@
     min-height: var(--tap-target-min);
   }
 
+  #modal-remoto-compartir {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
   .modal-remoto__codigo {
     font-size: 2rem;
     font-weight: 700;
@@ -166,10 +174,20 @@
   const botonMostrarUnirse = document.getElementById('modal-remoto-mostrar-unirse')!;
   const botonConfirmarUnirse = document.getElementById('modal-remoto-confirmar-unirse')!;
   const inputCodigo = document.getElementById('modal-remoto-input-codigo') as HTMLInputElement;
+  const compartirContenedor = document.getElementById('modal-remoto-compartir')!;
   const codigoMostrado = document.getElementById('modal-remoto-codigo')!;
   const botonCopiar = document.getElementById('modal-remoto-copiar')!;
   const estadoTexto = document.getElementById('modal-remoto-estado')!;
   const errorTexto = document.getElementById('modal-remoto-error')!;
+
+  const TEXTO_COPIAR_DEFECTO = botonCopiar.textContent ?? 'Copiar link para compartir';
+  let timeoutCopiado: ReturnType<typeof setTimeout> | null = null;
+
+  // Canal en curso mientras el modal está en el paso "esperando" (creado o
+  // uniéndose). Se limpia a null en cuanto el Board toma el control
+  // (alConectar) o el modal se reabre desde cero, para que Cancelar solo
+  // cierre una conexión que sigue siendo responsabilidad del modal.
+  let canalActivo: MoveChannel | null = null;
 
   function mostrarPaso(paso: HTMLElement): void {
     for (const p of [pasoElegir, pasoUnirse, pasoEsperando]) p.hidden = p !== paso;
@@ -191,17 +209,28 @@
   }
 
   function alConectar(channel: MoveChannel, miNombre: string): void {
+    canalActivo = null;
     channel.enviar({ tipo: 'nombre', nombre: miNombre });
     modal.hidden = true;
     document.dispatchEvent(new CustomEvent('canal-remoto-listo', { detail: { channel, miNombre } }));
   }
 
   abrir.addEventListener('click', () => {
+    // Defensivo: si quedara un canal de un intento anterior que no pasó por
+    // Cancelar ni por alConectar, se cierra antes de empezar de nuevo.
+    canalActivo?.cerrar();
+    canalActivo = null;
     mostrarPaso(pasoElegir);
     modal.hidden = false;
   });
 
   cerrar.addEventListener('click', () => {
+    // Si había una conexión en curso (sala creada/unida pero el rival
+    // todavía no llegó), se cierra explícitamente: sin esto, el WebSocket
+    // seguía vivo en segundo plano y un rival podía unirse después de que
+    // el usuario ya creía haber cancelado.
+    canalActivo?.cerrar();
+    canalActivo = null;
     modal.hidden = true;
   });
 
@@ -209,8 +238,11 @@
     const miNombre = pedirMiNombreSiHaceFalta();
     try {
       const { channel, codigo } = await crearSala();
+      canalActivo = channel;
       mostrarPaso(pasoEsperando);
+      compartirContenedor.hidden = false;
       codigoMostrado.textContent = codigo;
+      estadoTexto.textContent = 'Esperando al otro jugador…';
       channel.alCambiarEstado(estado => {
         if (estado === 'conectado') alConectar(channel, miNombre);
       });
@@ -228,7 +260,12 @@
     const codigo = inputCodigo.value.trim().toUpperCase();
     try {
       const channel = await unirseASala(codigo);
+      canalActivo = channel;
       mostrarPaso(pasoEsperando);
+      // El que se une no tiene código propio que compartir: solo ve el
+      // aviso de conexión, nunca el bloque "comparte este código" vacío.
+      compartirContenedor.hidden = true;
+      codigoMostrado.textContent = '';
       estadoTexto.textContent = 'Conectando…';
       channel.alCambiarEstado(estado => {
         if (estado === 'conectado') alConectar(channel, miNombre);
@@ -240,8 +277,25 @@
 
   botonCopiar.addEventListener('click', () => {
     const link = `${location.origin}${location.pathname}?sala=${codigoMostrado.textContent}`;
-    navigator.clipboard?.writeText(link);
+    const resultado = navigator.clipboard?.writeText(link);
+    if (resultado) {
+      resultado.then(
+        () => mostrarConfirmacionCopiado('¡Copiado!'),
+        () => mostrarConfirmacionCopiado('No se pudo copiar')
+      );
+    } else {
+      mostrarConfirmacionCopiado('No se pudo copiar');
+    }
   });
+
+  function mostrarConfirmacionCopiado(texto: string): void {
+    if (timeoutCopiado) clearTimeout(timeoutCopiado);
+    botonCopiar.textContent = texto;
+    timeoutCopiado = setTimeout(() => {
+      botonCopiar.textContent = TEXTO_COPIAR_DEFECTO;
+      timeoutCopiado = null;
+    }, 2000);
+  }
 
   const parametros = new URLSearchParams(location.search);
   const codigoPrellenado = parametros.get('sala');

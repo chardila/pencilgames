@@ -11,6 +11,7 @@ export interface MoveChannel {
   enviar(mensaje: MensajeJuego): void;
   alRecibir(callback: (mensaje: MensajeJuego) => void): void;
   alCambiarEstado(callback: (estado: EstadoConexion) => void): void;
+  cerrar(): void;
 }
 
 export class ErrorSala extends Error {
