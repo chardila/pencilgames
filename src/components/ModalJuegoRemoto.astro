@@ -1,0 +1,253 @@
+<div
+  id="modal-remoto"
+  class="modal-remoto"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-remoto-titulo"
+  hidden
+>
+  <div class="modal-remoto__contenido">
+    <h2 id="modal-remoto-titulo">Jugar por internet</h2>
+
+    <div id="modal-remoto-elegir" class="modal-remoto__paso">
+      <button type="button" id="modal-remoto-crear" class="modal-remoto__boton">Crear sala</button>
+      <button type="button" id="modal-remoto-mostrar-unirse" class="modal-remoto__boton">
+        Unirse con código
+      </button>
+    </div>
+
+    <div id="modal-remoto-unirse" class="modal-remoto__paso" hidden>
+      <label class="modal-remoto__campo">
+        Código de sala
+        <input
+          type="text"
+          id="modal-remoto-input-codigo"
+          maxlength="6"
+          placeholder="ABC123"
+          autocapitalize="characters"
+        />
+      </label>
+      <button type="button" id="modal-remoto-confirmar-unirse" class="modal-remoto__boton">
+        Unirse
+      </button>
+    </div>
+
+    <div id="modal-remoto-esperando" class="modal-remoto__paso" hidden>
+      <p>Comparte este código con tu rival:</p>
+      <p id="modal-remoto-codigo" class="modal-remoto__codigo"></p>
+      <button type="button" id="modal-remoto-copiar" class="modal-remoto__boton">
+        Copiar link para compartir
+      </button>
+      <p id="modal-remoto-estado">Esperando al otro jugador…</p>
+    </div>
+
+    <p id="modal-remoto-error" class="modal-remoto__error" hidden></p>
+    <button type="button" id="modal-remoto-cerrar" class="modal-remoto__cerrar">Cancelar</button>
+  </div>
+</div>
+
+<button type="button" id="modal-remoto-abrir" class="modal-remoto__abrir">🌐 Jugar por internet</button>
+
+<style>
+  .modal-remoto {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing);
+    z-index: 20;
+  }
+
+  .modal-remoto[hidden] {
+    display: none;
+  }
+
+  .modal-remoto__contenido {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 24rem;
+    width: 100%;
+  }
+
+  .modal-remoto__paso {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .modal-remoto__paso[hidden] {
+    display: none;
+  }
+
+  .modal-remoto__campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-weight: 700;
+  }
+
+  .modal-remoto__campo input {
+    padding: 0.75rem;
+    font-size: 1.25rem;
+    text-align: center;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border-radius: var(--radius);
+    border: 1px solid #ddd;
+    min-height: var(--tap-target-min);
+  }
+
+  .modal-remoto__boton {
+    padding: 0.75rem;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--color-accent);
+    font-size: 1rem;
+    font-weight: 700;
+    min-height: var(--tap-target-min);
+  }
+
+  .modal-remoto__codigo {
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.2em;
+  }
+
+  .modal-remoto__error {
+    margin-top: 1rem;
+    color: #b00020;
+    font-weight: 700;
+  }
+
+  .modal-remoto__error[hidden] {
+    display: none;
+  }
+
+  .modal-remoto__cerrar {
+    margin-top: 1rem;
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    min-height: var(--tap-target-min);
+  }
+
+  .modal-remoto__abrir {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid #ddd;
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-weight: 700;
+    min-height: var(--tap-target-min);
+  }
+</style>
+
+<script>
+  import { crearSala, unirseASala, ErrorSala } from '../lib/remoto/sala';
+  import { getMiNombre, setMiNombre } from '../lib/miNombre';
+  import type { MoveChannel } from '../lib/remoto/types';
+
+  const modal = document.getElementById('modal-remoto')!;
+  const abrir = document.getElementById('modal-remoto-abrir')!;
+  const cerrar = document.getElementById('modal-remoto-cerrar')!;
+  const pasoElegir = document.getElementById('modal-remoto-elegir')!;
+  const pasoUnirse = document.getElementById('modal-remoto-unirse')!;
+  const pasoEsperando = document.getElementById('modal-remoto-esperando')!;
+  const botonCrear = document.getElementById('modal-remoto-crear')!;
+  const botonMostrarUnirse = document.getElementById('modal-remoto-mostrar-unirse')!;
+  const botonConfirmarUnirse = document.getElementById('modal-remoto-confirmar-unirse')!;
+  const inputCodigo = document.getElementById('modal-remoto-input-codigo') as HTMLInputElement;
+  const codigoMostrado = document.getElementById('modal-remoto-codigo')!;
+  const botonCopiar = document.getElementById('modal-remoto-copiar')!;
+  const estadoTexto = document.getElementById('modal-remoto-estado')!;
+  const errorTexto = document.getElementById('modal-remoto-error')!;
+
+  function mostrarPaso(paso: HTMLElement): void {
+    for (const p of [pasoElegir, pasoUnirse, pasoEsperando]) p.hidden = p !== paso;
+    errorTexto.hidden = true;
+  }
+
+  function mostrarError(mensaje: string): void {
+    errorTexto.textContent = mensaje;
+    errorTexto.hidden = false;
+  }
+
+  function pedirMiNombreSiHaceFalta(): string {
+    let nombre = getMiNombre();
+    if (!nombre) {
+      nombre = window.prompt('¿Cómo te llamas?')?.trim() || 'Jugador';
+      setMiNombre(nombre);
+    }
+    return nombre;
+  }
+
+  function alConectar(channel: MoveChannel, miNombre: string): void {
+    channel.enviar({ tipo: 'nombre', nombre: miNombre });
+    modal.hidden = true;
+    document.dispatchEvent(new CustomEvent('canal-remoto-listo', { detail: { channel, miNombre } }));
+  }
+
+  abrir.addEventListener('click', () => {
+    mostrarPaso(pasoElegir);
+    modal.hidden = false;
+  });
+
+  cerrar.addEventListener('click', () => {
+    modal.hidden = true;
+  });
+
+  botonCrear.addEventListener('click', async () => {
+    const miNombre = pedirMiNombreSiHaceFalta();
+    try {
+      const { channel, codigo } = await crearSala();
+      mostrarPaso(pasoEsperando);
+      codigoMostrado.textContent = codigo;
+      channel.alCambiarEstado(estado => {
+        if (estado === 'conectado') alConectar(channel, miNombre);
+      });
+    } catch (error) {
+      mostrarError(error instanceof ErrorSala ? error.message : 'No pudimos conectar, intenten de nuevo.');
+    }
+  });
+
+  botonMostrarUnirse.addEventListener('click', () => {
+    mostrarPaso(pasoUnirse);
+  });
+
+  botonConfirmarUnirse.addEventListener('click', async () => {
+    const miNombre = pedirMiNombreSiHaceFalta();
+    const codigo = inputCodigo.value.trim().toUpperCase();
+    try {
+      const channel = await unirseASala(codigo);
+      mostrarPaso(pasoEsperando);
+      estadoTexto.textContent = 'Conectando…';
+      channel.alCambiarEstado(estado => {
+        if (estado === 'conectado') alConectar(channel, miNombre);
+      });
+    } catch (error) {
+      mostrarError(error instanceof ErrorSala ? error.message : 'No pudimos conectar, intenten de nuevo.');
+    }
+  });
+
+  botonCopiar.addEventListener('click', () => {
+    const link = `${location.origin}${location.pathname}?sala=${codigoMostrado.textContent}`;
+    navigator.clipboard?.writeText(link);
+  });
+
+  const parametros = new URLSearchParams(location.search);
+  const codigoPrellenado = parametros.get('sala');
+  if (codigoPrellenado) {
+    inputCodigo.value = codigoPrellenado.toUpperCase();
+    mostrarPaso(pasoUnirse);
+    modal.hidden = false;
+  }
+</script>

@@ -2,6 +2,7 @@
 import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ModalInstrucciones from '../../components/ModalInstrucciones.astro';
+import ModalJuegoRemoto from '../../components/ModalJuegoRemoto.astro';
 import TresEnRayaBoard from '../../games/tres-en-raya/Board.astro';
 import PuntosYCajasBoard from '../../games/puntos-y-cajas/Board.astro';
 import AgujeroNegroBoard from '../../games/agujero-negro/Board.astro';
@@ -29,6 +30,7 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
   <header class="cabecera-juego">
     <a href="/" class="cabecera-juego__volver">← Juegos</a>
     <h1 class="cabecera-juego__titulo">{juego.data.title}</h1>
+    <ModalJuegoRemoto />
   </header>
   <ModalInstrucciones title={juego.data.title}>
     <Content />
