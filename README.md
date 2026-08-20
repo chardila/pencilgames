@@ -13,6 +13,28 @@ npm test         # tests de los engines
 npm run build    # build de producción en dist/
 ```
 
+## Modo remoto (jugar por internet)
+
+Los 3 juegos soportan jugar entre dos computadoras por internet, uniéndose
+con un código corto de sala. Arquitectura completa en
+`docs/superpowers/specs/2026-08-17-juego-remoto-design.md`.
+
+Para desarrollar/probar en local hace falta correr el Worker de
+señalización además del sitio:
+
+```bash
+cd worker && npm install && npm run dev   # sirve en http://localhost:8787
+# en otra terminal, desde la raíz del repo:
+cp .env.example .env
+npm run dev
+```
+
+El Worker vive en `worker/` (proyecto npm independiente, se despliega por
+separado — ver el job `deploy-worker` en `.github/workflows/deploy.yml`).
+Requiere una TURN key de Cloudflare Realtime configurada como secreto
+(`wrangler secret put TURN_KEY_ID` / `TURN_KEY_API_TOKEN`, paso manual
+único, ver Tarea 6 del plan de implementación).
+
 ## Cómo agregar un juego nuevo
 
 1. Crea `src/content/juegos/<slug>.md` con el frontmatter (`title`,
