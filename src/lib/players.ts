@@ -2,7 +2,7 @@ export type Player = 1 | 2;
 export type PlayerNames = Record<Player, string>;
 
 const STORAGE_KEY = 'pencilgames:jugadores';
-const DEFAULTS: PlayerNames = { 1: 'Jugador 1', 2: 'Jugador 2' };
+export const DEFAULTS: PlayerNames = { 1: 'Jugador 1', 2: 'Jugador 2' };
 
 export function getPlayerNames(): PlayerNames {
   let raw: string | null;
