@@ -8,3 +8,8 @@ node_modules/
 dist/
 .astro/
 .worktrees/
+
+# Config local (worker de señalización remota) — nunca comitear secretos/URLs locales
+.env
+.dev.vars
+.wrangler/
