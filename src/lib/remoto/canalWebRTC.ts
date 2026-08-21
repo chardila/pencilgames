@@ -80,6 +80,7 @@ export class CanalWebRTC implements MoveChannel {
   private callbacksEstado: Array<(e: EstadoConexion) => void> = [];
   private timeoutFallback: ReturnType<typeof setTimeout> | null = null;
   private mensajesEnBuffer: MensajeJuego[] = [];
+  private cerrado = false;
 
   private constructor(
     public readonly asiento: 1 | 2,
@@ -119,6 +120,8 @@ export class CanalWebRTC implements MoveChannel {
   }
 
   cerrar(): void {
+    this.cerrado = true;
+    if (this.timeoutFallback) clearTimeout(this.timeoutFallback);
     this.dataChannel?.close();
     this.pc?.close();
     this.ws.close();
@@ -138,6 +141,12 @@ export class CanalWebRTC implements MoveChannel {
   }
 
   private cambiarEstado(estado: EstadoConexion): void {
+    // Una vez cerrado el canal (cerrar()), ninguna transición de estado
+    // posterior es válida: sin este guard, un timer de fallback ya armado
+    // (o uno nuevo, si intentarIniciarNegociacion() se reinvoca tras un
+    // cerrar() que no anuló this.pc) podría "resucitar" el canal a
+    // 'conectado' después de que el usuario ya lo canceló.
+    if (this.cerrado) return;
     if (this.estado === estado) return;
     this.estado = estado;
     for (const callback of this.callbacksEstado) callback(estado);

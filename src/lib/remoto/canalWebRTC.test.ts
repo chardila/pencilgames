@@ -304,6 +304,32 @@ describe('CanalWebRTC — cerrar()', () => {
     expect(() => channel.cerrar()).not.toThrow();
     expect(canal.readyState).toBe('closed');
   });
+
+  it('cerrar() detiene el timer de fallback: no resucita el canal a "conectado" cuando el timeout de 15s dispara después', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    const { channel } = await promesa;
+
+    const estados: string[] = [];
+    channel.alCambiarEstado(e => estados.push(e));
+
+    // Arma el timer de fallback (asiento 1 negociando, data channel aún no abre).
+    ws.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    ws.emitirMensaje({ tipo: 'rival-conectado' });
+
+    // El usuario cancela mientras la negociación P2P sigue en curso.
+    channel.cerrar();
+
+    // El timer de fallback de 15s, ya armado antes de cerrar(), no debe
+    // resucitar el canal a 'conectado' una vez cerrado.
+    vi.advanceTimersByTime(15000);
+
+    expect(estados).not.toContain('conectado');
+    expect(channel.estado).not.toBe('conectado');
+    vi.useRealTimers();
+  });
 });
 
 describe('CanalWebRTC — camino feliz P2P (asiento 1)', () => {
