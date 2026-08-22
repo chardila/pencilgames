@@ -139,7 +139,7 @@ Se mantiene igual, adaptado al nuevo estado inicial: además de ocultar `ModalIn
 ## 9. No-objetivos
 
 - Cualquier otra revisión de usabilidad del sitio fuera del arranque de partida (navegación general, textos de instrucciones, UI dentro del tablero durante la partida) — queda para una revisión aparte si hace falta.
-- Editar nombres locales a mitad de partida sin perder el estado del tablero (hoy y después de este cambio, cambiar nombres no reinicia la partida en curso porque los nombres solo se re-leen al mostrar/ocultar "Cambiar nombres" y guardar — el tablero no vuelve a leer `getPlayerNames()` durante la partida, esto ya era así antes de este diseño).
+- Editar nombres locales a mitad de partida sin perder el estado del tablero (hoy y después de este cambio, un cambio de nombre vía "Cambiar nombres" solo se refleja la próxima vez que se cargue un tablero — cada `Board.astro` lee `getPlayerNames()` una única vez al iniciar su script y no vuelve a leerlos durante la partida en curso, esto ya era así antes de este diseño).
 - Unificar `players.ts` y `miNombre.ts` en un solo sistema de identidad — el puente actual (`miNombre.ts` cae al nombre local personalizado si existe) ya cubre el caso de uso real y no genera fricción adicional; fusionarlos es una refactorización interna sin impacto de usabilidad, fuera de esta revisión.
 - Extracción de un componente `<TableroJuego>` compartido (backlog anotado en diseños previos) — no se toca en este cambio.
 - Nuevos juegos — este diseño solo cubre los 3 ya existentes.

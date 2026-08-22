@@ -14,6 +14,7 @@
     <button type="button" id="modal-modo-juego-remoto" class="modal-modo-juego__boton">
       🌐 Por internet
     </button>
+    <a href="/" class="modal-modo-juego__volver">← Volver a los juegos</a>
   </div>
 </div>
 
@@ -54,6 +55,19 @@
     min-height: var(--tap-target-min);
     min-width: var(--tap-target-min);
   }
+
+  .modal-modo-juego__volver {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap-target-min);
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    color: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    text-align: center;
+  }
 </style>
 
 <script>
@@ -85,6 +99,7 @@
   // volvería a mostrar "¿Cómo van a jugar?" encima de la partida en curso.
   document.addEventListener('canal-remoto-listo', () => {
     modoYaElegido = true;
+    modal.hidden = true;
   });
 
   botonLocal.addEventListener('click', () => {

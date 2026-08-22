@@ -9,11 +9,12 @@
   <div class="modal-remoto__contenido">
     <h2 id="modal-remoto-titulo">Jugar por internet</h2>
 
+    <label id="modal-remoto-campo-nombre" class="modal-remoto__campo-nombre">
+      Tu nombre
+      <input type="text" id="modal-remoto-input-nombre" maxlength="16" placeholder="Jugador" />
+    </label>
+
     <div id="modal-remoto-elegir" class="modal-remoto__paso">
-      <label class="modal-remoto__campo-nombre">
-        Tu nombre
-        <input type="text" id="modal-remoto-input-nombre" maxlength="16" placeholder="Jugador" />
-      </label>
       <button type="button" id="modal-remoto-crear" class="modal-remoto__boton">Crear sala</button>
       <button type="button" id="modal-remoto-mostrar-unirse" class="modal-remoto__boton">
         Unirse con código
@@ -110,6 +111,11 @@
     flex-direction: column;
     gap: 0.25rem;
     font-weight: 700;
+    margin-top: 1rem;
+  }
+
+  #modal-remoto-campo-nombre[hidden] {
+    display: none;
   }
 
   .modal-remoto__campo-nombre input {
@@ -179,6 +185,7 @@
   const pasoElegir = document.getElementById('modal-remoto-elegir')!;
   const pasoUnirse = document.getElementById('modal-remoto-unirse')!;
   const pasoEsperando = document.getElementById('modal-remoto-esperando')!;
+  const campoNombre = document.getElementById('modal-remoto-campo-nombre')!;
   const botonCrear = document.getElementById('modal-remoto-crear')!;
   const botonMostrarUnirse = document.getElementById('modal-remoto-mostrar-unirse')!;
   const botonConfirmarUnirse = document.getElementById('modal-remoto-confirmar-unirse')!;
@@ -201,6 +208,7 @@
 
   function mostrarPaso(paso: HTMLElement): void {
     for (const p of [pasoElegir, pasoUnirse, pasoEsperando]) p.hidden = p !== paso;
+    campoNombre.hidden = paso === pasoEsperando;
     errorTexto.hidden = true;
   }
 
