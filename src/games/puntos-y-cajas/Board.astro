@@ -111,8 +111,12 @@ const SIZE = 4;
     margin: auto 0;
   }
 
-  .linea--h[data-trazada='true']::before {
+  .linea--h[data-jugador='1']::before {
     background: var(--color-player-1);
+  }
+
+  .linea--h[data-jugador='2']::before {
+    background: var(--color-player-2);
   }
 
   .linea--v {
@@ -131,8 +135,12 @@ const SIZE = 4;
     margin: 0 auto;
   }
 
-  .linea--v[data-trazada='true']::before {
+  .linea--v[data-jugador='1']::before {
     background: var(--color-player-1);
+  }
+
+  .linea--v[data-jugador='2']::before {
+    background: var(--color-player-2);
   }
 
   .caja {
@@ -206,7 +214,10 @@ const SIZE = 4;
       const fila = Number(linea.dataset.fila);
       const columna = Number(linea.dataset.columna);
       const trazada = tipo === 'h' ? state.horizontalLines[fila][columna] : state.verticalLines[fila][columna];
+      const dueno = tipo === 'h' ? state.horizontalLineOwners[fila][columna] : state.verticalLineOwners[fila][columna];
       linea.dataset.trazada = String(trazada);
+      if (dueno) linea.dataset.jugador = String(dueno);
+      else delete linea.dataset.jugador;
       linea.disabled = trazada || state.status !== 'playing' || noEsMiTurno;
     }
 
