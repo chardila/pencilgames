@@ -40,6 +40,8 @@ export function renderTurnIndicator(
   }
 
   if (marcador) {
+    const marcadorEl = container.querySelector<HTMLElement>('.indicador-turno__marcador')!;
+    marcadorEl.style.display = 'block';
     container.querySelector<HTMLElement>('.indicador-turno__jugador[data-jugador="1"]')!.textContent =
       `${marcador[1].nombre} ${marcador[1].puntaje}`;
     container.querySelector<HTMLElement>('.indicador-turno__jugador[data-jugador="2"]')!.textContent =
