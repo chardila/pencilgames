@@ -1,0 +1,92 @@
+<div
+  id="modal-modo-juego"
+  class="modal-modo-juego"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-modo-juego-titulo"
+  hidden
+>
+  <div class="modal-modo-juego__contenido">
+    <h2 id="modal-modo-juego-titulo">¿Cómo van a jugar?</h2>
+    <button type="button" id="modal-modo-juego-local" class="modal-modo-juego__boton">
+      📱 Misma tableta
+    </button>
+    <button type="button" id="modal-modo-juego-remoto" class="modal-modo-juego__boton">
+      🌐 Por internet
+    </button>
+  </div>
+</div>
+
+<style>
+  .modal-modo-juego {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing);
+    z-index: 20;
+  }
+
+  .modal-modo-juego[hidden] {
+    display: none;
+  }
+
+  .modal-modo-juego__contenido {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 24rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .modal-modo-juego__boton {
+    padding: 0.75rem;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--color-accent);
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-height: var(--tap-target-min);
+    min-width: var(--tap-target-min);
+  }
+</style>
+
+<script>
+  const modal = document.getElementById('modal-modo-juego')!;
+  const botonLocal = document.getElementById('modal-modo-juego-local')!;
+  const botonRemoto = document.getElementById('modal-modo-juego-remoto')!;
+
+  // Se acuerda si ya se eligió modo para no volver a mostrar este paso
+  // cuando se reabren las instrucciones a mitad de partida (botón "?" de
+  // ModalInstrucciones) y se cierran de nuevo. Solo vuelve a false si el
+  // usuario cancela el flujo remoto (modal-remoto-cancelado) y hay que
+  // elegir modo otra vez.
+  let modoYaElegido = false;
+
+  document.addEventListener('instrucciones-cerradas', () => {
+    if (modoYaElegido) return;
+    modal.hidden = false;
+  });
+
+  document.addEventListener('modal-remoto-cancelado', () => {
+    modoYaElegido = false;
+    modal.hidden = false;
+  });
+
+  botonLocal.addEventListener('click', () => {
+    modoYaElegido = true;
+    modal.hidden = true;
+    document.dispatchEvent(new CustomEvent('modo-elegido-local'));
+  });
+
+  botonRemoto.addEventListener('click', () => {
+    modoYaElegido = true;
+    modal.hidden = true;
+    document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
+  });
+</script>
