@@ -241,7 +241,7 @@
   botonCrear.addEventListener('click', async () => {
     const miNombre = pedirMiNombreSiHaceFalta();
     try {
-      const { channel, codigo } = await crearSala();
+      const { channel, codigo } = await crearSala(miNombre);
       canalActivo = channel;
       mostrarPaso(pasoEsperando);
       compartirContenedor.hidden = false;
@@ -263,7 +263,7 @@
     const miNombre = pedirMiNombreSiHaceFalta();
     const codigo = inputCodigo.value.trim().toUpperCase();
     try {
-      const channel = await unirseASala(codigo);
+      const channel = await unirseASala(codigo, miNombre);
       canalActivo = channel;
       mostrarPaso(pasoEsperando);
       // El que se une no tiene código propio que compartir: solo ve el
@@ -275,7 +275,21 @@
         if (estado === 'conectado') alConectar(channel, miNombre);
       });
     } catch (error) {
-      mostrarError(error instanceof ErrorSala ? error.message : 'No pudimos conectar, intenten de nuevo.');
+      if (error instanceof ErrorSala && error.codigo === 'nombre-duplicado') {
+        // getMiNombre() seguiría devolviendo el mismo nombre que chocó, así
+        // que acá se pide uno nuevo explícitamente (window.prompt, no
+        // pedirMiNombreSiHaceFalta) y se guarda con setMiNombre para que el
+        // próximo intento use el nombre corregido.
+        const nuevo = window.prompt('Ese nombre ya lo tiene el otro jugador. Escribí uno distinto:')?.trim();
+        if (nuevo) {
+          setMiNombre(nuevo);
+          mostrarError('Nombre actualizado. Tocá "Unirse" de nuevo.');
+        } else {
+          mostrarError('Ese nombre ya lo tiene el otro jugador. Tocá "Unirse" de nuevo para elegir uno distinto.');
+        }
+      } else {
+        mostrarError(error instanceof ErrorSala ? error.message : 'No pudimos conectar, intenten de nuevo.');
+      }
     }
   });
 

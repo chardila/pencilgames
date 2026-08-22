@@ -16,7 +16,7 @@ export interface MoveChannel {
 
 export class ErrorSala extends Error {
   constructor(
-    public readonly codigo: 'invalido' | 'llena' | 'conexion',
+    public readonly codigo: 'invalido' | 'llena' | 'conexion' | 'nombre-duplicado',
     mensaje: string
   ) {
     super(mensaje);

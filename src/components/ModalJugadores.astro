@@ -16,6 +16,9 @@
       Nombre del jugador 2
       <input type="text" id="input-jugador-2" maxlength="16" placeholder="Jugador 2" />
     </label>
+    <p id="jugadores-error" class="jugadores-error" hidden>
+      Los jugadores no pueden tener el mismo nombre.
+    </p>
     <button type="button" id="modal-jugadores-guardar" class="modal-jugadores__guardar">
       Guardar
     </button>
@@ -67,6 +70,16 @@
     font-weight: 400;
   }
 
+  .jugadores-error {
+    margin-top: 1rem;
+    color: #b00020;
+    font-weight: 700;
+  }
+
+  .jugadores-error[hidden] {
+    display: none;
+  }
+
   .modal-jugadores__guardar {
     margin-top: 1.5rem;
     width: 100%;
@@ -94,18 +107,20 @@
 </style>
 
 <script>
-  import { getPlayerNames, hasStoredPlayerNames, savePlayerNames } from '../lib/players';
+  import { DEFAULTS, getPlayerNames, hasStoredPlayerNames, nombresColisionan, savePlayerNames } from '../lib/players';
 
   const modal = document.getElementById('modal-jugadores')!;
   const abrir = document.getElementById('modal-jugadores-abrir')!;
   const guardar = document.getElementById('modal-jugadores-guardar')!;
   const inputJugador1 = document.getElementById('input-jugador-1') as HTMLInputElement;
   const inputJugador2 = document.getElementById('input-jugador-2') as HTMLInputElement;
+  const errorTexto = document.getElementById('jugadores-error')!;
 
   function cargarInputs(): void {
     const nombres = getPlayerNames();
     inputJugador1.value = nombres[1];
     inputJugador2.value = nombres[2];
+    errorTexto.hidden = true;
   }
 
   cargarInputs();
@@ -120,6 +135,16 @@
   });
 
   guardar.addEventListener('click', () => {
+    // Mismo trim+fallback que aplica savePlayerNames al persistir — se
+    // compara sobre los nombres ya resueltos para que dos campos vacíos
+    // (que caen a defaults distintos) nunca cuenten como colisión.
+    const nombre1 = inputJugador1.value.trim() || DEFAULTS[1];
+    const nombre2 = inputJugador2.value.trim() || DEFAULTS[2];
+    if (nombresColisionan(nombre1, nombre2)) {
+      errorTexto.hidden = false;
+      return;
+    }
+    errorTexto.hidden = true;
     savePlayerNames({ 1: inputJugador1.value, 2: inputJugador2.value });
     modal.hidden = true;
   });

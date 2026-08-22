@@ -48,3 +48,11 @@ export function hasStoredPlayerNames(): boolean {
     return false;
   }
 }
+
+// Comparación sin distinguir mayúsculas ni espacios al borde: "Ana" y " ana "
+// cuentan como el mismo nombre. Se usa para impedir que ambos jugadores
+// terminen con nombres iguales en el marcador (ModalJugadores.astro compara
+// los nombres ya resueltos, no el texto crudo de los inputs).
+export function nombresColisionan(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}

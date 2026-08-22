@@ -1,4 +1,5 @@
 import type { Env } from './index';
+import { normalizarNombre } from './nombre';
 import { ICE_SERVERS_STUN_FALLBACK, obtenerCredencialesTurn } from './turn';
 
 const EXPIRACION_MS = 10 * 60 * 1000;
@@ -7,6 +8,11 @@ type Asiento = 1 | 2;
 
 export class Room {
   private sockets = new Map<Asiento, WebSocket>();
+  // Nombre normalizado por asiento, solo para comparar en el `unirse` — el
+  // servidor nunca reenvía este valor a ningún cliente. El nombre "de
+  // verdad" que se muestra en el marcador sigue viajando por el mensaje
+  // {tipo:'nombre'} sobre el canal de juego, fuera del alcance de Room.
+  private nombres = new Map<Asiento, string>();
 
   constructor(
     private readonly state: DurableObjectState,
@@ -21,6 +27,7 @@ export class Room {
     const url = new URL(request.url);
     const rol = url.searchParams.get('rol');
     const codigo = url.searchParams.get('codigo') ?? '';
+    const nombre = normalizarNombre(url.searchParams.get('nombre') ?? '');
 
     const par = new WebSocketPair();
     const cliente = par[0];
@@ -51,8 +58,15 @@ export class Room {
         servidor.close(4090, 'sala-llena');
         return new Response(null, { status: 101, webSocket: cliente });
       }
+      // Solo se rechaza cuando ambos nombres son no vacíos e iguales: un
+      // cliente que no mande `nombre` (versión vieja, o el creador nunca
+      // registró uno) puede unirse sin fricción.
+      if (nombre && this.nombres.get(1) === nombre) {
+        servidor.close(4091, 'nombre-duplicado');
+        return new Response(null, { status: 101, webSocket: cliente });
+      }
 
-      this.registrarConexion(servidor, 2, codigo);
+      this.registrarConexion(servidor, 2, codigo, nombre);
       await this.completarSala();
       return new Response(null, { status: 101, webSocket: cliente });
     }
@@ -60,12 +74,14 @@ export class Room {
     // rol === 'crear'
     await this.state.storage.put('creadaEn', Date.now());
     this.sockets.clear();
-    this.registrarConexion(servidor, 1, codigo);
+    this.nombres.clear();
+    this.registrarConexion(servidor, 1, codigo, nombre);
     return new Response(null, { status: 101, webSocket: cliente });
   }
 
-  private registrarConexion(servidor: WebSocket, asiento: Asiento, codigo: string): void {
+  private registrarConexion(servidor: WebSocket, asiento: Asiento, codigo: string, nombre: string): void {
     this.sockets.set(asiento, servidor);
+    this.nombres.set(asiento, nombre);
 
     servidor.addEventListener('message', evento => {
       this.retransmitir(asiento, evento.data as string);
@@ -73,6 +89,7 @@ export class Room {
 
     servidor.addEventListener('close', () => {
       this.sockets.delete(asiento);
+      this.nombres.delete(asiento);
       this.enviarControl(asiento === 1 ? 2 : 1, { tipo: 'rival-desconectado' });
     });
 
