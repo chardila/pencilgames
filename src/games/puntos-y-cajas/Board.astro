@@ -166,6 +166,16 @@ const SIZE = 4;
     text-align: center;
   }
 
+  .indicador-turno :global(.indicador-turno__jugador[data-jugador='1']) {
+    color: var(--color-player-1);
+    font-weight: 700;
+  }
+
+  .indicador-turno :global(.indicador-turno__jugador[data-jugador='2']) {
+    color: var(--color-player-2);
+    font-weight: 700;
+  }
+
   .banner-ganador {
     position: fixed;
     inset: 0;
@@ -238,7 +248,10 @@ const SIZE = 4;
       renderTurnIndicator(indicadorTurno, {
         jugador: state.currentPlayer,
         etiqueta: nombres[state.currentPlayer],
-        detalle: `${nombres[1]} ${state.scores[1]} · ${nombres[2]} ${state.scores[2]}`,
+        marcador: {
+          1: { nombre: nombres[1], puntaje: state.scores[1] },
+          2: { nombre: nombres[2], puntaje: state.scores[2] },
+        },
       });
       hideWinnerBanner(bannerGanador);
     } else {
