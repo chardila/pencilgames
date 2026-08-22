@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY } from './engine';
+import type { ConquistaState, ConquistaRegion } from './engine';
+import { esFenceLegal } from './engine';
 
 describe('catálogo de fences', () => {
   test('tiene exactamente 270 candidatos en la cuadrícula 6×6', () => {
@@ -145,5 +147,87 @@ describe('crossesWith', () => {
     const larga = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 2, col: 2 }))!;
     const mitad = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 1 }))!;
     expect(larga.crossesWith.has(mitad.key)).toBe(false);
+  });
+});
+
+function estadoVacio(): ConquistaState {
+  return {
+    size: 6,
+    fences: new Map(),
+    regions: [],
+    currentPlayer: 1,
+    scores: { 1: 0, 2: 0 },
+    status: 'playing',
+  };
+}
+
+describe('esFenceLegal', () => {
+  test('una fence nunca dibujada es legal en un tablero vacío', () => {
+    const info = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }))!;
+    expect(esFenceLegal(estadoVacio(), info)).toBe(true);
+  });
+
+  test('regla 1: una fence ya dibujada no es legal', () => {
+    const info = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }))!;
+    const state = estadoVacio();
+    state.fences.set(info.key, 1);
+    expect(esFenceLegal(state, info)).toBe(false);
+  });
+
+  test('regla 1: una fence larga no es legal si una de sus mitades ya está dibujada', () => {
+    const larga = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 2, col: 2 }))!;
+    const mitad = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 1 }))!;
+    const state = estadoVacio();
+    state.fences.set(mitad.key, 1);
+    expect(esFenceLegal(state, larga)).toBe(false);
+  });
+
+  test('regla 2: una fence no es legal si cruza otra ya dibujada', () => {
+    const af = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 2 }))!;
+    const gb = CANDIDATES_BY_KEY.get(fenceKey({ row: 2, col: 0 }, { row: 0, col: 1 }))!;
+    const state = estadoVacio();
+    state.fences.set(af.key, 1);
+    expect(esFenceLegal(state, gb)).toBe(false);
+  });
+
+  test('regla 3: una fence no es legal si su interior atraviesa una región ya reclamada', () => {
+    // Región reclamada: el cuadro completo (0,0)-(0,1)-(1,1)-(1,0), área 1
+    // (equivalente a lo que pasaría si sus 4 lados ya se hubieran cerrado).
+    const region: ConquistaRegion = {
+      vertices: [
+        { row: 0, col: 0 },
+        { row: 0, col: 1 },
+        { row: 1, col: 1 },
+        { row: 1, col: 0 },
+      ],
+      owner: 1,
+      area: 1,
+      key: 'x',
+    };
+    const state = { ...estadoVacio(), regions: [region] };
+    // La diagonal (0,0)-(1,1) NO es uno de los 4 lados del cuadro — su
+    // punto medio (0.5, 0.5) cae estrictamente dentro del cuadro ya
+    // reclamado ("diagonal tardía", sección 1 del spec).
+    const diagonalTardia = CANDIDATES_BY_KEY.get(
+      fenceKey({ row: 0, col: 0 }, { row: 1, col: 1 })
+    )!;
+    expect(esFenceLegal(state, diagonalTardia)).toBe(false);
+  });
+
+  test('regla 3 no bloquea una fence fuera de la región reclamada', () => {
+    const region: ConquistaRegion = {
+      vertices: [
+        { row: 0, col: 0 },
+        { row: 0, col: 1 },
+        { row: 1, col: 1 },
+        { row: 1, col: 0 },
+      ],
+      owner: 1,
+      area: 1,
+      key: 'x',
+    };
+    const state = { ...estadoVacio(), regions: [region] };
+    const lejos = CANDIDATES_BY_KEY.get(fenceKey({ row: 4, col: 4 }, { row: 4, col: 5 }))!;
+    expect(esFenceLegal(state, lejos)).toBe(true);
   });
 });

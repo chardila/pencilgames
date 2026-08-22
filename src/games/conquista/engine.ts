@@ -167,3 +167,54 @@ attachCrossesWith(ALL_CANDIDATES);
 export const CANDIDATES_BY_KEY: Map<string, FenceInfo> = new Map(
   ALL_CANDIDATES.map(info => [info.key, info])
 );
+
+export interface ConquistaRegion {
+  vertices: Point[];
+  owner: ConquistaPlayer;
+  area: number;
+  key: string;
+}
+
+export interface ConquistaState {
+  size: number;
+  fences: Map<string, ConquistaPlayer>;
+  regions: ConquistaRegion[];
+  currentPlayer: ConquistaPlayer;
+  scores: Record<ConquistaPlayer, number>;
+  status: 'playing' | 'finished';
+}
+
+function segmentMidpoint(f: Fence): Point {
+  return { row: (f.a.row + f.b.row) / 2, col: (f.a.col + f.b.col) / 2 };
+}
+
+// Ray casting estándar, tratando row/col como y/x.
+function pointInPolygon(point: Point, vertices: Point[]): boolean {
+  let inside = false;
+  const n = vertices.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const vi = vertices[i];
+    const vj = vertices[j];
+    const cruza =
+      vi.col > point.col !== vj.col > point.col &&
+      point.row < ((vj.row - vi.row) * (point.col - vi.col)) / (vj.col - vi.col) + vi.row;
+    if (cruza) inside = !inside;
+  }
+  return inside;
+}
+
+export function esFenceLegal(state: ConquistaState, info: FenceInfo): boolean {
+  for (const k of info.collinearGroup) {
+    if (state.fences.has(k)) return false;
+  }
+  for (const k of info.crossesWith) {
+    if (state.fences.has(k)) return false;
+  }
+  for (const sub of info.subSegments) {
+    const mid = segmentMidpoint(sub);
+    for (const region of state.regions) {
+      if (pointInPolygon(mid, region.vertices)) return false;
+    }
+  }
+  return true;
+}
