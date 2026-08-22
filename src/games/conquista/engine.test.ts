@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY } from './engine';
+import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY, buildGraph } from './engine';
 import type { ConquistaState, ConquistaRegion } from './engine';
 import { esFenceLegal } from './engine';
 
@@ -229,5 +229,36 @@ describe('esFenceLegal', () => {
     const state = { ...estadoVacio(), regions: [region] };
     const lejos = CANDIDATES_BY_KEY.get(fenceKey({ row: 4, col: 4 }, { row: 4, col: 5 }))!;
     expect(esFenceLegal(state, lejos)).toBe(true);
+  });
+});
+
+describe('buildGraph', () => {
+  test('una fence larga aporta 2 aristas al grafo (sus 2 mitades), no 1', () => {
+    const fences = new Map<string, 1 | 2>([
+      [fenceKey({ row: 0, col: 0 }, { row: 2, col: 2 }), 1],
+    ]);
+    const graph = buildGraph(fences);
+    const vecinosDeOrigen = graph.neighbors.get('0,0') ?? [];
+    const vecinosDeCentro = graph.neighbors.get('1,1') ?? [];
+    expect(vecinosDeOrigen).toEqual([{ row: 1, col: 1 }]);
+    // El punto medio queda con 2 vecinos: el origen y el destino.
+    expect(vecinosDeCentro.length).toBe(2);
+  });
+
+  test('los vecinos de un vértice quedan ordenados por ángulo', () => {
+    // En el punto B(0,1) del rectángulo 2x1 dividido (ver spec sección 3),
+    // los vecinos C(0°), E(90°), A(180°) deben quedar en ese orden ascendente.
+    const fences = new Map<string, 1 | 2>([
+      [fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }), 1], // A-B
+      [fenceKey({ row: 0, col: 1 }, { row: 0, col: 2 }), 1], // B-C
+      [fenceKey({ row: 0, col: 1 }, { row: 1, col: 1 }), 1], // B-E
+    ]);
+    const graph = buildGraph(fences);
+    const vecinosDeB = graph.neighbors.get('0,1')!;
+    expect(vecinosDeB).toEqual([
+      { row: 0, col: 2 }, // C
+      { row: 1, col: 1 }, // E
+      { row: 0, col: 0 }, // A
+    ]);
   });
 });

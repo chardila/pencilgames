@@ -218,3 +218,37 @@ export function esFenceLegal(state: ConquistaState, info: FenceInfo): boolean {
   }
   return true;
 }
+
+export interface Graph {
+  neighbors: Map<string, Point[]>;
+}
+
+export function buildGraph(fences: Map<string, ConquistaPlayer>): Graph {
+  const adjacency = new Map<string, Point[]>();
+
+  function addEdge(p: Point, q: Point): void {
+    const key = pointKey(p);
+    const list = adjacency.get(key) ?? [];
+    list.push(q);
+    adjacency.set(key, list);
+  }
+
+  for (const key of fences.keys()) {
+    const info = CANDIDATES_BY_KEY.get(key);
+    if (!info) continue;
+    for (const sub of info.subSegments) {
+      addEdge(sub.a, sub.b);
+      addEdge(sub.b, sub.a);
+    }
+  }
+
+  for (const [key, list] of adjacency) {
+    const [row, col] = key.split(',').map(Number);
+    list.sort(
+      (p, q) =>
+        Math.atan2(p.row - row, p.col - col) - Math.atan2(q.row - row, q.col - col)
+    );
+  }
+
+  return { neighbors: adjacency };
+}
