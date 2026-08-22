@@ -78,6 +78,15 @@
     modal.hidden = false;
   });
 
+  // El deep-link ?sala=CODIGO (ModalJuegoRemoto) salta directo al paso
+  // "Unirse" sin pasar nunca por los botones de este modal, así que
+  // modoYaElegido seguiría en false. Sin este listener, reabrir las
+  // instrucciones ("?") durante esa partida remota y cerrarlas de nuevo
+  // volvería a mostrar "¿Cómo van a jugar?" encima de la partida en curso.
+  document.addEventListener('canal-remoto-listo', () => {
+    modoYaElegido = true;
+  });
+
   botonLocal.addEventListener('click', () => {
     modoYaElegido = true;
     modal.hidden = true;
