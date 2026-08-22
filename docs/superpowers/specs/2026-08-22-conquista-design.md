@@ -1,9 +1,8 @@
 # Conquista — diseño
 
-> **Estado: diseño completo, las 7 secciones aprobadas por el usuario
-> sección por sección durante el brainstorming.** Pendiente solo la revisión
-> final del documento completo (gate del propio proceso de brainstorming)
-> antes de invocar `writing-plans`.
+> **Estado: diseño completo y aprobado en su totalidad por el usuario**
+> (sección por sección durante el brainstorming, y luego el documento
+> completo de una sola pasada). Listo para `writing-plans`.
 
 Fuente de la mecánica base: `abstract-games-by-category/01-2-players/36-conquista.md`.
 Ese documento describe la mecánica genérica; **este spec lo reemplaza en todo
@@ -452,14 +451,9 @@ cual (alcance de 2 jugadores ya decidido).
 
 ## Próximo paso
 
-Autorevisión de todo el documento ya hecha (placeholders, consistencia,
-ambigüedad, alcance — sin hallazgos que ameriten reescritura, solo los tres
-ajustes menores ya aplicados arriba: teorema de Pick para el puntaje,
-encabezado y esta sección). Falta:
-
-1. Que el usuario revise el documento completo (las 7 secciones juntas,
-   no solo por partes como se aprobaron durante el brainstorming) y
-   confirme, en particular, la asunción del punto medio (sección 1).
-2. Solo entonces invocar `superpowers:writing-plans` para el plan de
-   implementación. **No** incluye la extracción de `<TableroJuego>`
-   (prerequisito separado, ver "Alcance" al inicio de este documento).
+Documento aprobado en su totalidad por el usuario, incluida la asunción del
+punto medio (sección 1). Siguiente: `superpowers:writing-plans` para el
+plan de implementación. **No** incluye la extracción de `<TableroJuego>`
+(prerequisito separado, ver "Alcance" al inicio de este documento) — ese
+prerequisito debe estar resuelto (o al menos planeado como paso previo)
+antes de ejecutar el plan de Conquista.
