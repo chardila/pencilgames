@@ -97,7 +97,35 @@ function buildCatalog(): FenceInfo[] {
   return result;
 }
 
+function attachCollinearGroups(candidates: FenceInfo[]): void {
+  const parentsOfSubSegment = new Map<string, string[]>();
+  for (const c of candidates) {
+    if (c.subSegments.length === 2) {
+      for (const sub of c.subSegments) {
+        const subKey = fenceKey(sub.a, sub.b);
+        const list = parentsOfSubSegment.get(subKey) ?? [];
+        list.push(c.key);
+        parentsOfSubSegment.set(subKey, list);
+      }
+    }
+  }
+
+  for (const c of candidates) {
+    c.collinearGroup.add(c.key);
+    if (c.subSegments.length === 2) {
+      for (const sub of c.subSegments) {
+        c.collinearGroup.add(fenceKey(sub.a, sub.b));
+      }
+    } else {
+      for (const parentKey of parentsOfSubSegment.get(c.key) ?? []) {
+        c.collinearGroup.add(parentKey);
+      }
+    }
+  }
+}
+
 export const ALL_CANDIDATES: FenceInfo[] = buildCatalog();
+attachCollinearGroups(ALL_CANDIDATES);
 export const CANDIDATES_BY_KEY: Map<string, FenceInfo> = new Map(
   ALL_CANDIDATES.map(info => [info.key, info])
 );

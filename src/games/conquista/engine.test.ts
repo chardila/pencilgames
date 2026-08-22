@@ -97,3 +97,27 @@ describe('catálogo de fences', () => {
     expect(longVertical.subSegments[1]).toEqual({ a: { row: 1, col: 0 }, b: { row: 2, col: 0 } });
   });
 });
+
+describe('collinearGroup', () => {
+  test('una fence larga (2,2) tiene grupo de tamaño 3 con sus 2 mitades', () => {
+    const a = { row: 0, col: 0 };
+    const b = { row: 2, col: 2 };
+    const mid = { row: 1, col: 1 };
+    const larga = CANDIDATES_BY_KEY.get(fenceKey(a, b))!;
+    expect(larga.collinearGroup.size).toBe(3);
+    expect(larga.collinearGroup.has(fenceKey(a, mid))).toBe(true);
+    expect(larga.collinearGroup.has(fenceKey(mid, b))).toBe(true);
+  });
+
+  test('una fence primitiva sin fence larga que la contenga tiene grupo de tamaño 1', () => {
+    // Diagonal "caballo" (1,2): no es mitad de ninguna fence más larga del catálogo.
+    const info = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 2 }))!;
+    expect(info.collinearGroup).toEqual(new Set([info.key]));
+  });
+
+  test('una mitad de fence larga incluye esa fence larga en su propio grupo', () => {
+    const mitad = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 1 }))!;
+    const larga = fenceKey({ row: 0, col: 0 }, { row: 2, col: 2 });
+    expect(mitad.collinearGroup.has(larga)).toBe(true);
+  });
+});
