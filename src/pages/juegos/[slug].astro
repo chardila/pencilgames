@@ -3,6 +3,8 @@ import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ModalInstrucciones from '../../components/ModalInstrucciones.astro';
 import ModalJuegoRemoto from '../../components/ModalJuegoRemoto.astro';
+import ModalModoJuego from '../../components/ModalModoJuego.astro';
+import ModalJugadores from '../../components/ModalJugadores.astro';
 import TresEnRayaBoard from '../../games/tres-en-raya/Board.astro';
 import PuntosYCajasBoard from '../../games/puntos-y-cajas/Board.astro';
 import AgujeroNegroBoard from '../../games/agujero-negro/Board.astro';
@@ -30,12 +32,16 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
   <header class="cabecera-juego">
     <a href="/" class="cabecera-juego__volver">← Juegos</a>
     <h1 class="cabecera-juego__titulo">{juego.data.title}</h1>
-    <ModalJuegoRemoto />
   </header>
   <ModalInstrucciones title={juego.data.title}>
     <Content />
   </ModalInstrucciones>
-  <Board />
+  <ModalModoJuego />
+  <ModalJuegoRemoto />
+  <ModalJugadores />
+  <div id="contenedor-tablero" hidden>
+    <Board />
+  </div>
 </BaseLayout>
 
 <style>
@@ -67,3 +73,17 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
     white-space: nowrap;
   }
 </style>
+
+<script>
+  const contenedorTablero = document.getElementById('contenedor-tablero')!;
+  const botonCambiarNombres = document.getElementById('modal-jugadores-abrir')!;
+
+  document.addEventListener('modo-elegido-local', () => {
+    contenedorTablero.hidden = false;
+    botonCambiarNombres.hidden = false;
+  });
+
+  document.addEventListener('canal-remoto-listo', () => {
+    contenedorTablero.hidden = false;
+  });
+</script>
