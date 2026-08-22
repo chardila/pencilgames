@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { ALL_CANDIDATES, GRID_SIZE, fenceKey } from './engine';
+import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY } from './engine';
 
 describe('catálogo de fences', () => {
   test('tiene exactamente 270 candidatos en la cuadrícula 6×6', () => {
@@ -58,5 +58,42 @@ describe('catálogo de fences', () => {
     const a = { row: 1, col: 2 };
     const b = { row: 0, col: 0 };
     expect(fenceKey(a, b)).toBe(fenceKey(b, a));
+  });
+
+  test('fences primitivas (mcd=1) tienen un solo elemento en subSegments', () => {
+    // Ortogonal corta: offset (0,1)
+    const shortOrtho = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }))!;
+    expect(shortOrtho.subSegments.length).toBe(1);
+    expect(shortOrtho.subSegments[0]).toEqual(shortOrtho.fence);
+
+    // Diagonal 1×1: offset (1,1)
+    const diag1x1 = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 1 }))!;
+    expect(diag1x1.subSegments.length).toBe(1);
+    expect(diag1x1.subSegments[0]).toEqual(diag1x1.fence);
+
+    // Diagonal "caballo": offset (1,2)
+    const knight = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 2 }))!;
+    expect(knight.subSegments.length).toBe(1);
+    expect(knight.subSegments[0]).toEqual(knight.fence);
+  });
+
+  test('fences no primitivas (mcd=2) tienen 2 subSegments de longitud unitaria con punto medio correcto', () => {
+    // Ortogonal larga: offset (0,2) desde (0,0) a (0,2)
+    const longHorizontal = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 0, col: 2 }))!;
+    expect(longHorizontal.subSegments.length).toBe(2);
+    expect(longHorizontal.subSegments[0]).toEqual({ a: { row: 0, col: 0 }, b: { row: 0, col: 1 } });
+    expect(longHorizontal.subSegments[1]).toEqual({ a: { row: 0, col: 1 }, b: { row: 0, col: 2 } });
+
+    // Diagonal larga 2×2: offset (2,2) desde (0,0) a (2,2)
+    const longDiag = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 2, col: 2 }))!;
+    expect(longDiag.subSegments.length).toBe(2);
+    expect(longDiag.subSegments[0]).toEqual({ a: { row: 0, col: 0 }, b: { row: 1, col: 1 } });
+    expect(longDiag.subSegments[1]).toEqual({ a: { row: 1, col: 1 }, b: { row: 2, col: 2 } });
+
+    // Vertical larga: offset (2,0) desde (0,0) a (2,0)
+    const longVertical = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 2, col: 0 }))!;
+    expect(longVertical.subSegments.length).toBe(2);
+    expect(longVertical.subSegments[0]).toEqual({ a: { row: 0, col: 0 }, b: { row: 1, col: 0 } });
+    expect(longVertical.subSegments[1]).toEqual({ a: { row: 1, col: 0 }, b: { row: 2, col: 0 } });
   });
 });
