@@ -93,6 +93,7 @@ const { title } = Astro.props;
 
   cerrar.addEventListener('click', () => {
     modal.hidden = true;
+    document.dispatchEvent(new CustomEvent('instrucciones-cerradas'));
   });
 
   abrir.addEventListener('click', () => {
