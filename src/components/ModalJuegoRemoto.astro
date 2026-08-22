@@ -10,6 +10,10 @@
     <h2 id="modal-remoto-titulo">Jugar por internet</h2>
 
     <div id="modal-remoto-elegir" class="modal-remoto__paso">
+      <label class="modal-remoto__campo-nombre">
+        Tu nombre
+        <input type="text" id="modal-remoto-input-nombre" maxlength="16" placeholder="Jugador" />
+      </label>
       <button type="button" id="modal-remoto-crear" class="modal-remoto__boton">Crear sala</button>
       <button type="button" id="modal-remoto-mostrar-unirse" class="modal-remoto__boton">
         Unirse con código
@@ -47,8 +51,6 @@
     <button type="button" id="modal-remoto-cerrar" class="modal-remoto__cerrar">Cancelar</button>
   </div>
 </div>
-
-<button type="button" id="modal-remoto-abrir" class="modal-remoto__abrir">🌐 Jugar por internet</button>
 
 <style>
   .modal-remoto {
@@ -103,6 +105,22 @@
     min-height: var(--tap-target-min);
   }
 
+  .modal-remoto__campo-nombre {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-weight: 700;
+  }
+
+  .modal-remoto__campo-nombre input {
+    padding: 0.75rem;
+    font-size: 1rem;
+    border-radius: var(--radius);
+    border: 1px solid #ddd;
+    min-height: var(--tap-target-min);
+    font-weight: 400;
+  }
+
   .modal-remoto__boton {
     padding: 0.75rem;
     border: none;
@@ -149,18 +167,6 @@
     background: var(--color-surface);
     min-height: var(--tap-target-min);
   }
-
-  .modal-remoto__abrir {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0.9rem;
-    border: 1px solid #ddd;
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    font-weight: 700;
-    min-height: var(--tap-target-min);
-  }
 </style>
 
 <script>
@@ -169,7 +175,6 @@
   import type { MoveChannel } from '../lib/remoto/types';
 
   const modal = document.getElementById('modal-remoto')!;
-  const abrir = document.getElementById('modal-remoto-abrir')!;
   const cerrar = document.getElementById('modal-remoto-cerrar')!;
   const pasoElegir = document.getElementById('modal-remoto-elegir')!;
   const pasoUnirse = document.getElementById('modal-remoto-unirse')!;
@@ -178,6 +183,7 @@
   const botonMostrarUnirse = document.getElementById('modal-remoto-mostrar-unirse')!;
   const botonConfirmarUnirse = document.getElementById('modal-remoto-confirmar-unirse')!;
   const inputCodigo = document.getElementById('modal-remoto-input-codigo') as HTMLInputElement;
+  const inputNombre = document.getElementById('modal-remoto-input-nombre') as HTMLInputElement;
   const compartirContenedor = document.getElementById('modal-remoto-compartir')!;
   const codigoMostrado = document.getElementById('modal-remoto-codigo')!;
   const botonCopiar = document.getElementById('modal-remoto-copiar')!;
@@ -203,12 +209,13 @@
     errorTexto.hidden = false;
   }
 
-  function pedirMiNombreSiHaceFalta(): string {
-    let nombre = getMiNombre();
-    if (!nombre) {
-      nombre = window.prompt('¿Cómo te llamas?')?.trim() || 'Jugador';
-      setMiNombre(nombre);
-    }
+  function precargarNombre(): void {
+    inputNombre.value = getMiNombre() ?? '';
+  }
+
+  function resolverMiNombre(): string {
+    const nombre = inputNombre.value.trim() || 'Jugador';
+    setMiNombre(nombre);
     return nombre;
   }
 
@@ -219,12 +226,13 @@
     document.dispatchEvent(new CustomEvent('canal-remoto-listo', { detail: { channel, miNombre } }));
   }
 
-  abrir.addEventListener('click', () => {
+  document.addEventListener('abrir-modal-remoto', () => {
     // Defensivo: si quedara un canal de un intento anterior que no pasó por
     // Cancelar ni por alConectar, se cierra antes de empezar de nuevo.
     canalActivo?.cerrar();
     canalActivo = null;
     mostrarPaso(pasoElegir);
+    precargarNombre();
     modal.hidden = false;
   });
 
@@ -236,10 +244,11 @@
     canalActivo?.cerrar();
     canalActivo = null;
     modal.hidden = true;
+    document.dispatchEvent(new CustomEvent('modal-remoto-cancelado'));
   });
 
   botonCrear.addEventListener('click', async () => {
-    const miNombre = pedirMiNombreSiHaceFalta();
+    const miNombre = resolverMiNombre();
     try {
       const { channel, codigo } = await crearSala(miNombre);
       canalActivo = channel;
@@ -260,7 +269,7 @@
   });
 
   botonConfirmarUnirse.addEventListener('click', async () => {
-    const miNombre = pedirMiNombreSiHaceFalta();
+    const miNombre = resolverMiNombre();
     const codigo = inputCodigo.value.trim().toUpperCase();
     try {
       const channel = await unirseASala(codigo, miNombre);
@@ -276,17 +285,7 @@
       });
     } catch (error) {
       if (error instanceof ErrorSala && error.codigo === 'nombre-duplicado') {
-        // getMiNombre() seguiría devolviendo el mismo nombre que chocó, así
-        // que acá se pide uno nuevo explícitamente (window.prompt, no
-        // pedirMiNombreSiHaceFalta) y se guarda con setMiNombre para que el
-        // próximo intento use el nombre corregido.
-        const nuevo = window.prompt('Ese nombre ya lo tiene el otro jugador. Escribí uno distinto:')?.trim();
-        if (nuevo) {
-          setMiNombre(nuevo);
-          mostrarError('Nombre actualizado. Tocá "Unirse" de nuevo.');
-        } else {
-          mostrarError('Ese nombre ya lo tiene el otro jugador. Tocá "Unirse" de nuevo para elegir uno distinto.');
-        }
+        mostrarError('Ese nombre ya lo tiene el otro jugador. Escribí uno distinto arriba y tocá "Unirse" de nuevo.');
       } else {
         mostrarError(error instanceof ErrorSala ? error.message : 'No pudimos conectar, intenten de nuevo.');
       }
@@ -320,6 +319,7 @@
   if (codigoPrellenado) {
     document.getElementById('modal-instrucciones')?.setAttribute('hidden', '');
     inputCodigo.value = codigoPrellenado.toUpperCase();
+    precargarNombre();
     mostrarPaso(pasoUnirse);
     modal.hidden = false;
   }
