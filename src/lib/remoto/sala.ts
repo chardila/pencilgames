@@ -12,14 +12,16 @@ function urlWorkerPorDefecto(): string {
 }
 
 export async function crearSala(
+  nombre: string,
   workerUrl: string = urlWorkerPorDefecto()
 ): Promise<{ channel: MoveChannel; codigo: string }> {
-  return CanalWebRTC.crear(workerUrl);
+  return CanalWebRTC.crear(workerUrl, nombre);
 }
 
 export async function unirseASala(
   codigo: string,
+  nombre: string,
   workerUrl: string = urlWorkerPorDefecto()
 ): Promise<MoveChannel> {
-  return CanalWebRTC.unirse(workerUrl, codigo);
+  return CanalWebRTC.unirse(workerUrl, codigo, nombre);
 }

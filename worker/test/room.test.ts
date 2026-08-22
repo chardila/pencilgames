@@ -16,11 +16,12 @@ interface Buzon {
 
 const buzones = new WeakMap<WebSocket, Buzon>();
 
-function conectar(rol: 'crear' | 'unirse', codigo: string): Promise<WebSocket> {
+function conectar(rol: 'crear' | 'unirse', codigo: string, nombre?: string): Promise<WebSocket> {
   const id = env.ROOMS.idFromName(codigo);
   const stub = env.ROOMS.get(id);
+  const nombreQuery = nombre ? `&nombre=${encodeURIComponent(nombre)}` : '';
   return stub
-    .fetch(`https://ejemplo.test/conectar?rol=${rol}&codigo=${codigo}`, {
+    .fetch(`https://ejemplo.test/conectar?rol=${rol}&codigo=${codigo}${nombreQuery}`, {
       headers: { Upgrade: 'websocket' },
     })
     .then(respuesta => {
@@ -104,6 +105,36 @@ describe('Room', () => {
     ws1.send(JSON.stringify({ tipo: 'movimiento', payload: 4 }));
     const recibido = await esperarMensajeDeTipo(ws2, 'movimiento');
     expect(recibido).toEqual({ tipo: 'movimiento', payload: 4 });
+  });
+
+  it('rechaza unirse con el mismo nombre que el creador (sin distinguir mayúsculas ni espacios) con cierre 4091', async () => {
+    const ws1 = await conectar('crear', 'CODIGO06', 'Ana');
+    await esperarMensajeDeTipo(ws1, 'conectado');
+
+    const ws2 = await conectar('unirse', 'CODIGO06', ' ana ');
+    const codigoCierre = await esperarCierre(ws2);
+    expect(codigoCierre).toBe(4091);
+  });
+
+  it('tras un rechazo por nombre duplicado, el asiento 2 sigue libre para un nombre distinto', async () => {
+    const ws1 = await conectar('crear', 'CODIGO07', 'Ana');
+    await esperarMensajeDeTipo(ws1, 'conectado');
+
+    const ws2 = await conectar('unirse', 'CODIGO07', 'Ana');
+    await esperarCierre(ws2);
+
+    const ws3 = await conectar('unirse', 'CODIGO07', 'Beto');
+    const conectado3 = await esperarMensajeDeTipo(ws3, 'conectado');
+    expect(conectado3).toEqual({ tipo: 'conectado', asiento: 2, codigo: 'CODIGO07' });
+  });
+
+  it('permite unirse sin nombre aunque el creador tampoco haya mandado uno', async () => {
+    const ws1 = await conectar('crear', 'CODIGO08');
+    await esperarMensajeDeTipo(ws1, 'conectado');
+
+    const ws2 = await conectar('unirse', 'CODIGO08');
+    const conectado2 = await esperarMensajeDeTipo(ws2, 'conectado');
+    expect(conectado2).toEqual({ tipo: 'conectado', asiento: 2, codigo: 'CODIGO08' });
   });
 
   it('avisa al rival cuando un jugador se desconecta', async () => {

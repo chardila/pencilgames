@@ -48,6 +48,8 @@ function esperarConectado(ws: WebSocket): Promise<{ asiento: 1 | 2; codigo: stri
       limpiar();
       if (evento.code === 4040) reject(new ErrorSala('invalido', 'Ese código no es válido'));
       else if (evento.code === 4090) reject(new ErrorSala('llena', 'Esa sala ya está llena'));
+      else if (evento.code === 4091)
+        reject(new ErrorSala('nombre-duplicado', 'Ese nombre ya lo tiene el otro jugador'));
       else reject(new ErrorSala('conexion', 'No pudimos conectar'));
     };
     const alError = () => {
@@ -90,14 +92,16 @@ export class CanalWebRTC implements MoveChannel {
     this.ws.addEventListener('close', () => this.cambiarEstado('desconectado'));
   }
 
-  static async crear(workerUrl: string): Promise<{ channel: CanalWebRTC; codigo: string }> {
-    const ws = new WebSocket(`${workerUrl}/crear`);
+  static async crear(workerUrl: string, nombre: string): Promise<{ channel: CanalWebRTC; codigo: string }> {
+    const ws = new WebSocket(`${workerUrl}/crear?nombre=${encodeURIComponent(nombre)}`);
     const { asiento, codigo } = await esperarConectado(ws);
     return { channel: new CanalWebRTC(asiento, ws), codigo };
   }
 
-  static async unirse(workerUrl: string, codigo: string): Promise<CanalWebRTC> {
-    const ws = new WebSocket(`${workerUrl}/unirse?codigo=${encodeURIComponent(codigo)}`);
+  static async unirse(workerUrl: string, codigo: string, nombre: string): Promise<CanalWebRTC> {
+    const ws = new WebSocket(
+      `${workerUrl}/unirse?codigo=${encodeURIComponent(codigo)}&nombre=${encodeURIComponent(nombre)}`
+    );
     const { asiento } = await esperarConectado(ws);
     return new CanalWebRTC(asiento, ws);
   }

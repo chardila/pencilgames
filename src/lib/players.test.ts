@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getPlayerNames, hasStoredPlayerNames, savePlayerNames } from './players';
+import { getPlayerNames, hasStoredPlayerNames, nombresColisionan, savePlayerNames } from './players';
 
 class MemoryStorage {
   private store = new Map<string, string>();
@@ -67,5 +67,23 @@ describe('players', () => {
     expect(hasStoredPlayerNames()).toBe(false);
     savePlayerNames({ 1: 'Ana', 2: 'Luis' });
     expect(hasStoredPlayerNames()).toBe(true);
+  });
+});
+
+describe('nombresColisionan', () => {
+  it('detecta nombres idénticos', () => {
+    expect(nombresColisionan('Ana', 'Ana')).toBe(true);
+  });
+
+  it('no distingue mayúsculas ni espacios al borde', () => {
+    expect(nombresColisionan('Ana', ' ana ')).toBe(true);
+  });
+
+  it('no colisiona si los nombres son distintos', () => {
+    expect(nombresColisionan('Ana', 'Luis')).toBe(false);
+  });
+
+  it('no colisiona entre los dos defaults', () => {
+    expect(nombresColisionan('Jugador 1', 'Jugador 2')).toBe(false);
   });
 });

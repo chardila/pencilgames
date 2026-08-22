@@ -7,9 +7,9 @@ describe('crearSala', () => {
     const resultadoFalso = { channel: {} as any, codigo: 'ABC123' };
     const espia = vi.spyOn(canalWebRTC.CanalWebRTC, 'crear').mockResolvedValue(resultadoFalso);
 
-    const resultado = await crearSala('wss://ejemplo.test');
+    const resultado = await crearSala('Ana', 'wss://ejemplo.test');
 
-    expect(espia).toHaveBeenCalledWith('wss://ejemplo.test');
+    expect(espia).toHaveBeenCalledWith('wss://ejemplo.test', 'Ana');
     expect(resultado).toBe(resultadoFalso);
     espia.mockRestore();
   });
@@ -20,9 +20,9 @@ describe('unirseASala', () => {
     const canalFalso = {} as any;
     const espia = vi.spyOn(canalWebRTC.CanalWebRTC, 'unirse').mockResolvedValue(canalFalso);
 
-    const resultado = await unirseASala('ABC123', 'wss://ejemplo.test');
+    const resultado = await unirseASala('ABC123', 'Ana', 'wss://ejemplo.test');
 
-    expect(espia).toHaveBeenCalledWith('wss://ejemplo.test', 'ABC123');
+    expect(espia).toHaveBeenCalledWith('wss://ejemplo.test', 'ABC123', 'Ana');
     expect(resultado).toBe(canalFalso);
     espia.mockRestore();
   });

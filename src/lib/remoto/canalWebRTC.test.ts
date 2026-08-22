@@ -103,7 +103,7 @@ beforeEach(() => {
 
 describe('CanalWebRTC.crear / unirse', () => {
   it('crear() resuelve con el asiento y código que envía el servidor', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     WebSocketFalso.instancias[0].emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel, codigo } = await promesa;
     expect(codigo).toBe('ABC123');
@@ -111,21 +111,43 @@ describe('CanalWebRTC.crear / unirse', () => {
   });
 
   it('unirse() rechaza con ErrorSala("invalido") si el servidor cierra con 4040', async () => {
-    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'XXXXXX');
+    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'XXXXXX', 'Ana');
     WebSocketFalso.instancias[0].emitirCierre(4040);
     await expect(promesa).rejects.toMatchObject({ codigo: 'invalido' });
   });
 
   it('unirse() rechaza con ErrorSala("llena") si el servidor cierra con 4090', async () => {
-    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'XXXXXX');
+    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'XXXXXX', 'Ana');
     WebSocketFalso.instancias[0].emitirCierre(4090);
     await expect(promesa).rejects.toMatchObject({ codigo: 'llena' });
+  });
+
+  it('unirse() rechaza con ErrorSala("nombre-duplicado") si el servidor cierra con 4091', async () => {
+    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'XXXXXX', 'Ana');
+    WebSocketFalso.instancias[0].emitirCierre(4091);
+    await expect(promesa).rejects.toMatchObject({ codigo: 'nombre-duplicado' });
+  });
+
+  it('crear() manda el nombre como query param en la URL del WebSocket', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana Pérez');
+    WebSocketFalso.instancias[0].emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
+    await promesa;
+    expect(WebSocketFalso.instancias[0].url).toBe('wss://ejemplo.test/crear?nombre=Ana%20P%C3%A9rez');
+  });
+
+  it('unirse() manda el código y el nombre como query params en la URL del WebSocket', async () => {
+    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'XXXXXX', 'Ana Pérez');
+    WebSocketFalso.instancias[0].emitirMensaje({ tipo: 'conectado', asiento: 2, codigo: 'XXXXXX' });
+    await promesa;
+    expect(WebSocketFalso.instancias[0].url).toBe(
+      'wss://ejemplo.test/unirse?codigo=XXXXXX&nombre=Ana%20P%C3%A9rez'
+    );
   });
 });
 
 describe('CanalWebRTC — envío de mensajes', () => {
   it('usa el WebSocket para enviar mientras el data channel no está abierto', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -136,7 +158,7 @@ describe('CanalWebRTC — envío de mensajes', () => {
   });
 
   it('entrega al callback de alRecibir un mensaje de juego llegado por el WebSocket', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -149,7 +171,7 @@ describe('CanalWebRTC — envío de mensajes', () => {
   });
 
   it('no pierde un mensaje de juego llegado antes de registrar alRecibir: lo entrega en cuanto se registra', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -169,7 +191,7 @@ describe('CanalWebRTC — envío de mensajes', () => {
   });
 
   it('el buffer solo se entrega una vez: un segundo alRecibir no vuelve a recibir mensajes ya entregados', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -189,7 +211,7 @@ describe('CanalWebRTC — envío de mensajes', () => {
 
 describe('CanalWebRTC — desconexión', () => {
   it('cambia a estado desconectado cuando llega rival-desconectado', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -205,7 +227,7 @@ describe('CanalWebRTC — desconexión', () => {
 describe('CanalWebRTC — fallback a relay tras timeout', () => {
   it('pasa a conectado por relay si el data channel no abre en 15s', async () => {
     vi.useFakeTimers();
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -227,7 +249,7 @@ describe('CanalWebRTC — fallback a relay tras timeout', () => {
 describe('CanalWebRTC — timeout de conexión inicial', () => {
   it('crear() rechaza con ErrorSala("conexion") si "conectado" no llega en 10s, y cierra el WebSocket', async () => {
     vi.useFakeTimers();
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
 
     const expectativa = expect(promesa).rejects.toMatchObject({ codigo: 'conexion' });
@@ -240,7 +262,7 @@ describe('CanalWebRTC — timeout de conexión inicial', () => {
 
   it('unirse() rechaza con ErrorSala("conexion") si "conectado" no llega en 10s', async () => {
     vi.useFakeTimers();
-    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'ABC123');
+    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'ABC123', 'Ana');
 
     const expectativa = expect(promesa).rejects.toMatchObject({ codigo: 'conexion' });
     await vi.advanceTimersByTimeAsync(10000);
@@ -251,7 +273,7 @@ describe('CanalWebRTC — timeout de conexión inicial', () => {
 
   it('si "conectado" llega antes del timeout, no rechaza (el timeout se limpia)', async () => {
     vi.useFakeTimers();
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
 
@@ -265,7 +287,7 @@ describe('CanalWebRTC — timeout de conexión inicial', () => {
 
 describe('CanalWebRTC — enviar() no lanza si el WebSocket ya está cerrado', () => {
   it('enviar() no lanza cuando no hay data channel abierto y el WebSocket ya cerró', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -280,7 +302,7 @@ describe('CanalWebRTC — enviar() no lanza si el WebSocket ya está cerrado', (
 
 describe('CanalWebRTC — cerrar()', () => {
   it('cierra el WebSocket subyacente', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -291,7 +313,7 @@ describe('CanalWebRTC — cerrar()', () => {
   });
 
   it('cierra también el data channel y la conexión RTCPeerConnection si ya existen', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -307,7 +329,7 @@ describe('CanalWebRTC — cerrar()', () => {
 
   it('cerrar() detiene el timer de fallback: no resucita el canal a "conectado" cuando el timeout de 15s dispara después', async () => {
     vi.useFakeTimers();
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -334,7 +356,7 @@ describe('CanalWebRTC — cerrar()', () => {
 
 describe('CanalWebRTC — camino feliz P2P (asiento 1)', () => {
   it('pasa a conectado por P2P cuando el data channel emite open, y enviar() usa el data channel', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -360,7 +382,7 @@ describe('CanalWebRTC — camino feliz P2P (asiento 1)', () => {
   });
 
   it('entrega al callback de alRecibir un mensaje de juego llegado por el data channel', async () => {
-    const promesa = CanalWebRTC.crear('wss://ejemplo.test');
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123' });
     const { channel } = await promesa;
@@ -381,7 +403,7 @@ describe('CanalWebRTC — camino feliz P2P (asiento 1)', () => {
 
 describe('CanalWebRTC — responde a una oferta (asiento 2)', () => {
   it('unirse(): negocia setRemoteDescription/createAnswer/setLocalDescription, responde por WebSocket, y usa el canal recibido por ondatachannel para enviar', async () => {
-    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'ABC123');
+    const promesa = CanalWebRTC.unirse('wss://ejemplo.test', 'ABC123', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 2, codigo: 'ABC123' });
     const channel = await promesa;
