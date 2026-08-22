@@ -121,3 +121,29 @@ describe('collinearGroup', () => {
     expect(mitad.collinearGroup.has(larga)).toBe(true);
   });
 });
+
+describe('crossesWith', () => {
+  test('dos diagonales tipo caballo que se cruzan en un punto no entero se detectan mutuamente', () => {
+    // A(0,0)->F(1,2) [offset (1,2)] cruza a G(2,0)->B(0,1) [offset (-2,1)]
+    // en el punto (0.4, 0.8), verificado a mano en la sesión de brainstorming.
+    const af = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 2 }))!;
+    const gb = CANDIDATES_BY_KEY.get(fenceKey({ row: 2, col: 0 }, { row: 0, col: 1 }))!;
+    expect(af.crossesWith.has(gb.key)).toBe(true);
+    expect(gb.crossesWith.has(af.key)).toBe(true);
+  });
+
+  test('dos fences que solo comparten un extremo (cruce en T) no se marcan como cruce', () => {
+    // La diagonal larga A(0,0)->I(2,2) pasa por E(1,1); la ortogonal E->H(2,1)
+    // comparte el punto E pero no debe contar como cruce (T-junction válida).
+    const larga = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 2, col: 2 }))!;
+    const enT = CANDIDATES_BY_KEY.get(fenceKey({ row: 1, col: 1 }, { row: 2, col: 1 }))!;
+    expect(larga.crossesWith.has(enT.key)).toBe(false);
+    expect(enT.crossesWith.has(larga.key)).toBe(false);
+  });
+
+  test('una fence larga y su propia mitad no se marcan como cruce (eso lo cubre collinearGroup)', () => {
+    const larga = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 2, col: 2 }))!;
+    const mitad = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 1 }))!;
+    expect(larga.crossesWith.has(mitad.key)).toBe(false);
+  });
+});

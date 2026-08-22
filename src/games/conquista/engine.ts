@@ -124,8 +124,46 @@ function attachCollinearGroups(candidates: FenceInfo[]): void {
   }
 }
 
+function orientation(p: Point, q: Point, r: Point): number {
+  const val = (q.col - p.col) * (r.row - p.row) - (q.row - p.row) * (r.col - p.col);
+  if (val === 0) return 0;
+  return val > 0 ? 1 : -1;
+}
+
+// ¿Se cruzan f1 y f2 en un punto ESTRICTAMENTE interior a ambos segmentos?
+// Esta es la prueba estándar de "intersección propia" (CLRS): exige que
+// las 4 orientaciones sean no-nulas antes de comparar signos. Cualquier
+// toque en un extremo compartido, o en el punto de paso intermedio de una
+// fence larga (que es un extremo real de la OTRA fence, aunque no lo sea
+// de esta), produce al menos una orientación = 0 y por tanto NUNCA cuenta
+// como cruce — es un empalme en T válido (sección 1 del spec). No hace
+// falta ningún caso especial de colinealidad: el solapamiento colineal
+// genuino entre dos candidatos del catálogo solo ocurre entre una fence
+// larga y sus propias mitades, y eso ya lo cubre `collinearGroup`
+// (Task 2) — nunca entre dos fences primitivas distintas de este catálogo.
+function properlyCrosses(f1: Fence, f2: Fence): boolean {
+  const o1 = orientation(f1.a, f1.b, f2.a);
+  const o2 = orientation(f1.a, f1.b, f2.b);
+  const o3 = orientation(f2.a, f2.b, f1.a);
+  const o4 = orientation(f2.a, f2.b, f1.b);
+
+  return o1 !== 0 && o2 !== 0 && o3 !== 0 && o4 !== 0 && o1 !== o2 && o3 !== o4;
+}
+
+function attachCrossesWith(candidates: FenceInfo[]): void {
+  for (let i = 0; i < candidates.length; i++) {
+    for (let j = i + 1; j < candidates.length; j++) {
+      if (properlyCrosses(candidates[i].fence, candidates[j].fence)) {
+        candidates[i].crossesWith.add(candidates[j].key);
+        candidates[j].crossesWith.add(candidates[i].key);
+      }
+    }
+  }
+}
+
 export const ALL_CANDIDATES: FenceInfo[] = buildCatalog();
 attachCollinearGroups(ALL_CANDIDATES);
+attachCrossesWith(ALL_CANDIDATES);
 export const CANDIDATES_BY_KEY: Map<string, FenceInfo> = new Map(
   ALL_CANDIDATES.map(info => [info.key, info])
 );
