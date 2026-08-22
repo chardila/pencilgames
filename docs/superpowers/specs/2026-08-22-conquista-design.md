@@ -100,6 +100,23 @@ Se evalúan sobre las 270 posiciones posibles del catálogo:
    cuadrado, o una forma más irregular resultante de fences largas). **Regla
    general, sin excepciones** — confirmado explícitamente por el usuario.
 
+**Consecuencia de diseño sobre el encadenamiento múltiple:** con fences
+primitivas (cortas), una jugada puede reclamar **como máximo 1 región**.
+Esto es distinto del clásico "una línea cierra 2 cajas a la vez" de Puntos
+y Cajas: ahí es posible porque una caja individual es la única unidad
+reclamable. Aquí, si se completan los 4 lados de un cuadro sin que exista
+todavía su diagonal, el cuadro **entero** se reclama de inmediato como una
+sola región (regla 3 ya lo protege de subdividirse después) — por lo que
+el estado "faltan solo el lado compartido entre 2 cuadros adyacentes" nunca
+llega a existir: la región más grande que los engloba se reclama primero.
+**El único camino real hacia un reclamo múltiple en una sola jugada es una
+fence larga** (offset con factor común 2, sección "Fences que pasan por un
+punto intermedio" arriba): al añadir sus 2 sub-segmentos al mismo tiempo,
+puede completar 2 regiones distintas en una sola jugada. La sección 6
+(testing) construye el caso de prueba exactamente así — con una fence
+larga, nunca con fences cortas — porque el escenario equivalente con
+fences cortas es geométricamente irrealizable dado el resto de las reglas.
+
 Cuando ninguna de las 270 posiciones pasa las tres reglas, la partida
 termina. Una jugada ilegal no debe cambiar el estado (mismo patrón que
 `playLine` en `puntos-y-cajas/engine.ts`, que devuelve el estado sin cambios
@@ -403,9 +420,13 @@ asientos):
   diagonal tipo caballo).
 - **`jugarFence`**: jugada ilegal devuelve el mismo estado (misma
   referencia o al menos deep-equal); reclamar una región mantiene el turno;
-  encadenar reclamando 2+ regiones en la misma jugada (una sola fence que
-  cierra más de una cara a la vez) mantiene el turno tantas veces como
-  reclame; no reclamar ninguna pasa el turno.
+  encadenar reclamando 2+ regiones en la misma jugada mantiene el turno
+  tantas veces como reclame; no reclamar ninguna pasa el turno. El caso de
+  2+ regiones **debe construirse con una fence larga** (nunca con fences
+  cortas): como se explica en la sección 1, una fence corta reclama como
+  máximo 1 región, porque cualquier región más grande que englobara a 2
+  cuadros adyacentes ya se habría reclamado antes de llegar al lado
+  compartido.
 - **Extracción de caras**: 2-3 grafos pequeños construidos a mano
   (triángulo simple, cuadrado simple, una forma irregular con una diagonal
   tipo caballo) con el resultado esperado de vértices y área conocidos de
