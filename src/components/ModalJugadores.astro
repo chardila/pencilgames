@@ -25,8 +25,8 @@
   </div>
 </div>
 
-<button type="button" id="modal-jugadores-abrir" class="modal-jugadores__abrir">
-  👤 Jugadores
+<button type="button" id="modal-jugadores-abrir" class="modal-jugadores__abrir" hidden>
+  ✏️ Cambiar nombres
 </button>
 
 <style>
@@ -107,7 +107,7 @@
 </style>
 
 <script>
-  import { DEFAULTS, getPlayerNames, hasStoredPlayerNames, nombresColisionan, savePlayerNames } from '../lib/players';
+  import { DEFAULTS, getPlayerNames, nombresColisionan, savePlayerNames } from '../lib/players';
 
   const modal = document.getElementById('modal-jugadores')!;
   const abrir = document.getElementById('modal-jugadores-abrir')!;
@@ -124,10 +124,6 @@
   }
 
   cargarInputs();
-
-  if (!hasStoredPlayerNames()) {
-    modal.hidden = false;
-  }
 
   abrir.addEventListener('click', () => {
     cargarInputs();
