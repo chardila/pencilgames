@@ -11,6 +11,8 @@ export interface PuntosYCajasState {
   size: number;
   horizontalLines: boolean[][];
   verticalLines: boolean[][];
+  horizontalLineOwners: (PuntosPlayer | null)[][];
+  verticalLineOwners: (PuntosPlayer | null)[][];
   boxOwners: (PuntosPlayer | null)[][];
   currentPlayer: PuntosPlayer;
   scores: Record<PuntosPlayer, number>;
@@ -20,6 +22,12 @@ export interface PuntosYCajasState {
 export function createInitialState(size = 4): PuntosYCajasState {
   const horizontalLines = Array.from({ length: size }, () => Array(size - 1).fill(false));
   const verticalLines = Array.from({ length: size - 1 }, () => Array(size).fill(false));
+  const horizontalLineOwners: (PuntosPlayer | null)[][] = Array.from({ length: size }, () =>
+    Array(size - 1).fill(null)
+  );
+  const verticalLineOwners: (PuntosPlayer | null)[][] = Array.from({ length: size - 1 }, () =>
+    Array(size).fill(null)
+  );
   const boxOwners: (PuntosPlayer | null)[][] = Array.from({ length: size - 1 }, () =>
     Array(size - 1).fill(null)
   );
@@ -28,6 +36,8 @@ export function createInitialState(size = 4): PuntosYCajasState {
     size,
     horizontalLines,
     verticalLines,
+    horizontalLineOwners,
+    verticalLineOwners,
     boxOwners,
     currentPlayer: 1,
     scores: { 1: 0, 2: 0 },
@@ -90,19 +100,25 @@ export function playLine(state: PuntosYCajasState, line: LineId): PuntosYCajasSt
 
   const horizontalLines = state.horizontalLines.map(row => [...row]);
   const verticalLines = state.verticalLines.map(row => [...row]);
+  const horizontalLineOwners = state.horizontalLineOwners.map(row => [...row]);
+  const verticalLineOwners = state.verticalLineOwners.map(row => [...row]);
   const boxOwners = state.boxOwners.map(row => [...row]);
   const scores = { ...state.scores };
 
   if (line.type === 'h') {
     horizontalLines[line.row][line.col] = true;
+    horizontalLineOwners[line.row][line.col] = state.currentPlayer;
   } else {
     verticalLines[line.row][line.col] = true;
+    verticalLineOwners[line.row][line.col] = state.currentPlayer;
   }
 
   const nextState: PuntosYCajasState = {
     ...state,
     horizontalLines,
     verticalLines,
+    horizontalLineOwners,
+    verticalLineOwners,
     boxOwners,
     scores,
   };

@@ -67,8 +67,10 @@ El CSS deja de colorear por `[data-trazada='true']` y colorea por
 .linea--v[data-jugador='2']::before { background: var(--color-player-2); }
 ```
 
-`data-trazada` se conserva (sigue controlando si el botón está deshabilitado),
-pero deja de ser el selector usado para el color.
+`data-trazada` sigue escribiéndose en cada línea, pero ya no lo lee ningún
+selector CSS ni lógica de deshabilitado (ese cálculo usa la variable local
+`trazada`, no el atributo); queda como atributo informativo sin efecto
+funcional.
 
 ### 3. Leyenda en el indicador de turno (`src/lib/turnIndicator.ts` +
 `src/games/puntos-y-cajas/Board.astro`)

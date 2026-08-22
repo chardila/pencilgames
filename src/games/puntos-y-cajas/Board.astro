@@ -111,8 +111,12 @@ const SIZE = 4;
     margin: auto 0;
   }
 
-  .linea--h[data-trazada='true']::before {
+  .linea--h[data-jugador='1']::before {
     background: var(--color-player-1);
+  }
+
+  .linea--h[data-jugador='2']::before {
+    background: var(--color-player-2);
   }
 
   .linea--v {
@@ -131,8 +135,12 @@ const SIZE = 4;
     margin: 0 auto;
   }
 
-  .linea--v[data-trazada='true']::before {
+  .linea--v[data-jugador='1']::before {
     background: var(--color-player-1);
+  }
+
+  .linea--v[data-jugador='2']::before {
+    background: var(--color-player-2);
   }
 
   .caja {
@@ -156,6 +164,16 @@ const SIZE = 4;
     font-weight: 700;
     min-height: 2rem;
     text-align: center;
+  }
+
+  .indicador-turno :global(.indicador-turno__jugador[data-jugador='1']) {
+    color: var(--color-player-1);
+    font-weight: 700;
+  }
+
+  .indicador-turno :global(.indicador-turno__jugador[data-jugador='2']) {
+    color: var(--color-player-2);
+    font-weight: 700;
   }
 
   .banner-ganador {
@@ -206,7 +224,10 @@ const SIZE = 4;
       const fila = Number(linea.dataset.fila);
       const columna = Number(linea.dataset.columna);
       const trazada = tipo === 'h' ? state.horizontalLines[fila][columna] : state.verticalLines[fila][columna];
+      const dueno = tipo === 'h' ? state.horizontalLineOwners[fila][columna] : state.verticalLineOwners[fila][columna];
       linea.dataset.trazada = String(trazada);
+      if (dueno) linea.dataset.jugador = String(dueno);
+      else delete linea.dataset.jugador;
       linea.disabled = trazada || state.status !== 'playing' || noEsMiTurno;
     }
 
@@ -227,7 +248,10 @@ const SIZE = 4;
       renderTurnIndicator(indicadorTurno, {
         jugador: state.currentPlayer,
         etiqueta: nombres[state.currentPlayer],
-        detalle: `${nombres[1]} ${state.scores[1]} · ${nombres[2]} ${state.scores[2]}`,
+        marcador: {
+          1: { nombre: nombres[1], puntaje: state.scores[1] },
+          2: { nombre: nombres[2], puntaje: state.scores[2] },
+        },
       });
       hideWinnerBanner(bannerGanador);
     } else {

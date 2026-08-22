@@ -99,4 +99,28 @@ describe('puntos y cajas engine', () => {
     // Una vez terminada, ninguna jugada adicional cambia el estado.
     expect(playLine(state, { type: 'h', row: 0, col: 0 })).toEqual(state);
   });
+
+  it('arranca sin dueños de línea (todas null)', () => {
+    const state = createInitialState(2); // 1x1 caja: h es 2x1, v es 1x2
+    expect(state.horizontalLineOwners).toEqual([[null], [null]]);
+    expect(state.verticalLineOwners).toEqual([[null, null]]);
+  });
+
+  it('trazar una línea registra qué jugador la trazó', () => {
+    const state = createInitialState(2);
+    const next = playLine(state, { type: 'h', row: 0, col: 0 }); // jugador 1
+    expect(next.horizontalLineOwners[0][0]).toBe(1);
+    expect(next.horizontalLineOwners[1][0]).toBeNull();
+  });
+
+  it('la línea que completa una caja también queda registrada con quien la trazó', () => {
+    let state: PuntosYCajasState = createInitialState(2);
+    state = playLine(state, { type: 'h', row: 0, col: 0 }); // jugador 1, pasa a 2
+    state = playLine(state, { type: 'h', row: 1, col: 0 }); // jugador 2, pasa a 1
+    state = playLine(state, { type: 'v', row: 0, col: 0 }); // jugador 1, pasa a 2
+    const next = playLine(state, { type: 'v', row: 0, col: 1 }); // jugador 2 cierra la caja
+
+    expect(next.verticalLineOwners[0][1]).toBe(2);
+    expect(next.boxOwners[0][0]).toBe(2);
+  });
 });
