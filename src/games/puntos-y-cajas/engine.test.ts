@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialState, playLine, type LineId, type PuntosYCajasState } from './engine';
+import {
+  createInitialState,
+  playLine,
+  esLineId,
+  type LineId,
+  type PuntosYCajasState,
+} from './engine';
 
 describe('puntos y cajas engine', () => {
   it('empieza sin líneas, sin cajas y le toca al jugador 1', () => {
@@ -122,5 +128,32 @@ describe('puntos y cajas engine', () => {
 
     expect(next.verticalLineOwners[0][1]).toBe(2);
     expect(next.boxOwners[0][0]).toBe(2);
+  });
+});
+
+describe('puntos-y-cajas - guarda de payload (esLineId)', () => {
+  it('acepta objetos LineId válidos tanto horizontales como verticales', () => {
+    expect(esLineId({ type: 'h', row: 0, col: 1 })).toBe(true);
+    expect(esLineId({ type: 'v', row: 2, col: 3 })).toBe(true);
+  });
+
+  it('rechaza tipos de línea distintos de "h" y "v"', () => {
+    expect(esLineId({ type: 'x', row: 0, col: 1 })).toBe(false);
+    expect(esLineId({ type: '', row: 0, col: 1 })).toBe(false);
+  });
+
+  it('rechaza coordenadas no enteras o no numéricas', () => {
+    expect(esLineId({ type: 'h', row: 1.5, col: 0 })).toBe(false);
+    expect(esLineId({ type: 'h', row: '0', col: 1 })).toBe(false);
+    expect(esLineId({ type: 'h', row: null, col: 1 })).toBe(false);
+  });
+
+  it('rechaza objetos malformados o tipos primitivos', () => {
+    expect(esLineId(null)).toBe(false);
+    expect(esLineId(undefined)).toBe(false);
+    expect(esLineId(42)).toBe(false);
+    expect(esLineId('h-0-1')).toBe(false);
+    expect(esLineId({})).toBe(false);
+    expect(esLineId({ type: 'h' })).toBe(false);
   });
 });

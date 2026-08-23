@@ -19,6 +19,18 @@ export interface PuntosYCajasState {
   status: 'playing' | 'finished';
 }
 
+export function esLineId(payload: unknown): payload is LineId {
+  if (typeof payload !== 'object' || payload === null) return false;
+  const candidato = payload as Record<string, unknown>;
+  return (
+    (candidato.type === 'h' || candidato.type === 'v') &&
+    typeof candidato.row === 'number' &&
+    Number.isInteger(candidato.row) &&
+    typeof candidato.col === 'number' &&
+    Number.isInteger(candidato.col)
+  );
+}
+
 export function createInitialState(size = 4): PuntosYCajasState {
   const horizontalLines = Array.from({ length: size }, () => Array(size - 1).fill(false));
   const verticalLines = Array.from({ length: size - 1 }, () => Array(size).fill(false));
