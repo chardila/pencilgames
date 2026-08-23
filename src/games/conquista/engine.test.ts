@@ -408,6 +408,17 @@ describe('jugarFence', () => {
     expect(state).toEqual(estadoTrasPrimera);
   });
 
+  test('una jugada que no cierra ninguna región pasa el turno al otro jugador', () => {
+    // Sin ningún override manual de currentPlayer: esto ejercita
+    // directamente la rama `claimedCount === 0` de jugarFence.
+    let state = createInitialState();
+    // Fence aislada en una esquina del tablero: no completa ningún
+    // triángulo/cuadro por sí sola.
+    state = jugarFence(state, { a: { row: 4, col: 4 }, b: { row: 4, col: 5 } });
+    expect(state.regions.length).toBe(0);
+    expect(state.currentPlayer).toBe(2);
+  });
+
   test('cerrar un triángulo reclama la región y mantiene el turno del mismo jugador', () => {
     let state = createInitialState();
     state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 0, col: 1 } }); // A-B, no cierra, pasa a 2
