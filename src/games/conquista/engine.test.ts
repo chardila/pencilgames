@@ -103,14 +103,18 @@ describe('catálogo de fences', () => {
 });
 
 describe('collinearGroup', () => {
-  test('una fence larga (2,2) tiene grupo de tamaño 3 con sus 2 mitades', () => {
+  test('una fence larga (2,2) tiene grupo que incluye sus 2 mitades y otras fences que comparten sub-segmentos', () => {
     const a = { row: 0, col: 0 };
     const b = { row: 2, col: 2 };
     const mid = { row: 1, col: 1 };
     const larga = CANDIDATES_BY_KEY.get(fenceKey(a, b))!;
-    expect(larga.collinearGroup.size).toBe(3);
+    // Incluye: (0,0)-(2,2), (0,0)-(1,1), (1,1)-(2,2), y (1,1)-(3,3)
+    // que también tiene (1,1)-(2,2) como sub-segmento
+    expect(larga.collinearGroup.size).toBeGreaterThanOrEqual(3);
     expect(larga.collinearGroup.has(fenceKey(a, mid))).toBe(true);
     expect(larga.collinearGroup.has(fenceKey(mid, b))).toBe(true);
+    // Verifica que también incluye la otra fence larga que comparte un sub-segmento
+    expect(larga.collinearGroup.has(fenceKey({ row: 1, col: 1 }, { row: 3, col: 3 }))).toBe(true);
   });
 
   test('una fence primitiva sin fence larga que la contenga tiene grupo de tamaño 1', () => {
@@ -123,6 +127,13 @@ describe('collinearGroup', () => {
     const mitad = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 0 }, { row: 1, col: 1 }))!;
     const larga = fenceKey({ row: 0, col: 0 }, { row: 2, col: 2 });
     expect(mitad.collinearGroup.has(larga)).toBe(true);
+  });
+
+  test('dos fences largas distintas que comparten una mitad quedan conectadas entre sí', () => {
+    const larga1 = CANDIDATES_BY_KEY.get(fenceKey({ row: 0, col: 5 }, { row: 2, col: 5 }))!;
+    const larga2 = CANDIDATES_BY_KEY.get(fenceKey({ row: 1, col: 5 }, { row: 3, col: 5 }))!;
+    expect(larga1.collinearGroup.has(larga2.key)).toBe(true);
+    expect(larga2.collinearGroup.has(larga1.key)).toBe(true);
   });
 });
 
@@ -479,5 +490,52 @@ describe('jugarFence', () => {
     const quedaAlguna = ALL_CANDIDATES.some(c => esFenceLegal(state, c));
     expect(quedaAlguna).toBe(false);
     expect(state.status).toBe('finished');
+  });
+});
+
+// PRNG determinista (mulberry32) para que las partidas aleatorias del test
+// sean reproducibles entre corridas.
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return function random() {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+describe('invariante: cero caras acotadas sin dueño', () => {
+  test('se cumple en cada jugada de 5 partidas completas aleatorias', () => {
+    for (let seed = 1; seed <= 5; seed++) {
+      const rng = mulberry32(seed);
+      let state = createInitialState();
+      let moveCount = 0;
+
+      while (state.status === 'playing') {
+        const legales = ALL_CANDIDATES.filter(c => esFenceLegal(state, c));
+        if (legales.length === 0) break;
+        const elegido = legales[Math.floor(rng() * legales.length)];
+        moveCount++;
+
+        try {
+          state = jugarFence(state, elegido.fence);
+        } catch (e) {
+          console.error(`Failed at seed=${seed}, move=${moveCount}, fence=${JSON.stringify(elegido.fence)}`);
+          throw e;
+        }
+
+        const carasAcotadas = extractBoundedFaces(state.fences);
+        expect(carasAcotadas.length).toBe(state.regions.length);
+
+        const areaTotal = state.regions.reduce((sum, r) => sum + r.area, 0);
+        const puntajeTotal = state.scores[1] + state.scores[2];
+        expect(puntajeTotal).toBeCloseTo(areaTotal, 10);
+      }
+
+      console.log(`Seed ${seed} completed with ${moveCount} moves`);
+      expect(state.status).toBe('finished');
+    }
   });
 });
