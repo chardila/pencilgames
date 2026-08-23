@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialState, playMove } from './engine';
+import { createInitialState, esJugadaValida, playMove } from './engine';
 
 describe('tres en raya engine', () => {
   it('empieza con tablero vacío y le toca a X', () => {
@@ -96,5 +96,33 @@ describe('tres en raya engine', () => {
     state = playMove(state, 2); // X gana
     const next = playMove(state, 5);
     expect(next).toEqual(state);
+  });
+});
+
+describe('tres-en-raya - guarda de payload (esJugadaValida)', () => {
+  it('acepta números enteros válidos entre 0 y 8', () => {
+    for (let i = 0; i <= 8; i++) {
+      expect(esJugadaValida(i)).toBe(true);
+    }
+  });
+
+  it('rechaza índices fuera de rango', () => {
+    expect(esJugadaValida(-1)).toBe(false);
+    expect(esJugadaValida(9)).toBe(false);
+    expect(esJugadaValida(100)).toBe(false);
+  });
+
+  it('rechaza números no enteros', () => {
+    expect(esJugadaValida(1.5)).toBe(false);
+    expect(esJugadaValida(NaN)).toBe(false);
+    expect(esJugadaValida(Infinity)).toBe(false);
+  });
+
+  it('rechaza tipos no numéricos', () => {
+    expect(esJugadaValida(null)).toBe(false);
+    expect(esJugadaValida(undefined)).toBe(false);
+    expect(esJugadaValida('0')).toBe(false);
+    expect(esJugadaValida({})).toBe(false);
+    expect(esJugadaValida([0])).toBe(false);
   });
 });

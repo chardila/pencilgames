@@ -21,6 +21,10 @@ const WINNING_LINES: number[][] = [
   [2, 4, 6],
 ];
 
+export function esJugadaValida(payload: unknown): payload is number {
+  return typeof payload === 'number' && Number.isInteger(payload) && payload >= 0 && payload <= 8;
+}
+
 export function createInitialState(): TresEnRayaState {
   return {
     board: Array(9).fill(null),
