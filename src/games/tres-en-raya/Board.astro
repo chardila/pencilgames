@@ -1,22 +1,16 @@
-<div class="tablero-tres-en-raya">
-  <div id="indicador-turno" class="indicador-turno" data-jugador="1"></div>
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+---
+
+<TableroJuego class="tablero-tres-en-raya">
   <div id="tablero" class="tablero" role="grid" aria-label="Tablero de tres en raya">
     {Array.from({ length: 9 }).map((_, i) => (
       <button type="button" class="casilla" data-indice={i} aria-label={`Casilla ${i + 1}`} />
     ))}
   </div>
-  <div id="banner-ganador" class="banner-ganador" hidden></div>
-</div>
+</TableroJuego>
 
 <style>
-  .tablero-tres-en-raya {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: var(--spacing);
-  }
-
   .tablero {
     display: grid;
     grid-template-columns: repeat(3, minmax(4rem, 6rem));
@@ -43,55 +37,35 @@
   .casilla.casilla--ganadora {
     background: var(--color-accent);
   }
-
-  .indicador-turno {
-    font-size: 1.1rem;
-    font-weight: 700;
-    min-height: 2rem;
-  }
-
-  .banner-ganador {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 15;
-  }
-
-  .banner-ganador[hidden] {
-    display: none;
-  }
-
-  .banner-ganador :global(.banner-ganador__contenido) {
-    background: var(--color-surface);
-    border-radius: var(--radius);
-    padding: 1.5rem;
-    text-align: center;
-  }
 </style>
 
 <script>
   import { createInitialState, esJugadaValida, playMove, type TresEnRayaState } from './engine';
-  import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
-  import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
-  import { getPlayerNames } from '../../lib/players';
-  import type { MoveChannel, MensajeJuego } from '../../lib/remoto/types';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const tablero = document.getElementById('tablero')!;
   const casillas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.casilla'));
-  const indicadorTurno = document.getElementById('indicador-turno')!;
-  const bannerGanador = document.getElementById('banner-ganador')!;
-
   const ETIQUETAS = { X: '✕', O: '●' } as const;
-  const nombres = getPlayerNames();
 
   let state: TresEnRayaState = createInitialState();
-  let canal: MoveChannel | null = null;
-  let miAsiento: 1 | 2 | null = null;
+
+  const sesion = iniciarSesionJuego<number>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: indice => jugar(indice, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      casillas.forEach(casilla => (casilla.disabled = true));
+    },
+  });
 
   function render(): void {
+    const jugadorDelTurno = state.currentPlayer === 'X' ? 1 : 2;
+    const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+
     casillas.forEach((casilla, i) => {
       const valor = state.board[i];
       casilla.textContent = valor ? ETIQUETAS[valor] : '';
@@ -100,86 +74,37 @@
       } else {
         delete casilla.dataset.valor;
       }
-      const jugadorDelTurno = state.currentPlayer === 'X' ? 1 : 2;
-      const noEsMiTurno = miAsiento !== null && jugadorDelTurno !== miAsiento;
-      casilla.disabled = valor !== null || state.status !== 'playing' || noEsMiTurno;
+      casilla.disabled = valor !== null || state.status !== 'playing' || !esMiTurno;
       casilla.classList.toggle('casilla--ganadora', state.winningLine?.includes(i) ?? false);
     });
 
     if (state.status === 'playing') {
-      const jugador = state.currentPlayer === 'X' ? 1 : 2;
-      renderTurnIndicator(indicadorTurno, {
-        jugador,
-        etiqueta: `${nombres[jugador]} (${ETIQUETAS[state.currentPlayer]})`,
+      sesion.mostrarTurno({
+        jugador: jugadorDelTurno,
+        etiqueta: `${sesion.nombres[jugadorDelTurno]} (${ETIQUETAS[state.currentPlayer]})`,
       });
-      hideWinnerBanner(bannerGanador);
     } else {
-      ocultarTurnIndicator(indicadorTurno);
-      showWinnerBanner(bannerGanador, {
+      sesion.mostrarFinDeJuego({
         titulo:
           state.status === 'won'
-            ? `🎉 ¡Ganó ${nombres[state.winner === 'X' ? 1 : 2]} (${ETIQUETAS[state.winner!]})!`
+            ? `🎉 ¡Ganó ${sesion.nombres[state.winner === 'X' ? 1 : 2]} (${ETIQUETAS[state.winner!]})!`
             : '🤝 ¡Empate!',
-        onReiniciar: reiniciar,
       });
     }
   }
 
-  function aplicarReinicio(): void {
-    state = createInitialState();
-    render();
-  }
-
-  function reiniciar(): void {
-    aplicarReinicio();
-    canal?.enviar({ tipo: 'reiniciar' });
-  }
-
-  function jugar(indice: number): void {
+  function jugar(indice: number, emitirRemoto = true): void {
     state = playMove(state, indice);
     render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(indice);
+    }
   }
 
   casillas.forEach((casilla, i) => {
     casilla.addEventListener('click', () => {
       jugar(i);
-      canal?.enviar({ tipo: 'movimiento', payload: i });
     });
-  });
-
-  document.addEventListener('canal-remoto-listo', evento => {
-    const detalle = (evento as CustomEvent<{ channel: MoveChannel; miNombre: string }>).detail;
-    canal = detalle.channel;
-    miAsiento = canal.asiento;
-    nombres[miAsiento] = detalle.miNombre;
-
-    canal.alRecibir((mensaje: MensajeJuego) => {
-      if (mensaje.tipo === 'movimiento') {
-        if (esJugadaValida(mensaje.payload)) {
-          jugar(mensaje.payload);
-        } else {
-          console.warn('Mensaje de movimiento ignorado por payload inválido:', mensaje.payload);
-        }
-      } else if (mensaje.tipo === 'nombre') {
-        nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
-        render();
-      } else if (mensaje.tipo === 'reiniciar') {
-        aplicarReinicio();
-      }
-    });
-
-    canal.alCambiarEstado(estado => {
-      if (estado === 'desconectado') {
-        ocultarTurnIndicator(indicadorTurno);
-        showWinnerBanner(bannerGanador, {
-          titulo: '📡 Tu rival se desconectó',
-          onReiniciar: () => location.reload(),
-        });
-        casillas.forEach(casilla => (casilla.disabled = true));
-      }
-    });
-
-    render();
   });
 
   render();
