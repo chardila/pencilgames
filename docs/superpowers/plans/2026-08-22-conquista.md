@@ -38,7 +38,7 @@
 - Test: `src/games/conquista/engine.test.ts`
 
 **Interfaces:**
-- Produces: `Point { row: number; col: number }`, `ConquistaPlayer = 1 | 2`, `Fence { a: Point; b: Point }`, `GRID_SIZE = 6`, `fenceKey(a: Point, b: Point): string`, `interface FenceInfo { fence: Fence; key: string; subSegments: Fence[] }`, `ALL_CANDIDATES: FenceInfo[]`, `CANDIDATES_BY_KEY: Map<string, FenceInfo>`.
+- Produces: `Point { row: number; col: number }`, `ConquistaPlayer = 1 | 2`, `Fence { a: Point; b: Point }`, `GRID_SIZE = 6`, `fenceKey(a: Point, b: Point): string`, `interface FenceInfo { fence: Fence; key: string; subSegments: Fence[]; collinearGroup: Set<string>; crossesWith: Set<string> }` (los últimos 2 campos se declaran aquí, vacíos, y los pueblan las Tasks 2 y 3 respectivamente — ver el bloque de código del Step 3 de esta misma tarea, que es la fuente de verdad si este resumen y el código llegaran a no coincidir), `ALL_CANDIDATES: FenceInfo[]`, `CANDIDATES_BY_KEY: Map<string, FenceInfo>`.
 
 - [ ] **Step 1: Escribir el test de conteo del catálogo**
 
@@ -844,12 +844,20 @@ function traceFace(graph: Graph, startU: Point, startV: Point, visited: Set<stri
   visited.add(`${pointKey(startU)}->${pointKey(startV)}`);
 
   for (let i = 0; i < MAX_FACE_STEPS; i++) {
-    if (samePoint(curr, startU)) return cycle;
-    cycle.push(curr);
-
     const neighbors = graph.neighbors.get(pointKey(curr)) ?? [];
     const idx = neighbors.findIndex(p => samePoint(p, prev));
     const next = neighbors[(idx + 1) % neighbors.length];
+
+    // Cierre correcto: comparar la ARISTA DIRIGIDA que se va a tomar contra
+    // la de inicio, no solo el vértice `curr`. Detenerse en cuanto se
+    // vuelve a pisar `startU` (sin importar la arista) es un error: falla
+    // en cualquier cara "pellizcada" que pasa por el mismo vértice más de
+    // una vez antes de cerrarse — alcanzable en este juego porque un
+    // "cruce en T" contra una región ya reclamada es legal por diseño (ver
+    // spec, sección 3, "Corrección importante").
+    if (samePoint(curr, startU) && samePoint(next, startV)) return cycle;
+
+    cycle.push(curr);
     visited.add(`${pointKey(curr)}->${pointKey(next)}`);
     prev = curr;
     curr = next;

@@ -296,16 +296,38 @@ plano por construcción, sin necesidad de verificarlo de nuevo aquí.
 2. Cada arista dirigida (u→v) pertenece a exactamente un ciclo de cara:
    parado en v, se sigue por la siguiente arista en sentido antihorario
    después de la reversa (v→u) de la arista de llegada; se repite hasta
-   volver a u. Esto traza todos los ciclos de cara del grafo, incluida la
-   cara exterior (no acotada).
+   estar a punto de repetir la arista dirigida de inicio (u→v). Esto traza
+   todos los ciclos de cara del grafo, incluida la cara exterior (no
+   acotada).
+   **Corrección importante (encontrada durante la revisión de la Task 6,
+   no en el diseño original):** la condición de cierre debe comparar la
+   **arista dirigida** de inicio, no solo el vértice `u`. Detenerse en
+   cuanto el recorrido *vuelve a pisar* el vértice `u` (sin importar por
+   cuál arista) es incorrecto: falla en cualquier cara "pellizcada" que
+   pasa por un mismo vértice más de una vez antes de cerrarse. Esto es
+   alcanzable en este juego precisamente porque un "cruce en T" (tocar una
+   región ya reclamada en un solo vértice compartido) es legal por diseño
+   — un jugador puede reclamar una región pequeña y, más tarde, dibujar un
+   perímetro más grande que la rodea tocándola solo en un vértice
+   compartido; la región real que queda entre ambas pasa por ese vértice
+   dos veces antes de cerrar. Con la condición de cierre basada solo en el
+   vértice, el recorrido se corta prematuramente ahí, produciendo una cara
+   equivocada — en la práctica, una región reclamada que se solapa con una
+   ya existente y un puntaje incorrecto.
 3. Se calcula el área con signo (fórmula del shoelace) de cada ciclo
-   trazado. Con una convención de orientación consistente, la cara exterior
-   es la única con signo opuesto al resto (o, equivalentemente, la de mayor
-   área en valor absoluto) — se descarta. El resto son las caras acotadas
-   candidatas, y por construcción del propio algoritmo son ya caras
-   **mínimas** (ninguna arista del grafo puede quedar en el interior de una
-   cara trazada así, es una propiedad del algoritmo, no algo que haya que
-   verificar aparte).
+   trazado. Se descartan los ciclos con área con signo **≥ 0** (la cara
+   exterior, o cualquier artefacto degenerado); los ciclos con área con
+   signo **estrictamente negativa** son las caras acotadas candidatas
+   (`área = -signo`). **No** es válido decidir por "la de mayor área en
+   valor absoluto" (una idea considerada y descartada durante el diseño):
+   con un grafo desconectado, o con una cara pellizcada como la de arriba,
+   puede haber más de una cara exterior-o-artefacto sin que ninguna sea
+   necesariamente la de mayor área — el criterio del signo, aplicado
+   individualmente a cada ciclo, es el único que funciona en general. Las
+   caras acotadas resultantes son ya caras **mínimas** por construcción
+   del propio algoritmo (ninguna arista del grafo puede quedar en el
+   interior de una cara trazada así), no algo que haya que verificar
+   aparte.
 
 **Diff contra lo ya reclamado:** cada cara acotada se canonicaliza (ciclo de
 vértices normalizado, p. ej. empezando por el vértice de menor `(row,col)` y
