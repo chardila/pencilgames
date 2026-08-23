@@ -232,11 +232,22 @@ Para cada candidato se precomputan también, una sola vez:
   mcd = 2) es `[mitad1, mitad2]`, partiendo en el punto medio real de la
   cuadrícula.
 - **`collinearGroup`**: el conjunto de candidatos (por `fenceKey`) que
-  comparten alguno de sus sub-segmentos — para los tipos primitivos es solo
-  `{sí mismo}`; para una fence larga es `{sí misma, mitad1, mitad2}`, y cada
-  mitad (que es a su vez un candidato primitivo independiente del catálogo)
+  comparten alguno de sus sub-segmentos. Esta es la regla completa y
+  general — para los tipos primitivos el grupo suele ser solo `{sí mismo}`;
+  para una fence larga suele ser `{sí misma, mitad1, mitad2}`; y cada mitad
+  (que es a su vez un candidato primitivo independiente del catálogo)
   incluye en su propio `collinearGroup` a la(s) fence(s) larga(s) de la(s)
-  que forma parte.
+  que forma parte. **Caso no obvio, encontrado por el test de propiedad de
+  la sección 6, no en el diseño original:** dos fences largas *distintas*
+  pueden compartir la misma mitad entre sí (p. ej. en una cuadrícula 6×6,
+  las fences largas `(0,5)-(2,5)` y `(1,5)-(3,5)` comparten el
+  sub-segmento `(1,5)-(2,5)`). En ese caso, ambas fences largas deben
+  quedar la una en el `collinearGroup` de la otra — no alcanza con
+  conectar cada una solo a sus propias mitades. La implementación correcta
+  no distingue casos: para cada candidato, su grupo es la unión de *todos*
+  los candidatos que tocan cualquiera de sus propios sub-segmentos
+  (incluyéndose a sí mismo), sin importar si esos otros candidatos son
+  primitivos o largos.
 - **`crossesWith`**: el conjunto de candidatos (por `fenceKey`) que cruzan
   geométricamente a este candidato en un punto que no es un extremo
   compartido — calculado una sola vez con la prueba estándar de

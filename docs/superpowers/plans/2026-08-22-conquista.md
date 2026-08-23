@@ -290,28 +290,34 @@ Expected: FAIL — `collinearGroup` de todos los candidatos está vacío (`Set` 
 ```ts
 // añadir a src/games/conquista/engine.ts, después de buildCatalog()
 
+// Corrección encontrada por el test de propiedad (Task 8), no en el diseño
+// original: dos fences LARGAS distintas pueden compartir la misma mitad
+// entre sí (p. ej., en 6×6, (0,5)-(2,5) y (1,5)-(3,5) comparten el
+// sub-segmento (1,5)-(2,5)) — una regla que solo conecta "larga ↔ sus
+// propias mitades" y "primitiva ↔ larga(s) que la contienen" nunca conecta
+// esas dos fences largas entre sí, dejando pasar un solapamiento real como
+// legal. La regla correcta es una sola, sin casos especiales: el grupo de
+// cualquier candidato es la unión de TODOS los candidatos (primitivos o
+// largos) que tocan cualquiera de sus propios sub-segmentos.
 function attachCollinearGroups(candidates: FenceInfo[]): void {
-  const parentsOfSubSegment = new Map<string, string[]>();
+  const touchers = new Map<string, string[]>();
   for (const c of candidates) {
-    if (c.subSegments.length === 2) {
-      for (const sub of c.subSegments) {
-        const subKey = fenceKey(sub.a, sub.b);
-        const list = parentsOfSubSegment.get(subKey) ?? [];
-        list.push(c.key);
-        parentsOfSubSegment.set(subKey, list);
-      }
+    for (const sub of c.subSegments) {
+      const subKey = fenceKey(sub.a, sub.b);
+      const list = touchers.get(subKey) ?? [];
+      list.push(c.key);
+      touchers.set(subKey, list);
     }
   }
 
   for (const c of candidates) {
-    c.collinearGroup.add(c.key);
-    if (c.subSegments.length === 2) {
-      for (const sub of c.subSegments) {
-        c.collinearGroup.add(fenceKey(sub.a, sub.b));
-      }
-    } else {
-      for (const parentKey of parentsOfSubSegment.get(c.key) ?? []) {
-        c.collinearGroup.add(parentKey);
+    const group = c.collinearGroup;
+    group.add(c.key);
+    for (const sub of c.subSegments) {
+      const subKey = fenceKey(sub.a, sub.b);
+      group.add(subKey);
+      for (const other of touchers.get(subKey) ?? []) {
+        group.add(other);
       }
     }
   }
