@@ -12,7 +12,6 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     id="tablero-svg"
     class="tablero-svg"
     viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
-    role="img"
     aria-label="Tablero de Conquista"
   >
     <g id="capa-regiones"></g>
@@ -20,7 +19,15 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     <g id="capa-puntos">
       {Array.from({ length: GRID_SIZE }).map((_, row) =>
         Array.from({ length: GRID_SIZE }).map((_, col) => (
-          <g class="punto-grupo" data-row={row} data-col={col} data-interactivo="true">
+          <g
+            class="punto-grupo"
+            data-row={row}
+            data-col={col}
+            data-interactivo="true"
+            tabindex="0"
+            role="button"
+            aria-label={`Punto fila ${row + 1}, columna ${col + 1}`}
+          >
             <circle class="punto-toque" cx={MARGIN + col * STEP} cy={MARGIN + row * STEP} r="22" />
             <circle class="punto-visible" cx={MARGIN + col * STEP} cy={MARGIN + row * STEP} r="6" />
           </g>
@@ -49,6 +56,16 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
   .punto-toque {
     fill: transparent;
     cursor: pointer;
+  }
+
+  .punto-grupo:focus-visible {
+    outline: none;
+  }
+
+  .punto-grupo:focus-visible .punto-toque {
+    stroke: #f5a623;
+    stroke-width: 3;
+    fill: rgba(245, 166, 35, 0.15);
   }
 
   .punto-visible {
@@ -279,8 +296,8 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
         jugador: state.currentPlayer,
         etiqueta: nombres[state.currentPlayer],
         marcador: {
-          1: { nombre: nombres[1], puntaje: state.scores[1] },
-          2: { nombre: nombres[2], puntaje: state.scores[2] },
+          1: { nombre: nombres[1], puntaje: state.scores[1].toFixed(1) },
+          2: { nombre: nombres[2], puntaje: state.scores[2].toFixed(1) },
         },
       });
       hideWinnerBanner(bannerGanador);
@@ -290,7 +307,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
         state.scores[1] === state.scores[2] ? null : state.scores[1] > state.scores[2] ? 1 : 2;
       showWinnerBanner(bannerGanador, {
         titulo: ganador ? `🎉 ¡Ganó ${nombres[ganador]}!` : '🤝 ¡Empate!',
-        detalle: `${nombres[1]} ${state.scores[1]} · ${nombres[2]} ${state.scores[2]}`,
+        detalle: `${nombres[1]} ${state.scores[1].toFixed(1)} · ${nombres[2]} ${state.scores[2].toFixed(1)}`,
         onReiniciar: reiniciar,
       });
     }
@@ -310,6 +327,12 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
   for (const g of gruposPunto) {
     g.addEventListener('click', () => {
       alTocarPunto({ row: Number(g.dataset.row), col: Number(g.dataset.col) });
+    });
+    g.addEventListener('keydown', (event: KeyboardEvent) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        alTocarPunto({ row: Number(g.dataset.row), col: Number(g.dataset.col) });
+      }
     });
   }
 

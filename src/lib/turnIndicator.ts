@@ -1,6 +1,6 @@
 export interface Marcador {
-  1: { nombre: string; puntaje: number };
-  2: { nombre: string; puntaje: number };
+  1: { nombre: string; puntaje: number | string };
+  2: { nombre: string; puntaje: number | string };
 }
 
 export interface TurnIndicatorOptions {
