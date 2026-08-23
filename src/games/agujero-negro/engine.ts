@@ -84,6 +84,15 @@ export function createInitialState(): AgujeroNegroState {
   };
 }
 
+export function esJugadaValida(payload: unknown): payload is number {
+  return (
+    typeof payload === 'number' &&
+    Number.isInteger(payload) &&
+    payload >= 0 &&
+    payload < TOTAL_POSITIONS
+  );
+}
+
 export function placeNumber(state: AgujeroNegroState, positionId: number): AgujeroNegroState {
   if (state.status !== 'playing') return state;
 

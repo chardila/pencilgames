@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialState, getNeighbors, placeNumber, type AgujeroNegroState } from './engine';
+import {
+  createInitialState,
+  getNeighbors,
+  placeNumber,
+  TOTAL_POSITIONS,
+  esJugadaValida,
+  type AgujeroNegroState,
+} from './engine';
 
 describe('agujero negro — getNeighbors', () => {
   it('una esquina tiene exactamente 2 vecinos', () => {
@@ -125,3 +132,31 @@ describe('agujero negro — partida', () => {
     expect(next).toEqual(state);
   });
 });
+
+describe('agujero-negro - guarda de payload (esJugadaValida)', () => {
+  it('acepta números enteros válidos entre 0 y TOTAL_POSITIONS - 1', () => {
+    for (let i = 0; i < TOTAL_POSITIONS; i++) {
+      expect(esJugadaValida(i)).toBe(true);
+    }
+  });
+
+  it('rechaza índices fuera de rango', () => {
+    expect(esJugadaValida(-1)).toBe(false);
+    expect(esJugadaValida(TOTAL_POSITIONS)).toBe(false);
+    expect(esJugadaValida(100)).toBe(false);
+  });
+
+  it('rechaza números no enteros o especiales', () => {
+    expect(esJugadaValida(3.14)).toBe(false);
+    expect(esJugadaValida(NaN)).toBe(false);
+    expect(esJugadaValida(Infinity)).toBe(false);
+  });
+
+  it('rechaza tipos no numéricos', () => {
+    expect(esJugadaValida(null)).toBe(false);
+    expect(esJugadaValida(undefined)).toBe(false);
+    expect(esJugadaValida('10')).toBe(false);
+    expect(esJugadaValida({ id: 5 })).toBe(false);
+  });
+});
+
