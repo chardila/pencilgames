@@ -1,0 +1,339 @@
+---
+import { GRID_SIZE } from './engine';
+
+const STEP = 80;
+const MARGIN = 50;
+const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
+---
+
+<div class="tablero-conquista">
+  <div id="indicador-turno" class="indicador-turno" data-jugador="1"></div>
+  <svg
+    id="tablero-svg"
+    class="tablero-svg"
+    viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
+    role="img"
+    aria-label="Tablero de Conquista"
+  >
+    <g id="capa-regiones"></g>
+    <g id="capa-fences"></g>
+    <g id="capa-puntos">
+      {Array.from({ length: GRID_SIZE }).map((_, row) =>
+        Array.from({ length: GRID_SIZE }).map((_, col) => (
+          <g class="punto-grupo" data-row={row} data-col={col} data-interactivo="true">
+            <circle class="punto-toque" cx={MARGIN + col * STEP} cy={MARGIN + row * STEP} r="22" />
+            <circle class="punto-visible" cx={MARGIN + col * STEP} cy={MARGIN + row * STEP} r="6" />
+          </g>
+        ))
+      )}
+    </g>
+  </svg>
+  <div id="banner-ganador" class="banner-ganador" hidden></div>
+</div>
+
+<style>
+  .tablero-conquista {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: var(--spacing);
+  }
+
+  .tablero-svg {
+    width: min(92vw, 26rem);
+    aspect-ratio: 1;
+    touch-action: manipulation;
+  }
+
+  .punto-toque {
+    fill: transparent;
+    cursor: pointer;
+  }
+
+  .punto-visible {
+    fill: var(--color-text);
+    pointer-events: none;
+  }
+
+  .punto-grupo[data-origen='true'] .punto-visible,
+  .punto-grupo[data-destino-legal='true'] .punto-visible {
+    fill: #f5a623;
+  }
+
+  .punto-grupo[data-interactivo='false'] .punto-toque {
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .fence-linea {
+    stroke-width: 5;
+    stroke-linecap: round;
+  }
+
+  .fence-linea[data-jugador='1'] {
+    stroke: var(--color-player-1);
+  }
+
+  .fence-linea[data-jugador='2'] {
+    stroke: var(--color-player-2);
+  }
+
+  .region-poligono[data-jugador='1'] {
+    fill: color-mix(in srgb, var(--color-player-1) 25%, transparent);
+  }
+
+  .region-poligono[data-jugador='2'] {
+    fill: color-mix(in srgb, var(--color-player-2) 25%, transparent);
+  }
+
+  .indicador-turno {
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-height: 2rem;
+    text-align: center;
+  }
+
+  .indicador-turno :global(.indicador-turno__jugador[data-jugador='1']) {
+    color: var(--color-player-1);
+    font-weight: 700;
+  }
+
+  .indicador-turno :global(.indicador-turno__jugador[data-jugador='2']) {
+    color: var(--color-player-2);
+    font-weight: 700;
+  }
+
+  .banner-ganador {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 15;
+  }
+
+  .banner-ganador[hidden] {
+    display: none;
+  }
+
+  .banner-ganador :global(.banner-ganador__contenido) {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    text-align: center;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    jugarFence,
+    esFenceLegal,
+    ALL_CANDIDATES,
+    type ConquistaState,
+    type Point,
+    type Fence,
+  } from './engine';
+  import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
+  import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
+  import { getPlayerNames } from '../../lib/players';
+  import type { MoveChannel, MensajeJuego } from '../../lib/remoto/types';
+
+  const STEP = 80;
+  const MARGIN = 50;
+
+  const svgEl = document.getElementById('tablero-svg')!;
+  const capaRegiones = document.getElementById('capa-regiones')!;
+  const capaFences = document.getElementById('capa-fences')!;
+  const gruposPunto = Array.from(svgEl.querySelectorAll<SVGGElement>('.punto-grupo'));
+  const indicadorTurno = document.getElementById('indicador-turno')!;
+  const bannerGanador = document.getElementById('banner-ganador')!;
+  const nombres = getPlayerNames();
+
+  let state: ConquistaState = createInitialState();
+  let canal: MoveChannel | null = null;
+  let miAsiento: 1 | 2 | null = null;
+  let origen: Point | null = null;
+
+  function svgNS(tag: string): SVGElement {
+    return document.createElementNS('http://www.w3.org/2000/svg', tag);
+  }
+
+  function toXY(p: Point): { x: number; y: number } {
+    return { x: MARGIN + p.col * STEP, y: MARGIN + p.row * STEP };
+  }
+
+  function puntoDe(row: number, col: number): SVGGElement {
+    return gruposPunto.find(g => Number(g.dataset.row) === row && Number(g.dataset.col) === col)!;
+  }
+
+  function limpiarSeleccion(): void {
+    origen = null;
+    for (const g of gruposPunto) {
+      delete g.dataset.origen;
+      delete g.dataset.destinoLegal;
+    }
+  }
+
+  function destinosLegalesDesde(p: Point): Fence[] {
+    return ALL_CANDIDATES.filter(info => {
+      const tocaAP =
+        (info.fence.a.row === p.row && info.fence.a.col === p.col) ||
+        (info.fence.b.row === p.row && info.fence.b.col === p.col);
+      return tocaAP && esFenceLegal(state, info);
+    }).map(info => info.fence);
+  }
+
+  function otroPunto(fence: Fence, p: Point): Point {
+    return fence.a.row === p.row && fence.a.col === p.col ? fence.b : fence.a;
+  }
+
+  function seleccionarOrigen(p: Point): void {
+    limpiarSeleccion();
+    const destinos = destinosLegalesDesde(p);
+    if (destinos.length === 0) return;
+    origen = p;
+    puntoDe(p.row, p.col).dataset.origen = 'true';
+    for (const fence of destinos) {
+      const destino = otroPunto(fence, p);
+      puntoDe(destino.row, destino.col).dataset.destinoLegal = 'true';
+    }
+  }
+
+  function alTocarPunto(p: Point): void {
+    const noEsMiTurno = miAsiento !== null && state.currentPlayer !== miAsiento;
+    if (noEsMiTurno || state.status !== 'playing') return;
+
+    if (origen === null) {
+      seleccionarOrigen(p);
+      return;
+    }
+    if (origen.row === p.row && origen.col === p.col) {
+      limpiarSeleccion();
+      return;
+    }
+    if (puntoDe(p.row, p.col).dataset.destinoLegal !== 'true') {
+      seleccionarOrigen(p);
+      return;
+    }
+
+    const fence: Fence = { a: origen, b: p };
+    limpiarSeleccion();
+    jugar(fence);
+    canal?.enviar({ tipo: 'movimiento', payload: fence });
+  }
+
+  function jugar(fence: Fence): void {
+    state = jugarFence(state, fence);
+    render();
+  }
+
+  function render(): void {
+    capaFences.innerHTML = '';
+    for (const [key, jugador] of state.fences) {
+      const info = ALL_CANDIDATES.find(c => c.key === key);
+      if (!info) continue;
+      const { x: x1, y: y1 } = toXY(info.fence.a);
+      const { x: x2, y: y2 } = toXY(info.fence.b);
+      const linea = svgNS('line');
+      linea.setAttribute('x1', String(x1));
+      linea.setAttribute('y1', String(y1));
+      linea.setAttribute('x2', String(x2));
+      linea.setAttribute('y2', String(y2));
+      linea.setAttribute('class', 'fence-linea');
+      linea.setAttribute('data-jugador', String(jugador));
+      capaFences.appendChild(linea);
+    }
+
+    capaRegiones.innerHTML = '';
+    for (const region of state.regions) {
+      const puntos = region.vertices.map(v => {
+        const { x, y } = toXY(v);
+        return `${x},${y}`;
+      }).join(' ');
+      const poligono = svgNS('polygon');
+      poligono.setAttribute('points', puntos);
+      poligono.setAttribute('class', 'region-poligono');
+      poligono.setAttribute('data-jugador', String(region.owner));
+      capaRegiones.appendChild(poligono);
+    }
+
+    const noEsMiTurno = miAsiento !== null && state.currentPlayer !== miAsiento;
+    for (const g of gruposPunto) {
+      g.dataset.interactivo = String(!noEsMiTurno && state.status === 'playing');
+    }
+
+    if (state.status === 'playing') {
+      renderTurnIndicator(indicadorTurno, {
+        jugador: state.currentPlayer,
+        etiqueta: nombres[state.currentPlayer],
+        marcador: {
+          1: { nombre: nombres[1], puntaje: state.scores[1] },
+          2: { nombre: nombres[2], puntaje: state.scores[2] },
+        },
+      });
+      hideWinnerBanner(bannerGanador);
+    } else {
+      ocultarTurnIndicator(indicadorTurno);
+      const ganador =
+        state.scores[1] === state.scores[2] ? null : state.scores[1] > state.scores[2] ? 1 : 2;
+      showWinnerBanner(bannerGanador, {
+        titulo: ganador ? `🎉 ¡Ganó ${nombres[ganador]}!` : '🤝 ¡Empate!',
+        detalle: `${nombres[1]} ${state.scores[1]} · ${nombres[2]} ${state.scores[2]}`,
+        onReiniciar: reiniciar,
+      });
+    }
+  }
+
+  function aplicarReinicio(): void {
+    state = createInitialState();
+    limpiarSeleccion();
+    render();
+  }
+
+  function reiniciar(): void {
+    aplicarReinicio();
+    canal?.enviar({ tipo: 'reiniciar' });
+  }
+
+  for (const g of gruposPunto) {
+    g.addEventListener('click', () => {
+      alTocarPunto({ row: Number(g.dataset.row), col: Number(g.dataset.col) });
+    });
+  }
+
+  document.addEventListener('canal-remoto-listo', evento => {
+    const detalle = (evento as CustomEvent<{ channel: MoveChannel; miNombre: string }>).detail;
+    canal = detalle.channel;
+    miAsiento = canal.asiento;
+    nombres[miAsiento] = detalle.miNombre;
+
+    canal.alRecibir((mensaje: MensajeJuego) => {
+      if (mensaje.tipo === 'movimiento') {
+        jugar(mensaje.payload as Fence);
+      } else if (mensaje.tipo === 'nombre') {
+        nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
+        render();
+      } else if (mensaje.tipo === 'reiniciar') {
+        aplicarReinicio();
+      }
+    });
+
+    canal.alCambiarEstado(estado => {
+      if (estado === 'desconectado') {
+        ocultarTurnIndicator(indicadorTurno);
+        showWinnerBanner(bannerGanador, {
+          titulo: '📡 Tu rival se desconectó',
+          onReiniciar: () => location.reload(),
+        });
+        for (const g of gruposPunto) g.dataset.interactivo = 'false';
+      }
+    });
+
+    render();
+  });
+
+  render();
+</script>
