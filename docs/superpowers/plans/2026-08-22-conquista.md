@@ -1055,6 +1055,32 @@ function regionKey(vertices: Point[]): string {
   return canonicalizeCycle(vertices).map(pointKey).join('|');
 }
 
+// Corrección encontrada en la revisión final de todo el branch, no en el
+// diseño original: el área de una cara nueva puede necesitar descontar
+// regiones ya reclamadas que queden encerradas como hueco DESCONECTADO
+// dentro de ella (un anillo sin ningún vértice compartido con una región
+// interior ya reclamada) — la extracción de caras opera por componente
+// conexo del grafo, así que esa región interior es invisible para el
+// recorrido de caras del anillo. Ver spec sección 3, "Corrección
+// importante". El descriptor: una región ya reclamada queda encerrada si
+// al menos uno de sus propios vértices cae ESTRICTAMENTE dentro del
+// polígono de la cara nueva (no sobre su borde) — esto no resta nada en
+// el caso de una cara pellizcada (los vértices de la región interior ya
+// son parte del propio ciclo de la cara nueva, están sobre su borde).
+function areaNetaDeHuecos(
+  cara: { vertices: Point[]; area: number },
+  regionesExistentes: ConquistaRegion[]
+): number {
+  let area = cara.area;
+  for (const region of regionesExistentes) {
+    const quedaEncerrada = region.vertices.some(v => pointInPolygon(v, cara.vertices));
+    if (quedaEncerrada) {
+      area -= region.area;
+    }
+  }
+  return area;
+}
+
 export function jugarFence(state: ConquistaState, fence: Fence): ConquistaState {
   if (state.status !== 'playing') return state;
 
@@ -1074,13 +1100,14 @@ export function jugarFence(state: ConquistaState, fence: Fence): ConquistaState 
   for (const face of found) {
     const key = regionKey(face.vertices);
     if (existingKeys.has(key)) continue;
+    const areaNeta = areaNetaDeHuecos(face, state.regions);
     regions.push({
       vertices: canonicalizeCycle(face.vertices),
       owner: state.currentPlayer,
-      area: face.area,
+      area: areaNeta,
       key,
     });
-    scores[state.currentPlayer] += face.area;
+    scores[state.currentPlayer] += areaNeta;
     claimedCount++;
   }
 

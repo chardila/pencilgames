@@ -344,11 +344,40 @@ plano por construcción, sin necesidad de verificarlo de nuevo aquí.
 vértices normalizado, p. ej. empezando por el vértice de menor `(row,col)` y
 en un sentido fijo) para obtener su `key`. Cualquier cara acotada cuya `key`
 no esté ya en `state.regions` es una región **nueva**: se le asigna
-`owner = currentPlayer` (el que acaba de jugar) y `area = |shoelace|/2`. Por
-el invariante de la sección 1 (nunca queda una cara acotada sin dueño tras
-una jugada legal), toda cara "nueva" encontrada así es necesariamente
-recién cerrada por esta jugada — no hace falta razonar caso por caso sobre
-qué la cerró.
+`owner = currentPlayer` (el que acaba de jugar). Por el invariante de la
+sección 1 (nunca queda una cara acotada sin dueño tras una jugada legal),
+toda cara "nueva" encontrada así es necesariamente recién cerrada por esta
+jugada — no hace falta razonar caso por caso sobre qué la cerró.
+
+**Corrección importante (encontrada en la revisión final de todo el
+branch, no en el diseño original): el área de una cara nueva NO siempre es
+`|shoelace|/2`.** La extracción de caras opera por componente conexo del
+grafo — si un jugador dibuja un anillo totalmente desconectado (sin
+compartir ningún vértice) que encierra geométricamente una región ya
+reclamada, esa región ya reclamada es invisible para el recorrido de caras
+del anillo (no hay ninguna arista que las conecte). El área completa del
+anillo, tal cual, ya incluye el área de la región interior que otro
+jugador ya tiene — acreditarla sin descontar duplica esa área en el
+puntaje total y dos regiones acaban ocupando el mismo espacio del tablero.
+Este caso es distinto del "cruce en T"/cara pellizcada de más arriba (ahí
+la región interior SÍ comparte un vértice y sus propios vértices aparecen
+como parte del ciclo de la cara pellizcada); aquí las dos regiones no
+comparten ningún vértice en absoluto.
+
+La regla corregida: para cada cara nueva, el área que se acredita es
+`|shoelace|/2` **menos la suma de las áreas de cualquier región ya
+reclamada que quede encerrada como hueco desconectado dentro de esta cara
+nueva** — detectado así: una región ya reclamada queda "encerrada" si al
+menos uno de sus propios vértices cae estrictamente dentro del polígono de
+la cara nueva (no sobre su borde). Ese descriptor distingue correctamente
+los dos casos: en una cara pellizcada, los vértices de la región interior
+ya aparecen literalmente como parte del propio ciclo de vértices de la
+cara nueva (están sobre su borde, no estrictamente adentro) — no se resta
+nada. En un hueco desconectado, ningún vértice de la región interior
+coincide con ningún vértice de la cara nueva — todos caen estrictamente
+adentro — se resta su área completa. `area` (el campo que se guarda en
+`ConquistaRegion` y el que se suma al puntaje) es siempre esta área neta,
+no el `|shoelace|/2` bruto.
 
 **Nota de rendimiento:** 270 candidatos × 3 reglas de legalidad, más una
 recomputación completa de caras (≤36 vértices, ≤270 aristas) en cada
