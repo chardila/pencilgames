@@ -142,11 +142,11 @@ function orientation(p: Point, q: Point, r: Point): number {
 // toque en un extremo compartido, o en el punto de paso intermedio de una
 // fence larga (que es un extremo real de la OTRA fence, aunque no lo sea
 // de esta), produce al menos una orientación = 0 y por tanto NUNCA cuenta
-// como cruce — es un empalme en T válido (sección 1 del spec). No hace
-// falta ningún caso especial de colinealidad: el solapamiento colineal
-// genuino entre dos candidatos del catálogo solo ocurre entre una fence
-// larga y sus propias mitades, y eso ya lo cubre `collinearGroup`
-// (Task 2) — nunca entre dos fences primitivas distintas de este catálogo.
+// como cruce — es un empalme en T válido (sección 1 del spec). El
+// solapamiento colineal genuino (incluyendo dos fences largas distintas que
+// comparten una mitad, p. ej. (0,5)-(2,5) y (1,5)-(3,5)) produce orientaciones
+// = 0 y por tanto tampoco se marca como cruce — eso lo cubre `collinearGroup`
+// (Task 2), que es el único responsable de detectar y prohibir esos casos.
 function properlyCrosses(f1: Fence, f2: Fence): boolean {
   const o1 = orientation(f1.a, f1.b, f2.a);
   const o2 = orientation(f1.a, f1.b, f2.b);

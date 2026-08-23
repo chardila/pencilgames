@@ -108,13 +108,16 @@ describe('collinearGroup', () => {
     const b = { row: 2, col: 2 };
     const mid = { row: 1, col: 1 };
     const larga = CANDIDATES_BY_KEY.get(fenceKey(a, b))!;
-    // Incluye: (0,0)-(2,2), (0,0)-(1,1), (1,1)-(2,2), y (1,1)-(3,3)
-    // que también tiene (1,1)-(2,2) como sub-segmento
-    expect(larga.collinearGroup.size).toBeGreaterThanOrEqual(3);
-    expect(larga.collinearGroup.has(fenceKey(a, mid))).toBe(true);
-    expect(larga.collinearGroup.has(fenceKey(mid, b))).toBe(true);
-    // Verifica que también incluye la otra fence larga que comparte un sub-segmento
-    expect(larga.collinearGroup.has(fenceKey({ row: 1, col: 1 }, { row: 3, col: 3 }))).toBe(true);
+    // Grupo exacto: (0,0)-(2,2), (0,0)-(1,1), (1,1)-(2,2), y (1,1)-(3,3)
+    // — esta última también tiene (1,1)-(2,2) como sub-segmento, por eso
+    // se conectan las dos fences largas entre sí.
+    const expected = new Set([
+      fenceKey(a, b),              // La propia fence larga: (0,0)-(2,2)
+      fenceKey(a, mid),            // Primera mitad: (0,0)-(1,1)
+      fenceKey(mid, b),            // Segunda mitad: (1,1)-(2,2)
+      fenceKey({ row: 1, col: 1 }, { row: 3, col: 3 }), // Otra larga que comparte (1,1)-(2,2)
+    ]);
+    expect(larga.collinearGroup).toEqual(expected);
   });
 
   test('una fence primitiva sin fence larga que la contenga tiene grupo de tamaño 1', () => {
