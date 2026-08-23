@@ -145,7 +145,11 @@
       return;
     }
     errorTexto.hidden = true;
-    savePlayerNames({ 1: inputJugador1.value, 2: inputJugador2.value });
+    const nuevosNombres = { 1: nombre1, 2: nombre2 };
+    savePlayerNames(nuevosNombres);
+    document.dispatchEvent(
+      new CustomEvent('nombres-jugadores-actualizados', { detail: nuevosNombres })
+    );
     modal.hidden = true;
   });
 </script>
