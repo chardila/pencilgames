@@ -66,24 +66,33 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     pointer-events: none;
   }
 
-  .fence-linea {
+  /*
+   * :global() aquí: <line class="fence-linea"> y <polygon class="region-poligono">
+   * se crean en tiempo de ejecución vía document.createElementNS() (ver
+   * script, función render()), no en el template — Astro solo marca con el
+   * atributo de scope los elementos presentes en el template, así que un
+   * selector con scope normal nunca coincidiría con estos nodos. Mismo motivo
+   * por el que .indicador-turno__jugador y .banner-ganador__contenido, más
+   * abajo, también usan :global().
+   */
+  .tablero-svg :global(.fence-linea) {
     stroke-width: 5;
     stroke-linecap: round;
   }
 
-  .fence-linea[data-jugador='1'] {
+  .tablero-svg :global(.fence-linea[data-jugador='1']) {
     stroke: var(--color-player-1);
   }
 
-  .fence-linea[data-jugador='2'] {
+  .tablero-svg :global(.fence-linea[data-jugador='2']) {
     stroke: var(--color-player-2);
   }
 
-  .region-poligono[data-jugador='1'] {
+  .tablero-svg :global(.region-poligono[data-jugador='1']) {
     fill: color-mix(in srgb, var(--color-player-1) 25%, transparent);
   }
 
-  .region-poligono[data-jugador='2'] {
+  .tablero-svg :global(.region-poligono[data-jugador='2']) {
     fill: color-mix(in srgb, var(--color-player-2) 25%, transparent);
   }
 
