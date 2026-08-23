@@ -318,3 +318,73 @@ export function extractBoundedFaces(
   }
   return result;
 }
+
+export function createInitialState(): ConquistaState {
+  return {
+    size: GRID_SIZE,
+    fences: new Map(),
+    regions: [],
+    currentPlayer: 1,
+    scores: { 1: 0, 2: 0 },
+    status: 'playing',
+  };
+}
+
+function canonicalizeCycle(vertices: Point[]): Point[] {
+  let minIdx = 0;
+  for (let i = 1; i < vertices.length; i++) {
+    if (comparePoints(vertices[i], vertices[minIdx]) < 0) minIdx = i;
+  }
+  return [...vertices.slice(minIdx), ...vertices.slice(0, minIdx)];
+}
+
+function regionKey(vertices: Point[]): string {
+  return canonicalizeCycle(vertices).map(pointKey).join('|');
+}
+
+export function jugarFence(state: ConquistaState, fence: Fence): ConquistaState {
+  if (state.status !== 'playing') return state;
+
+  const info = CANDIDATES_BY_KEY.get(fenceKey(fence.a, fence.b));
+  if (!info) return state;
+  if (!esFenceLegal(state, info)) return state;
+
+  const fences = new Map(state.fences);
+  fences.set(info.key, state.currentPlayer);
+
+  const found = extractBoundedFaces(fences);
+  const existingKeys = new Set(state.regions.map(r => r.key));
+  const regions = [...state.regions];
+  const scores = { ...state.scores };
+  let claimedCount = 0;
+
+  for (const face of found) {
+    const key = regionKey(face.vertices);
+    if (existingKeys.has(key)) continue;
+    regions.push({
+      vertices: canonicalizeCycle(face.vertices),
+      owner: state.currentPlayer,
+      area: face.area,
+      key,
+    });
+    scores[state.currentPlayer] += face.area;
+    claimedCount++;
+  }
+
+  const currentPlayer =
+    claimedCount > 0 ? state.currentPlayer : state.currentPlayer === 1 ? 2 : 1;
+
+  const nextState: ConquistaState = {
+    ...state,
+    fences,
+    regions,
+    scores,
+    currentPlayer,
+    status: 'playing',
+  };
+
+  const quedaAlguna = ALL_CANDIDATES.some(c => esFenceLegal(nextState, c));
+  nextState.status = quedaAlguna ? 'playing' : 'finished';
+
+  return nextState;
+}

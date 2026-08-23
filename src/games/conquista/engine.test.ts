@@ -3,6 +3,7 @@ import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY, buildGraph } fr
 import type { ConquistaState, ConquistaRegion } from './engine';
 import { esFenceLegal } from './engine';
 import { extractBoundedFaces, signedArea } from './engine';
+import { createInitialState, jugarFence } from './engine';
 
 describe('catálogo de fences', () => {
   test('tiene exactamente 270 candidatos en la cuadrícula 6×6', () => {
@@ -386,5 +387,86 @@ describe('signedArea', () => {
       { row: 0, col: 1 }, // B
     ];
     expect(signedArea(ciclo)).toBe(-1);
+  });
+});
+
+describe('jugarFence', () => {
+  test('createInitialState arranca sin fences, sin regiones, turno del jugador 1', () => {
+    const state = createInitialState();
+    expect(state.fences.size).toBe(0);
+    expect(state.regions.length).toBe(0);
+    expect(state.currentPlayer).toBe(1);
+    expect(state.scores).toEqual({ 1: 0, 2: 0 });
+    expect(state.status).toBe('playing');
+  });
+
+  test('una jugada ilegal (fence ya dibujada) devuelve el mismo estado', () => {
+    let state = createInitialState();
+    state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 0, col: 1 } });
+    const estadoTrasPrimera = state;
+    state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 0, col: 1 } });
+    expect(state).toEqual(estadoTrasPrimera);
+  });
+
+  test('cerrar un triángulo reclama la región y mantiene el turno del mismo jugador', () => {
+    let state = createInitialState();
+    state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 0, col: 1 } }); // A-B, no cierra, pasa a 2
+    state = { ...state, currentPlayer: 1 };
+    state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 1, col: 0 } }); // A-D, no cierra, pasa a 2
+    state = { ...state, currentPlayer: 1 };
+    // La diagonal B-D cierra el triángulo A-B-D (lados A-B, A-D, B-D).
+    state = jugarFence(state, { a: { row: 0, col: 1 }, b: { row: 1, col: 0 } });
+    expect(state.regions.length).toBe(1);
+    expect(state.scores[1]).toBe(0.5);
+    expect(state.currentPlayer).toBe(1); // mantiene el turno por haber reclamado
+  });
+
+  test('cerrar 2 regiones con una sola fence larga mantiene el turno por ambas', () => {
+    // IMPORTANTE: este caso solo es alcanzable con una fence LARGA (que
+    // añade 2 sub-segmentos al grafo en una sola jugada). Con fences
+    // cortas, un reclamo múltiple en 1 sola jugada es geométricamente
+    // irrealizable en Conquista: si ya están los 4 lados de un cuadro sin
+    // su diagonal, el cuadro se reclama entero de inmediato (antes de
+    // llegar a "solo falta el lado compartido con el cuadro vecino"), y la
+    // regla 3 impide subdividirlo después. No "simplificar" este test a
+    // fences cortas — ver spec sección 1, "Consecuencia de diseño sobre el
+    // encadenamiento múltiple".
+    //
+    // Se arman 2 triángulos que comparten el punto B(0,1), cada uno a falta
+    // de exactamente un lado: A-B-D (falta A-B) y B-C-E (falta B-C). La
+    // fence larga ortogonal A(0,0)-C(0,2) — que se descompone en A-B y B-C
+    // (sección 1 del spec) — cierra ambos triángulos con una sola jugada.
+    let state = createInitialState();
+    state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 1, col: 0 } }); // A-D
+    state = { ...state, currentPlayer: 1 };
+    state = jugarFence(state, { a: { row: 0, col: 1 }, b: { row: 1, col: 0 } }); // diagonal B-D
+    state = { ...state, currentPlayer: 1 };
+    state = jugarFence(state, { a: { row: 0, col: 1 }, b: { row: 1, col: 1 } }); // B-E
+    state = { ...state, currentPlayer: 1 };
+    state = jugarFence(state, { a: { row: 0, col: 2 }, b: { row: 1, col: 1 } }); // diagonal C-E
+    state = { ...state, currentPlayer: 1 };
+    expect(state.regions.length).toBe(0); // nada cerrado todavía
+
+    state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 0, col: 2 } }); // fence larga A-C
+
+    expect(state.regions.length).toBe(2); // triángulo A-B-D y triángulo B-C-E
+    expect(state.scores[1]).toBe(1); // 0.5 + 0.5
+    expect(state.currentPlayer).toBe(1); // encadenó turno por las 2 regiones
+  });
+
+  test('el estado pasa a finished cuando ninguna fence del catálogo es legal', () => {
+    // No se construye a mano (270 candidatos): se juega una partida completa
+    // con movimientos legales hasta que termine, y se confirma el estado.
+    let state = createInitialState();
+    let seguridad = 0;
+    while (state.status === 'playing' && seguridad < 500) {
+      const legal = ALL_CANDIDATES.find(c => esFenceLegal(state, c));
+      if (!legal) break;
+      state = jugarFence(state, legal.fence);
+      seguridad++;
+    }
+    const quedaAlguna = ALL_CANDIDATES.some(c => esFenceLegal(state, c));
+    expect(quedaAlguna).toBe(false);
+    expect(state.status).toBe('finished');
   });
 });
