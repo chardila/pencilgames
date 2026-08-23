@@ -266,12 +266,16 @@ function traceFace(graph: Graph, startU: Point, startV: Point, visited: Set<stri
   visited.add(`${pointKey(startU)}->${pointKey(startV)}`);
 
   for (let i = 0; i < MAX_FACE_STEPS; i++) {
-    if (samePoint(curr, startU)) return cycle;
-    cycle.push(curr);
-
     const neighbors = graph.neighbors.get(pointKey(curr)) ?? [];
     const idx = neighbors.findIndex(p => samePoint(p, prev));
     const next = neighbors[(idx + 1) % neighbors.length];
+
+    // Cierre correcto: comparar la ARISTA DIRIGIDA que se va a tomar contra
+    // la de inicio, no solo el vértice `curr`. Ver spec sección 3,
+    // "Corrección importante".
+    if (samePoint(curr, startU) && samePoint(next, startV)) return cycle;
+
+    cycle.push(curr);
     visited.add(`${pointKey(curr)}->${pointKey(next)}`);
     prev = curr;
     curr = next;

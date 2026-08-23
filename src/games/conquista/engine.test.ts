@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY, buildGraph } from './engine';
 import type { ConquistaState, ConquistaRegion } from './engine';
 import { esFenceLegal } from './engine';
-import { extractBoundedFaces } from './engine';
+import { extractBoundedFaces, signedArea } from './engine';
 
 describe('catálogo de fences', () => {
   test('tiene exactamente 270 candidatos en la cuadrícula 6×6', () => {
@@ -303,6 +303,10 @@ describe('extractBoundedFaces', () => {
     expect(caras.length).toBe(2);
     expect(caras[0].area).toBe(1);
     expect(caras[1].area).toBe(1);
+    // Cada cara reclamable de este rectángulo dividido es un cuadro de 4
+    // vértices (no un triángulo, ni un ciclo degenerado con vértices
+    // repetidos/de más).
+    expect(caras.map(c => c.vertices.length).sort()).toEqual([4, 4]);
   });
 
   test('una región formada con una diagonal tipo caballo se detecta con su área correcta', () => {
@@ -316,5 +320,71 @@ describe('extractBoundedFaces', () => {
     expect(caras.length).toBe(1);
     // Área del triángulo (0,0),(0,1),(1,2) por la fórmula del shoelace = 0.5.
     expect(caras[0].area).toBe(0.5);
+  });
+
+  test('una cara "pellizcada" que toca un vértice compartido dos veces se cierra correctamente (regresión)', () => {
+    // Perímetro grande: cuadrado 4×4 con esquinas (0,0),(0,4),(4,4),(4,0),
+    // construido con fences unitarias encadenadas (área 16).
+    // Triángulo pequeño ESTRICTAMENTE interior al cuadrado, con vértices
+    // (0,0), (1,2), (2,1): comparte EXACTAMENTE el vértice (0,0) — una
+    // esquina del cuadrado — con el perímetro grande, y no toca ninguna
+    // otra arista/vértice del cuadrado (área 1.5, verificada a mano abajo).
+    //
+    // Con el cierre viejo (por VÉRTICE), traceFace que arranca recorriendo
+    // el perímetro del cuadrado se detendría en cuanto vuelve a pisar
+    // (0,0) la PRIMERA vez que lo hace — que es al entrar al triángulo,
+    // no al completar el cuadrado — devolviendo un ciclo incorrecto (una
+    // mezcla de aristas del cuadrado y del triángulo) en vez de las 2
+    // caras reales: el triángulo solo, y el cuadrado "pellizcado" en (0,0)
+    // que le da la vuelta al triángulo por dentro.
+    const fences = new Map<string, 1 | 2>([
+      // Cuadrado 4×4, lado inferior.
+      [fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }), 1],
+      [fenceKey({ row: 0, col: 1 }, { row: 0, col: 2 }), 1],
+      [fenceKey({ row: 0, col: 2 }, { row: 0, col: 3 }), 1],
+      [fenceKey({ row: 0, col: 3 }, { row: 0, col: 4 }), 1],
+      // Lado derecho.
+      [fenceKey({ row: 0, col: 4 }, { row: 1, col: 4 }), 1],
+      [fenceKey({ row: 1, col: 4 }, { row: 2, col: 4 }), 1],
+      [fenceKey({ row: 2, col: 4 }, { row: 3, col: 4 }), 1],
+      [fenceKey({ row: 3, col: 4 }, { row: 4, col: 4 }), 1],
+      // Lado superior.
+      [fenceKey({ row: 4, col: 4 }, { row: 4, col: 3 }), 1],
+      [fenceKey({ row: 4, col: 3 }, { row: 4, col: 2 }), 1],
+      [fenceKey({ row: 4, col: 2 }, { row: 4, col: 1 }), 1],
+      [fenceKey({ row: 4, col: 1 }, { row: 4, col: 0 }), 1],
+      // Lado izquierdo.
+      [fenceKey({ row: 4, col: 0 }, { row: 3, col: 0 }), 1],
+      [fenceKey({ row: 3, col: 0 }, { row: 2, col: 0 }), 1],
+      [fenceKey({ row: 2, col: 0 }, { row: 1, col: 0 }), 1],
+      [fenceKey({ row: 1, col: 0 }, { row: 0, col: 0 }), 1],
+      // Triángulo interior, comparte solo (0,0) con el cuadrado.
+      [fenceKey({ row: 0, col: 0 }, { row: 1, col: 2 }), 1],
+      [fenceKey({ row: 0, col: 0 }, { row: 2, col: 1 }), 1],
+      [fenceKey({ row: 1, col: 2 }, { row: 2, col: 1 }), 1],
+    ]);
+    const caras = extractBoundedFaces(fences);
+    expect(caras.length).toBe(2);
+    const areas = caras.map(c => c.area).sort((a, b) => a - b);
+    // Triángulo (0,0),(1,2),(2,1): shoelace = 1.5.
+    // Cuadrado pellizcado = área del cuadrado (16) menos la del triángulo
+    // (1.5) = 14.5 — NO 16 (el bug que se corrige aquí habría producido un
+    // ciclo mal cerrado en vez de descontar el triángulo correctamente).
+    expect(areas).toEqual([1.5, 14.5]);
+  });
+});
+
+describe('signedArea', () => {
+  test('un ciclo con orientación "reclamable" da área negativa (convención de signo explícita)', () => {
+    // Ciclo A(0,0)-D(1,0)-E(1,1)-B(0,1) del cuadro izquierdo del rectángulo
+    // 2×1 dividido (spec sección 3): esta es la orientación que
+    // extractBoundedFaces mantiene como cara reclamable.
+    const ciclo = [
+      { row: 0, col: 0 }, // A
+      { row: 1, col: 0 }, // D
+      { row: 1, col: 1 }, // E
+      { row: 0, col: 1 }, // B
+    ];
+    expect(signedArea(ciclo)).toBe(-1);
   });
 });
