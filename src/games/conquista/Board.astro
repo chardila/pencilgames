@@ -1,4 +1,5 @@
 ---
+import TableroJuego from '../../components/TableroJuego.astro';
 import { GRID_SIZE } from './engine';
 
 const STEP = 80;
@@ -6,8 +7,7 @@ const MARGIN = 50;
 const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
 ---
 
-<div class="tablero-conquista">
-  <div id="indicador-turno" class="indicador-turno" data-jugador="1"></div>
+<TableroJuego class="tablero-conquista">
   <svg
     id="tablero-svg"
     class="tablero-svg"
@@ -28,172 +28,145 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
             role="button"
             aria-label={`Punto fila ${row + 1}, columna ${col + 1}`}
           >
-            <circle class="punto-toque" cx={MARGIN + col * STEP} cy={MARGIN + row * STEP} r="22" />
-            <circle class="punto-visible" cx={MARGIN + col * STEP} cy={MARGIN + row * STEP} r="6" />
+            <circle
+              cx={MARGIN + col * STEP}
+              cy={MARGIN + row * STEP}
+              r="24"
+              class="punto-hitbox"
+            />
+            <circle
+              cx={MARGIN + col * STEP}
+              cy={MARGIN + row * STEP}
+              r="6"
+              class="punto-visual"
+            />
           </g>
         ))
       )}
     </g>
   </svg>
-  <div id="banner-ganador" class="banner-ganador" hidden></div>
-</div>
+</TableroJuego>
 
 <style>
-  .tablero-conquista {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: var(--spacing);
-  }
-
   .tablero-svg {
-    width: min(92vw, 26rem);
+    width: min(92vw, 32rem);
+    height: auto;
     aspect-ratio: 1;
     touch-action: manipulation;
   }
 
-  .punto-toque {
+  .punto-hitbox {
     fill: transparent;
     cursor: pointer;
   }
 
-  .punto-grupo:focus-visible {
-    outline: none;
-  }
-
-  .punto-grupo:focus-visible .punto-toque {
-    stroke: #f5a623;
-    stroke-width: 3;
-    fill: rgba(245, 166, 35, 0.15);
-  }
-
-  .punto-visible {
+  .punto-visual {
     fill: var(--color-text);
+    transition: r 0.15s ease, fill 0.15s ease;
     pointer-events: none;
   }
 
-  .punto-grupo[data-origen='true'] .punto-visible,
-  .punto-grupo[data-destino-legal='true'] .punto-visible {
-    fill: #f5a623;
+  .punto-grupo[data-interactivo='false'] .punto-hitbox {
+    cursor: not-allowed;
   }
 
-  .punto-grupo[data-interactivo='false'] .punto-toque {
-    cursor: default;
-    pointer-events: none;
+  .punto-grupo[data-origen='true'] .punto-visual {
+    fill: var(--color-player-1);
+    r: 10;
   }
 
-  /*
-   * :global() aquí: <line class="fence-linea"> y <polygon class="region-poligono">
-   * se crean en tiempo de ejecución vía document.createElementNS() (ver
-   * script, función render()), no en el template — Astro solo marca con el
-   * atributo de scope los elementos presentes en el template, así que un
-   * selector con scope normal nunca coincidiría con estos nodos. Mismo motivo
-   * por el que .indicador-turno__jugador y .banner-ganador__contenido, más
-   * abajo, también usan :global().
-   */
-  .tablero-svg :global(.fence-linea) {
+  .punto-grupo[data-destino-legal='true'] .punto-visual {
+    fill: var(--color-player-2);
+    r: 9;
+  }
+
+  .punto-grupo:focus-visible .punto-visual {
+    outline: 2px solid var(--color-text);
+    outline-offset: 4px;
+  }
+
+  :global(.fence-linea) {
     stroke-width: 5;
     stroke-linecap: round;
+    pointer-events: none;
   }
 
-  .tablero-svg :global(.fence-linea[data-jugador='1']) {
+  :global(.fence-linea[data-jugador='1']) {
     stroke: var(--color-player-1);
   }
 
-  .tablero-svg :global(.fence-linea[data-jugador='2']) {
+  :global(.fence-linea[data-jugador='2']) {
     stroke: var(--color-player-2);
   }
 
-  .tablero-svg :global(.region-poligono[data-jugador='1']) {
+  :global(.region-poligono) {
+    stroke: none;
+    pointer-events: none;
+  }
+
+  :global(.region-poligono[data-jugador='1']) {
     fill: color-mix(in srgb, var(--color-player-1) 25%, transparent);
   }
 
-  .tablero-svg :global(.region-poligono[data-jugador='2']) {
+  :global(.region-poligono[data-jugador='2']) {
     fill: color-mix(in srgb, var(--color-player-2) 25%, transparent);
-  }
-
-  .indicador-turno {
-    font-size: 1.1rem;
-    font-weight: 700;
-    min-height: 2rem;
-    text-align: center;
-  }
-
-  .indicador-turno :global(.indicador-turno__jugador[data-jugador='1']) {
-    color: var(--color-player-1);
-    font-weight: 700;
-  }
-
-  .indicador-turno :global(.indicador-turno__jugador[data-jugador='2']) {
-    color: var(--color-player-2);
-    font-weight: 700;
-  }
-
-  .banner-ganador {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 15;
-  }
-
-  .banner-ganador[hidden] {
-    display: none;
-  }
-
-  .banner-ganador :global(.banner-ganador__contenido) {
-    background: var(--color-surface);
-    border-radius: var(--radius);
-    padding: 1.5rem;
-    text-align: center;
   }
 </style>
 
 <script>
   import {
+    ALL_CANDIDATES,
     createInitialState,
     jugarFence,
     esFenceLegal,
     esFence,
-    ALL_CANDIDATES,
     type ConquistaState,
     type Point,
     type Fence,
   } from './engine';
-  import { renderTurnIndicator, ocultarTurnIndicator } from '../../lib/turnIndicator';
-  import { showWinnerBanner, hideWinnerBanner } from '../../lib/winnerBanner';
-  import { getPlayerNames } from '../../lib/players';
-  import type { MoveChannel, MensajeJuego } from '../../lib/remoto/types';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const STEP = 80;
   const MARGIN = 50;
 
-  const svgEl = document.getElementById('tablero-svg')!;
-  const capaRegiones = document.getElementById('capa-regiones')!;
   const capaFences = document.getElementById('capa-fences')!;
-  const gruposPunto = Array.from(svgEl.querySelectorAll<SVGGElement>('.punto-grupo'));
-  const indicadorTurno = document.getElementById('indicador-turno')!;
-  const bannerGanador = document.getElementById('banner-ganador')!;
-  const nombres = getPlayerNames();
+  const capaRegiones = document.getElementById('capa-regiones')!;
+  const gruposPunto = Array.from(
+    document.querySelectorAll<SVGGElement>('.punto-grupo')
+  );
 
-  let state: ConquistaState = createInitialState();
-  let canal: MoveChannel | null = null;
-  let miAsiento: 1 | 2 | null = null;
-  let origen: Point | null = null;
+  function toXY(p: Point): { x: number; y: number } {
+    return {
+      x: MARGIN + p.col * STEP,
+      y: MARGIN + p.row * STEP,
+    };
+  }
 
   function svgNS(tag: string): SVGElement {
     return document.createElementNS('http://www.w3.org/2000/svg', tag);
   }
 
-  function toXY(p: Point): { x: number; y: number } {
-    return { x: MARGIN + p.col * STEP, y: MARGIN + p.row * STEP };
-  }
+  let state: ConquistaState = createInitialState();
+  let origen: Point | null = null;
+
+  const sesion = iniciarSesionJuego<Fence>({
+    validarMovimiento: esFence,
+    onMovimientoRemoto: fence => jugar(fence, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      limpiarSeleccion();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      for (const g of gruposPunto) g.dataset.interactivo = 'false';
+    },
+  });
 
   function puntoDe(row: number, col: number): SVGGElement {
-    return gruposPunto.find(g => Number(g.dataset.row) === row && Number(g.dataset.col) === col)!;
+    return gruposPunto.find(
+      g => g.dataset.row === String(row) && g.dataset.col === String(col)
+    )!;
   }
 
   function limpiarSeleccion(): void {
@@ -230,8 +203,8 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
   }
 
   function alTocarPunto(p: Point): void {
-    const noEsMiTurno = miAsiento !== null && state.currentPlayer !== miAsiento;
-    if (noEsMiTurno || state.status !== 'playing') return;
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer);
+    if (!esMiTurno || state.status !== 'playing') return;
 
     if (origen === null) {
       seleccionarOrigen(p);
@@ -249,12 +222,14 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     const fence: Fence = { a: origen, b: p };
     limpiarSeleccion();
     jugar(fence);
-    canal?.enviar({ tipo: 'movimiento', payload: fence });
   }
 
-  function jugar(fence: Fence): void {
+  function jugar(fence: Fence, emitirRemoto = true): void {
     state = jugarFence(state, fence);
     render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(fence);
+    }
   }
 
   function render(): void {
@@ -276,10 +251,12 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
 
     capaRegiones.innerHTML = '';
     for (const region of state.regions) {
-      const puntos = region.vertices.map(v => {
-        const { x, y } = toXY(v);
-        return `${x},${y}`;
-      }).join(' ');
+      const puntos = region.vertices
+        .map(v => {
+          const { x, y } = toXY(v);
+          return `${x},${y}`;
+        })
+        .join(' ');
       const poligono = svgNS('polygon');
       poligono.setAttribute('points', puntos);
       poligono.setAttribute('class', 'region-poligono');
@@ -287,42 +264,34 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
       capaRegiones.appendChild(poligono);
     }
 
-    const noEsMiTurno = miAsiento !== null && state.currentPlayer !== miAsiento;
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer);
     for (const g of gruposPunto) {
-      g.dataset.interactivo = String(!noEsMiTurno && state.status === 'playing');
+      g.dataset.interactivo = String(esMiTurno && state.status === 'playing');
     }
 
     if (state.status === 'playing') {
-      renderTurnIndicator(indicadorTurno, {
+      sesion.mostrarTurno({
         jugador: state.currentPlayer,
-        etiqueta: nombres[state.currentPlayer],
+        etiqueta: sesion.nombres[state.currentPlayer],
         marcador: {
-          1: { nombre: nombres[1], puntaje: state.scores[1].toFixed(1) },
-          2: { nombre: nombres[2], puntaje: state.scores[2].toFixed(1) },
+          1: { nombre: sesion.nombres[1], puntaje: state.scores[1].toFixed(1) },
+          2: { nombre: sesion.nombres[2], puntaje: state.scores[2].toFixed(1) },
         },
       });
-      hideWinnerBanner(bannerGanador);
     } else {
-      ocultarTurnIndicator(indicadorTurno);
       const ganador =
-        state.scores[1] === state.scores[2] ? null : state.scores[1] > state.scores[2] ? 1 : 2;
-      showWinnerBanner(bannerGanador, {
-        titulo: ganador ? `🎉 ¡Ganó ${nombres[ganador]}!` : '🤝 ¡Empate!',
-        detalle: `${nombres[1]} ${state.scores[1].toFixed(1)} · ${nombres[2]} ${state.scores[2].toFixed(1)}`,
-        onReiniciar: reiniciar,
+        state.scores[1] === state.scores[2]
+          ? null
+          : state.scores[1] > state.scores[2]
+          ? 1
+          : 2;
+      sesion.mostrarFinDeJuego({
+        titulo: ganador ? `🎉 ¡Ganó ${sesion.nombres[ganador]}!` : '🤝 ¡Empate!',
+        detalle: `${sesion.nombres[1]} ${state.scores[1].toFixed(1)} · ${
+          sesion.nombres[2]
+        } ${state.scores[2].toFixed(1)}`,
       });
     }
-  }
-
-  function aplicarReinicio(): void {
-    state = createInitialState();
-    limpiarSeleccion();
-    render();
-  }
-
-  function reiniciar(): void {
-    aplicarReinicio();
-    canal?.enviar({ tipo: 'reiniciar' });
   }
 
   for (const g of gruposPunto) {
@@ -332,45 +301,13 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     g.addEventListener('keydown', (event: KeyboardEvent) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        alTocarPunto({ row: Number(g.dataset.row), col: Number(g.dataset.col) });
+        alTocarPunto({
+          row: Number(g.dataset.row),
+          col: Number(g.dataset.col),
+        });
       }
     });
   }
-
-  document.addEventListener('canal-remoto-listo', evento => {
-    const detalle = (evento as CustomEvent<{ channel: MoveChannel; miNombre: string }>).detail;
-    canal = detalle.channel;
-    miAsiento = canal.asiento;
-    nombres[miAsiento] = detalle.miNombre;
-
-    canal.alRecibir((mensaje: MensajeJuego) => {
-      if (mensaje.tipo === 'movimiento') {
-        if (esFence(mensaje.payload)) {
-          jugar(mensaje.payload);
-        } else {
-          console.warn('Mensaje de movimiento ignorado por payload inválido:', mensaje.payload);
-        }
-      } else if (mensaje.tipo === 'nombre') {
-        nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
-        render();
-      } else if (mensaje.tipo === 'reiniciar') {
-        aplicarReinicio();
-      }
-    });
-
-    canal.alCambiarEstado(estado => {
-      if (estado === 'desconectado') {
-        ocultarTurnIndicator(indicadorTurno);
-        showWinnerBanner(bannerGanador, {
-          titulo: '📡 Tu rival se desconectó',
-          onReiniciar: () => location.reload(),
-        });
-        for (const g of gruposPunto) g.dataset.interactivo = 'false';
-      }
-    });
-
-    render();
-  });
 
   render();
 </script>
