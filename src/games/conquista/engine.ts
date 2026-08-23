@@ -219,6 +219,10 @@ export function esFenceLegal(state: ConquistaState, info: FenceInfo): boolean {
   return true;
 }
 
+function samePoint(p: Point, q: Point): boolean {
+  return p.row === q.row && p.col === q.col;
+}
+
 export interface Graph {
   neighbors: Map<string, Point[]>;
 }
@@ -251,4 +255,62 @@ export function buildGraph(fences: Map<string, ConquistaPlayer>): Graph {
   }
 
   return { neighbors: adjacency };
+}
+
+const MAX_FACE_STEPS = 600; // cota generosa: bien por encima de 2 × 270 aristas dirigidas.
+
+function traceFace(graph: Graph, startU: Point, startV: Point, visited: Set<string>): Point[] {
+  const cycle: Point[] = [startU];
+  let prev = startU;
+  let curr = startV;
+  visited.add(`${pointKey(startU)}->${pointKey(startV)}`);
+
+  for (let i = 0; i < MAX_FACE_STEPS; i++) {
+    if (samePoint(curr, startU)) return cycle;
+    cycle.push(curr);
+
+    const neighbors = graph.neighbors.get(pointKey(curr)) ?? [];
+    const idx = neighbors.findIndex(p => samePoint(p, prev));
+    const next = neighbors[(idx + 1) % neighbors.length];
+    visited.add(`${pointKey(curr)}->${pointKey(next)}`);
+    prev = curr;
+    curr = next;
+  }
+  throw new Error('traceFace: el ciclo no cerró — el grafo no debería llegar a este estado');
+}
+
+export function signedArea(vertices: Point[]): number {
+  let sum = 0;
+  const n = vertices.length;
+  for (let i = 0; i < n; i++) {
+    const p = vertices[i];
+    const q = vertices[(i + 1) % n];
+    sum += p.col * q.row - q.col * p.row;
+  }
+  return sum / 2;
+}
+
+export function extractBoundedFaces(
+  fences: Map<string, ConquistaPlayer>
+): Array<{ vertices: Point[]; area: number }> {
+  const graph = buildGraph(fences);
+  const visited = new Set<string>();
+  const result: Array<{ vertices: Point[]; area: number }> = [];
+
+  for (const [key, neighbors] of graph.neighbors) {
+    const [row, col] = key.split(',').map(Number);
+    const u: Point = { row, col };
+    for (const v of neighbors) {
+      const dKey = `${key}->${pointKey(v)}`;
+      if (visited.has(dKey)) continue;
+      const cycle = traceFace(graph, u, v, visited);
+      const signed = signedArea(cycle);
+      if (signed < 0) {
+        result.push({ vertices: cycle, area: -signed });
+      }
+      // signed >= 0: cara exterior (o degenerada) — se descarta, ver la
+      // nota de implementación arriba de esta tarea.
+    }
+  }
+  return result;
 }

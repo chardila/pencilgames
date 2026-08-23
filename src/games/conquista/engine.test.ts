@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY, buildGraph } from './engine';
 import type { ConquistaState, ConquistaRegion } from './engine';
 import { esFenceLegal } from './engine';
+import { extractBoundedFaces } from './engine';
 
 describe('catálogo de fences', () => {
   test('tiene exactamente 270 candidatos en la cuadrícula 6×6', () => {
@@ -260,5 +261,60 @@ describe('buildGraph', () => {
       { row: 1, col: 1 }, // E
       { row: 0, col: 0 }, // A
     ]);
+  });
+});
+
+describe('extractBoundedFaces', () => {
+  test('un solo cuadro (4 lados) produce exactamente 1 cara acotada de área 1', () => {
+    const fences = new Map<string, 1 | 2>([
+      [fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }), 1],
+      [fenceKey({ row: 0, col: 1 }, { row: 1, col: 1 }), 1],
+      [fenceKey({ row: 1, col: 1 }, { row: 1, col: 0 }), 1],
+      [fenceKey({ row: 1, col: 0 }, { row: 0, col: 0 }), 1],
+    ]);
+    const caras = extractBoundedFaces(fences);
+    expect(caras.length).toBe(1);
+    expect(caras[0].area).toBe(1);
+    expect(caras[0].vertices.length).toBe(4);
+  });
+
+  test('un triángulo (2 lados + 1 diagonal de un cuadro) produce 1 cara de área 0.5', () => {
+    const fences = new Map<string, 1 | 2>([
+      [fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }), 1],
+      [fenceKey({ row: 0, col: 0 }, { row: 1, col: 0 }), 1],
+      [fenceKey({ row: 0, col: 1 }, { row: 1, col: 0 }), 1], // diagonal
+    ]);
+    const caras = extractBoundedFaces(fences);
+    expect(caras.length).toBe(1);
+    expect(caras[0].area).toBe(0.5);
+  });
+
+  test('un rectángulo 2×1 dividido por el medio produce 2 caras de área 1 cada una', () => {
+    const fences = new Map<string, 1 | 2>([
+      [fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }), 1], // A-B
+      [fenceKey({ row: 0, col: 1 }, { row: 0, col: 2 }), 1], // B-C
+      [fenceKey({ row: 1, col: 0 }, { row: 1, col: 1 }), 1], // D-E
+      [fenceKey({ row: 1, col: 1 }, { row: 1, col: 2 }), 1], // E-F
+      [fenceKey({ row: 0, col: 0 }, { row: 1, col: 0 }), 1], // A-D
+      [fenceKey({ row: 0, col: 1 }, { row: 1, col: 1 }), 1], // B-E
+      [fenceKey({ row: 0, col: 2 }, { row: 1, col: 2 }), 1], // C-F
+    ]);
+    const caras = extractBoundedFaces(fences);
+    expect(caras.length).toBe(2);
+    expect(caras[0].area).toBe(1);
+    expect(caras[1].area).toBe(1);
+  });
+
+  test('una región formada con una diagonal tipo caballo se detecta con su área correcta', () => {
+    // Triángulo A(0,0)-B(0,1)-F(1,2) usando la diagonal caballo A-F.
+    const fences = new Map<string, 1 | 2>([
+      [fenceKey({ row: 0, col: 0 }, { row: 0, col: 1 }), 1], // A-B
+      [fenceKey({ row: 0, col: 1 }, { row: 1, col: 2 }), 1], // B-F, diagonal 1x1 normal (offset 1,1)
+      [fenceKey({ row: 0, col: 0 }, { row: 1, col: 2 }), 1], // A-F (diagonal caballo)
+    ]);
+    const caras = extractBoundedFaces(fences);
+    expect(caras.length).toBe(1);
+    // Área del triángulo (0,0),(0,1),(1,2) por la fórmula del shoelace = 0.5.
+    expect(caras[0].area).toBe(0.5);
   });
 });
