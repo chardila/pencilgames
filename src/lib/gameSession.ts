@@ -1,0 +1,173 @@
+import { getPlayerNames, type Player, type PlayerNames } from './players';
+import type { MoveChannel, MensajeJuego } from './remoto/types';
+import {
+  renderTurnIndicator,
+  ocultarTurnIndicator,
+  type TurnIndicatorOptions,
+} from './turnIndicator';
+import {
+  showWinnerBanner,
+  hideWinnerBanner,
+  type WinnerBannerOptions,
+} from './winnerBanner';
+
+export interface GameSessionConfig<TMovimiento> {
+  indicadorTurnoEl?: HTMLElement | null;
+  bannerGanadorEl?: HTMLElement | null;
+  validarMovimiento: (payload: unknown) => payload is TMovimiento;
+  onMovimientoRemoto: (movimiento: TMovimiento) => void;
+  onAplicarReinicio: () => void;
+  onRender: () => void;
+  onDesconectar?: () => void;
+}
+
+export interface GameSession<TMovimiento> {
+  nombres: PlayerNames;
+  miAsiento: Player | null;
+  esMiTurno: (jugadorActual: Player) => boolean;
+  enviarMovimiento: (movimiento: TMovimiento) => void;
+  reiniciar: () => void;
+  mostrarTurno: (
+    opciones: Omit<TurnIndicatorOptions, 'etiqueta'> & { etiqueta?: string }
+  ) => void;
+  mostrarFinDeJuego: (
+    opciones: Omit<WinnerBannerOptions, 'onReiniciar'>
+  ) => void;
+  destruir: () => void;
+}
+
+export function iniciarSesionJuego<TMovimiento>(
+  config: GameSessionConfig<TMovimiento>
+): GameSession<TMovimiento> {
+  const getIndicadorTurno = () =>
+    config.indicadorTurnoEl ?? document.getElementById('indicador-turno');
+  const getBannerGanador = () =>
+    config.bannerGanadorEl ?? document.getElementById('banner-ganador');
+
+  const nombres: PlayerNames = getPlayerNames();
+  let canal: MoveChannel | null = null;
+  let miAsiento: Player | null = null;
+
+  function alActualizarNombresLocales(evento: Event): void {
+    const customEvent = evento as CustomEvent<PlayerNames>;
+    if (customEvent.detail && miAsiento === null) {
+      nombres[1] = customEvent.detail[1];
+      nombres[2] = customEvent.detail[2];
+      config.onRender();
+    }
+  }
+
+  function alCanalRemotoListo(evento: Event): void {
+    const detalle = (
+      evento as CustomEvent<{ channel: MoveChannel; miNombre: string }>
+    ).detail;
+    canal = detalle.channel;
+    miAsiento = canal.asiento;
+    nombres[miAsiento] = detalle.miNombre;
+
+    canal.alRecibir((mensaje: MensajeJuego) => {
+      if (mensaje.tipo === 'movimiento') {
+        if (config.validarMovimiento(mensaje.payload)) {
+          config.onMovimientoRemoto(mensaje.payload);
+        } else {
+          console.warn(
+            'Mensaje de movimiento ignorado por payload inválido:',
+            mensaje.payload
+          );
+        }
+      } else if (mensaje.tipo === 'nombre') {
+        nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
+        config.onRender();
+      } else if (mensaje.tipo === 'reiniciar') {
+        config.onAplicarReinicio();
+      }
+    });
+
+    canal.alCambiarEstado(estado => {
+      if (estado === 'desconectado') {
+        const ind = getIndicadorTurno();
+        const ban = getBannerGanador();
+        if (ind) ocultarTurnIndicator(ind);
+        if (ban) {
+          showWinnerBanner(ban, {
+            titulo: '📡 Tu rival se desconectó',
+            onReiniciar: () => location.reload(),
+          });
+        }
+        config.onDesconectar?.();
+      }
+    });
+
+    config.onRender();
+  }
+
+  document.addEventListener(
+    'nombres-jugadores-actualizados',
+    alActualizarNombresLocales
+  );
+  document.addEventListener('canal-remoto-listo', alCanalRemotoListo);
+
+  function esMiTurno(jugadorActual: Player): boolean {
+    return miAsiento === null || miAsiento === jugadorActual;
+  }
+
+  function enviarMovimiento(movimiento: TMovimiento): void {
+    canal?.enviar({ tipo: 'movimiento', payload: movimiento });
+  }
+
+  function reiniciar(): void {
+    config.onAplicarReinicio();
+    canal?.enviar({ tipo: 'reiniciar' });
+  }
+
+  function mostrarTurno(
+    opciones: Omit<TurnIndicatorOptions, 'etiqueta'> & { etiqueta?: string }
+  ): void {
+    const ind = getIndicadorTurno();
+    const ban = getBannerGanador();
+    if (!ind) return;
+    const etiqueta = opciones.etiqueta ?? nombres[opciones.jugador];
+    renderTurnIndicator(ind, {
+      ...opciones,
+      etiqueta,
+    });
+    if (ban) hideWinnerBanner(ban);
+  }
+
+  function mostrarFinDeJuego(
+    opciones: Omit<WinnerBannerOptions, 'onReiniciar'>
+  ): void {
+    const ind = getIndicadorTurno();
+    const ban = getBannerGanador();
+    if (ind) ocultarTurnIndicator(ind);
+    if (ban) {
+      showWinnerBanner(ban, {
+        ...opciones,
+        onReiniciar: reiniciar,
+      });
+    }
+  }
+
+  function destruir(): void {
+    document.removeEventListener(
+      'nombres-jugadores-actualizados',
+      alActualizarNombresLocales
+    );
+    document.removeEventListener('canal-remoto-listo', alCanalRemotoListo);
+  }
+
+  return {
+    get nombres() {
+      return nombres;
+    },
+    get miAsiento() {
+      return miAsiento;
+    },
+    esMiTurno,
+    enviarMovimiento,
+    reiniciar,
+    mostrarTurno,
+    mostrarFinDeJuego,
+    destruir,
+  };
+}

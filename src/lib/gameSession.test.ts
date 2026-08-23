@@ -1,0 +1,336 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { iniciarSesionJuego } from './gameSession';
+import type { MoveChannel, MensajeJuego } from './remoto/types';
+
+class MemoryStorage {
+  private store = new Map<string, string>();
+  getItem(key: string) {
+    return this.store.has(key) ? this.store.get(key)! : null;
+  }
+  setItem(key: string, value: string) {
+    this.store.set(key, value);
+  }
+  removeItem(key: string) {
+    this.store.delete(key);
+  }
+  clear() {
+    this.store.clear();
+  }
+}
+
+class MockElement extends EventTarget {
+  id: string = '';
+  hidden: boolean = false;
+  style: Record<string, string> = {};
+  dataset: Record<string, string> = {};
+  private _textContent: string = '';
+  private _innerHTML: string = '';
+  private subElements = new Map<string, MockElement>();
+
+  get textContent(): string {
+    const childTexts = Array.from(this.subElements.values())
+      .map(el => el.textContent)
+      .filter(Boolean);
+    if (childTexts.length > 0) {
+      return (this._textContent ? this._textContent + ' ' : '') + childTexts.join(' ');
+    }
+    return this._textContent;
+  }
+
+  set textContent(val: string) {
+    this._textContent = val;
+  }
+
+  get innerHTML(): string {
+    return this._innerHTML;
+  }
+
+  set innerHTML(html: string) {
+    this._innerHTML = html;
+    this.subElements.clear();
+    this._textContent = '';
+  }
+
+  querySelector<T = MockElement>(selector: string): T | null {
+    if (!this.subElements.has(selector)) {
+      const el = new MockElement();
+      this.subElements.set(selector, el);
+    }
+    return this.subElements.get(selector) as unknown as T;
+  }
+}
+
+class MockDocument extends EventTarget {
+  private elements = new Map<string, MockElement>();
+  body = new MockElement();
+
+  getElementById(id: string): MockElement | null {
+    if (!this.elements.has(id)) {
+      const el = new MockElement();
+      el.id = id;
+      this.elements.set(id, el);
+    }
+    return this.elements.get(id)!;
+  }
+}
+
+describe('gameSession', () => {
+  let mockDoc: MockDocument;
+  let memoryStorage: MemoryStorage;
+
+  beforeEach(() => {
+    mockDoc = new MockDocument();
+    memoryStorage = new MemoryStorage();
+    vi.stubGlobal('document', mockDoc as unknown as Document);
+    vi.stubGlobal('localStorage', memoryStorage as unknown as Storage);
+    vi.stubGlobal('location', { reload: vi.fn() });
+
+    const banner = mockDoc.getElementById('banner-ganador')!;
+    banner.hidden = true;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('inicia en modo local con nombres por defecto y ambos turnos permitidos', () => {
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+    });
+
+    expect(sesion.miAsiento).toBeNull();
+    expect(sesion.nombres[1]).toBe('Jugador 1');
+    expect(sesion.nombres[2]).toBe('Jugador 2');
+    expect(sesion.esMiTurno(1)).toBe(true);
+    expect(sesion.esMiTurno(2)).toBe(true);
+    sesion.destruir();
+  });
+
+  it('actualiza nombres locales y llama a onRender al recibir nombres-jugadores-actualizados', () => {
+    const onRender = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender,
+    });
+
+    document.dispatchEvent(
+      new CustomEvent('nombres-jugadores-actualizados', {
+        detail: { 1: 'Alicia', 2: 'Bob' },
+      })
+    );
+
+    expect(sesion.nombres[1]).toBe('Alicia');
+    expect(sesion.nombres[2]).toBe('Bob');
+    expect(onRender).toHaveBeenCalled();
+    sesion.destruir();
+  });
+
+  it('se conecta a canal remoto y restringe turnos según miAsiento', () => {
+    const onRender = vi.fn();
+    const onMovimientoRemoto = vi.fn();
+    const onAplicarReinicio = vi.fn();
+
+    let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
+    const mockEnviar = vi.fn();
+
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: mockEnviar,
+      alRecibir: vi.fn(cb => {
+        receptorMensajes = cb;
+      }),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto,
+      onAplicarReinicio,
+      onRender,
+    });
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Mi Jugador' },
+      })
+    );
+
+    expect(sesion.miAsiento).toBe(1);
+    expect(sesion.nombres[1]).toBe('Mi Jugador');
+    expect(sesion.esMiTurno(1)).toBe(true);
+    expect(sesion.esMiTurno(2)).toBe(false);
+
+    // Enviar movimiento local
+    sesion.enviarMovimiento(4);
+    expect(mockEnviar).toHaveBeenCalledWith({ tipo: 'movimiento', payload: 4 });
+
+    // Recibir movimiento remoto válido
+    receptorMensajes!({ tipo: 'movimiento', payload: 7 });
+    expect(onMovimientoRemoto).toHaveBeenCalledWith(7);
+
+    // Recibir movimiento remoto inválido (no debe llamar onMovimientoRemoto)
+    receptorMensajes!({ tipo: 'movimiento', payload: 'invalido' as any });
+    expect(onMovimientoRemoto).toHaveBeenCalledTimes(1);
+
+    // Recibir nombre remoto
+    receptorMensajes!({ tipo: 'nombre', nombre: 'Rival Remoto' });
+    expect(sesion.nombres[2]).toBe('Rival Remoto');
+
+    // Recibir reinicio remoto
+    receptorMensajes!({ tipo: 'reiniciar' });
+    expect(onAplicarReinicio).toHaveBeenCalled();
+
+    sesion.destruir();
+  });
+
+  it('gestiona desconexión mostrando banner y ejecutando onDesconectar', () => {
+    let receptorEstado: ((estado: string) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 2,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(cb => {
+        receptorEstado = cb;
+      }),
+      cerrar: vi.fn(),
+    };
+
+    const onDesconectar = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+      onDesconectar,
+    });
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Jugador 2' },
+      })
+    );
+
+    receptorEstado!('desconectado');
+
+    expect(onDesconectar).toHaveBeenCalled();
+    const banner = document.getElementById('banner-ganador')!;
+    expect(banner.hidden).toBe(false);
+    expect(banner.textContent).toContain('Tu rival se desconectó');
+
+    sesion.destruir();
+  });
+
+  it('mostrarTurno y mostrarFinDeJuego interactúan con turnIndicator y winnerBanner', () => {
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+    });
+
+    sesion.mostrarTurno({ jugador: 1 });
+    const ind = document.getElementById('indicador-turno')!;
+    expect(ind.hidden).toBe(false);
+    expect(ind.textContent).toContain('Turno de Jugador 1');
+
+    sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 1!' });
+    const ban = document.getElementById('banner-ganador')!;
+    expect(ban.hidden).toBe(false);
+    expect(ban.textContent).toContain('¡Ganó Jugador 1!');
+    expect(ind.hidden).toBe(true);
+
+    sesion.destruir();
+  });
+
+  it('reiniciar llama a onAplicarReinicio y envía mensaje de reinicio si hay canal', () => {
+    const onAplicarReinicio = vi.fn();
+    const mockEnviar = vi.fn();
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: mockEnviar,
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender: vi.fn(),
+    });
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Jugador 1' },
+      })
+    );
+
+    sesion.reiniciar();
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
+    expect(mockEnviar).toHaveBeenCalledWith({ tipo: 'reiniciar' });
+
+    sesion.destruir();
+  });
+
+  it('destruir remueve los event listeners de document', () => {
+    const onRender = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender,
+    });
+
+    sesion.destruir();
+
+    document.dispatchEvent(
+      new CustomEvent('nombres-jugadores-actualizados', {
+        detail: { 1: 'Nuevo 1', 2: 'Nuevo 2' },
+      })
+    );
+
+    expect(sesion.nombres[1]).toBe('Jugador 1');
+    expect(onRender).not.toHaveBeenCalled();
+  });
+
+  it('soporta elementos DOM explícitos pasados en la configuración', () => {
+    const customIndicador = new MockElement();
+    const customBanner = new MockElement();
+    customBanner.hidden = true;
+
+    const onAplicarReinicio = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      indicadorTurnoEl: customIndicador as unknown as HTMLElement,
+      bannerGanadorEl: customBanner as unknown as HTMLElement,
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender: vi.fn(),
+    });
+
+    sesion.mostrarTurno({ jugador: 2, etiqueta: 'Personalizado' });
+    expect(customIndicador.hidden).toBe(false);
+    expect(customIndicador.textContent).toContain('Turno de Personalizado');
+
+    sesion.mostrarFinDeJuego({ titulo: 'Fin de la partida' });
+    expect(customBanner.hidden).toBe(false);
+    expect(customBanner.textContent).toContain('Fin de la partida');
+    expect(customIndicador.hidden).toBe(true);
+
+    const boton = customBanner.querySelector<MockElement>('.banner-ganador__reiniciar')!;
+    boton.dispatchEvent(new Event('click'));
+    expect(onAplicarReinicio).toHaveBeenCalled();
+
+    sesion.destruir();
+  });
+});
