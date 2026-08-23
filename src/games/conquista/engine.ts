@@ -195,7 +195,7 @@ function segmentMidpoint(f: Fence): Point {
 }
 
 // Ray casting estándar, tratando row/col como y/x.
-function pointInPolygon(point: Point, vertices: Point[]): boolean {
+export function pointInPolygon(point: Point, vertices: Point[]): boolean {
   let inside = false;
   const n = vertices.length;
   for (let i = 0, j = n - 1; i < n; j = i++) {
@@ -239,6 +239,17 @@ export function buildGraph(fences: Map<string, ConquistaPlayer>): Graph {
   function addEdge(p: Point, q: Point): void {
     const key = pointKey(p);
     const list = adjacency.get(key) ?? [];
+    // Guardia defensiva: esFenceLegal/collinearGroup ya deberían impedir
+    // que dos fences dibujadas aporten la misma arista dirigida al grafo
+    // (demostrable, ver Task 2), pero esa invariante se aplica lejos de
+    // aquí. Si algún día se rompe, mejor un error inmediato y localizado
+    // que una corrupción silenciosa del grafo que se manifiesta mucho más
+    // adelante dentro de traceFace (como pasó en el bug de Task 2).
+    if (list.some(existing => samePoint(existing, q))) {
+      throw new Error(
+        `buildGraph: arista duplicada detectada (${key} -> ${pointKey(q)}) — esFenceLegal/collinearGroup deberían haberla prevenido`
+      );
+    }
     list.push(q);
     adjacency.set(key, list);
   }
@@ -344,8 +355,55 @@ function canonicalizeCycle(vertices: Point[]): Point[] {
   return [...vertices.slice(minIdx), ...vertices.slice(0, minIdx)];
 }
 
-function regionKey(vertices: Point[]): string {
+export function regionKey(vertices: Point[]): string {
   return canonicalizeCycle(vertices).map(pointKey).join('|');
+}
+
+// Una cara recién cerrada puede encerrar geométricamente una región ya
+// reclamada sin compartir ningún vértice con ella (un anillo desconectado
+// del componente conexo de esa región en el grafo) — extractBoundedFaces
+// no puede verla porque opera por componente conexo. Sin este descuento,
+// el área de la región interior se acredita dos veces: una a su dueño
+// original, y otra completa (de más) al dueño del anillo. Se detecta
+// probando si algún vértice de la región ya reclamada cae estrictamente
+// dentro de la cara nueva (basta un vértice: si la región está adentro,
+// todos sus vértices lo están).
+//
+// Guardia necesaria — si la región SÍ comparte al menos un vértice con la
+// cara nueva (el caso "pellizcado", Task 6), NO hay que restar nada: ambas
+// están en el mismo componente conexo del grafo, y la propia traza
+// topológica de extractBoundedFaces YA descontó el hueco geométricamente
+// (el ciclo de la cara pellizcada literalmente rodea el hueco por dentro).
+// Verificado a mano: sin esta guardia, pointInPolygon devuelve `true` para
+// un vértice que es a la vez vértice de `cara.vertices` (caso borde de la
+// implementación de ray-casting), y se restaría el hueco DOS VECES (una
+// vez por la topología, otra por esta función) — 14.5 → 13 en el caso
+// pellizcado jugado a través de jugarFence, verificado con
+// `'la fusión "pellizcada" claimeada vía jugarFence no resta dos veces'` en
+// engine.test.ts.
+//
+// Esto también es correcto en general para estados legales de Conquista:
+// para que una región reclamada, estrictamente adentro de la cara nueva,
+// esté en el mismo componente conexo del grafo que la cara nueva, el
+// camino que las conecta debe salir de su interior — lo cual exige pasar
+// por un vértice del ciclo de la cara (guardia activa) o cruzar una fence
+// existente (regla 2 de esFenceLegal ya lo prohíbe). Por lo tanto "no
+// comparte ningún vértice con `cara.vertices`" equivale exactamente a
+// "invisible para la traza" — el caso que sí necesita este descuento manual.
+function areaNetaDeHuecos(
+  cara: { vertices: Point[]; area: number },
+  regionesExistentes: ConquistaRegion[]
+): number {
+  let area = cara.area;
+  for (const region of regionesExistentes) {
+    const comparteVertice = region.vertices.some(v => cara.vertices.some(cv => samePoint(cv, v)));
+    if (comparteVertice) continue;
+    const quedaEncerrada = region.vertices.some(v => pointInPolygon(v, cara.vertices));
+    if (quedaEncerrada) {
+      area -= region.area;
+    }
+  }
+  return area;
 }
 
 export function jugarFence(state: ConquistaState, fence: Fence): ConquistaState {
@@ -367,13 +425,18 @@ export function jugarFence(state: ConquistaState, fence: Fence): ConquistaState 
   for (const face of found) {
     const key = regionKey(face.vertices);
     if (existingKeys.has(key)) continue;
+    // Se resta contra state.regions (el estado ANTES de esta jugada), no
+    // contra el acumulador local `regions` que se va llenando en este mismo
+    // loop — una región recién reclamada en esta misma jugada nunca debe
+    // restarse de otra cara reclamada en la misma jugada.
+    const areaNeta = areaNetaDeHuecos(face, state.regions);
     regions.push({
       vertices: canonicalizeCycle(face.vertices),
       owner: state.currentPlayer,
-      area: face.area,
+      area: areaNeta,
       key,
     });
-    scores[state.currentPlayer] += face.area;
+    scores[state.currentPlayer] += areaNeta;
     claimedCount++;
   }
 

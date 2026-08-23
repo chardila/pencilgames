@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY, buildGraph } from './engine';
-import type { ConquistaState, ConquistaRegion } from './engine';
+import type { ConquistaState, ConquistaRegion, Point } from './engine';
 import { esFenceLegal } from './engine';
 import { extractBoundedFaces, signedArea } from './engine';
 import { createInitialState, jugarFence } from './engine';
+import { regionKey, pointInPolygon } from './engine';
 
 describe('catálogo de fences', () => {
   test('tiene exactamente 270 candidatos en la cuadrícula 6×6', () => {
@@ -494,6 +495,86 @@ describe('jugarFence', () => {
     expect(quedaAlguna).toBe(false);
     expect(state.status).toBe('finished');
   });
+
+  test('regresión: un anillo desconectado que encierra una región ya reclamada descuenta su área (no la duplica)', () => {
+    // Triángulo (2,2)-(2,3)-(3,2), área 0.5, reclamado por el jugador 1.
+    // Luego un anillo 3×3 con esquinas (1,1)-(1,4)-(4,4)-(4,1) (12 fences
+    // cortas) que NO comparte ningún vértice con el triángulo pero lo
+    // encierra geométricamente (interior del anillo: filas/columnas 1..4;
+    // el triángulo vive estrictamente adentro, en filas/columnas 2..3).
+    // 15 jugadas legales en total, turnos alternados de forma natural (sin
+    // forzar currentPlayer en ningún momento).
+    //
+    // extractBoundedFaces opera por componente conexo del grafo: el anillo
+    // y el triángulo son componentes distintos (no comparten vértice), así
+    // que el recorrido de caras del anillo nunca "ve" el triángulo interior
+    // y por sí solo reportaría el área completa del anillo (9), sin
+    // descontar el agujero ya reclamado (0.5). El fix (areaNetaDeHuecos)
+    // debe descontarlo: área neta del anillo = 9 - 0.5 = 8.5.
+    let state = createInitialState();
+
+    // Triángulo: jugador 1 dibuja 2 lados sin cerrar, el 3º cierra.
+    state = jugarFence(state, { a: { row: 2, col: 2 }, b: { row: 2, col: 3 } }); // P1, no cierra
+    state = jugarFence(state, { a: { row: 2, col: 3 }, b: { row: 3, col: 2 } }); // P2, no cierra
+    state = jugarFence(state, { a: { row: 3, col: 2 }, b: { row: 2, col: 2 } }); // P1 cierra el triángulo, mantiene turno
+
+    // Anillo 3×3, 12 fences cortas por su perímetro (sin tocar el triángulo).
+    state = jugarFence(state, { a: { row: 1, col: 1 }, b: { row: 1, col: 2 } });
+    state = jugarFence(state, { a: { row: 1, col: 2 }, b: { row: 1, col: 3 } });
+    state = jugarFence(state, { a: { row: 1, col: 3 }, b: { row: 1, col: 4 } });
+    state = jugarFence(state, { a: { row: 1, col: 4 }, b: { row: 2, col: 4 } });
+    state = jugarFence(state, { a: { row: 2, col: 4 }, b: { row: 3, col: 4 } });
+    state = jugarFence(state, { a: { row: 3, col: 4 }, b: { row: 4, col: 4 } });
+    state = jugarFence(state, { a: { row: 4, col: 4 }, b: { row: 4, col: 3 } });
+    state = jugarFence(state, { a: { row: 4, col: 3 }, b: { row: 4, col: 2 } });
+    state = jugarFence(state, { a: { row: 4, col: 2 }, b: { row: 4, col: 1 } });
+    state = jugarFence(state, { a: { row: 4, col: 1 }, b: { row: 3, col: 1 } });
+    state = jugarFence(state, { a: { row: 3, col: 1 }, b: { row: 2, col: 1 } });
+    state = jugarFence(state, { a: { row: 2, col: 1 }, b: { row: 1, col: 1 } }); // cierra el anillo
+
+    expect(state.scores).toEqual({ 1: 0.5, 2: 8.5 });
+    expect(state.regions.length).toBe(2); // el triángulo y el anillo (con hueco descontado)
+  });
+
+  test('regresión: una cara "pellizcada" que comparte un vértice con una región ya reclamada NO le resta el área dos veces', () => {
+    // Distinto del caso anterior: aquí el triángulo interior SÍ comparte un
+    // vértice — (0,0) — con la cara nueva (el cuadrado "pellizcado" de
+    // Task 6). En ese caso, extractBoundedFaces ya descuenta el hueco
+    // geométricamente vía su propia traza topológica (el ciclo de la cara
+    // pellizcada literalmente rodea el triángulo por dentro): el cuadrado
+    // pellizcado ya vale 14.5, no 16. areaNetaDeHuecos NO debe restar el
+    // área del triángulo otra vez (lo que daría 13, incorrecto) — debe
+    // reconocer que, al compartir vértice, el hueco ya está contado y no
+    // tocar el área de esta cara.
+    //
+    // Se juega el triángulo primero (se reclama, área 1.5), y luego se
+    // cierra el perímetro completo del cuadrado 4×4 con jugarFence — a
+    // diferencia del test de Task 6 (que llama extractBoundedFaces
+    // directamente y por tanto nunca pasa por areaNetaDeHuecos), este test
+    // sí ejercita el código de producción real de jugarFence.
+    let state = createInitialState();
+
+    // Triángulo (0,0)-(1,2)-(2,1) con diagonales caballo — se cierra en la
+    // 3ª jugada y queda reclamado antes de que exista el cuadrado.
+    state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 1, col: 2 } });
+    state = jugarFence(state, { a: { row: 0, col: 0 }, b: { row: 2, col: 1 } });
+    state = jugarFence(state, { a: { row: 1, col: 2 }, b: { row: 2, col: 1 } }); // cierra el triángulo
+
+    // Perímetro del cuadrado 4×4, 16 fences unitarias; ninguna cruza el
+    // triángulo (que es estrictamente interior), solo comparten (0,0).
+    const perimetro: Array<[[number, number], [number, number]]> = [
+      [[0, 0], [0, 1]], [[0, 1], [0, 2]], [[0, 2], [0, 3]], [[0, 3], [0, 4]],
+      [[0, 4], [1, 4]], [[1, 4], [2, 4]], [[2, 4], [3, 4]], [[3, 4], [4, 4]],
+      [[4, 4], [4, 3]], [[4, 3], [4, 2]], [[4, 2], [4, 1]], [[4, 1], [4, 0]],
+      [[4, 0], [3, 0]], [[3, 0], [2, 0]], [[2, 0], [1, 0]], [[1, 0], [0, 0]], // cierra el perímetro
+    ];
+    for (const [[ar, ac], [br, bc]] of perimetro) {
+      state = jugarFence(state, { a: { row: ar, col: ac }, b: { row: br, col: bc } });
+    }
+
+    const areas = state.regions.map(r => r.area).sort((a, b) => a - b);
+    expect(areas).toEqual([1.5, 14.5]); // NO [1.5, 13] — ver comentario arriba
+  });
 });
 
 // PRNG determinista (mulberry32) para que las partidas aleatorias del test
@@ -509,9 +590,29 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+// Puntos de muestreo para el chequeo de solapamiento (ver más abajo): 9
+// puntos por celda unitaria (cuadrícula 3×3 interna, offsets 0.25/0.5/0.75),
+// para las 5×5 celdas de un tablero de GRID_SIZE=6. Deliberadamente NO usa
+// shoelace/topología — es un algoritmo distinto al que usa la producción,
+// para que sea una verificación genuinamente independiente.
+const SAMPLE_POINTS: Point[] = (() => {
+  const points: Point[] = [];
+  const offsets = [0.25, 0.5, 0.75];
+  for (let row = 0; row < GRID_SIZE - 1; row++) {
+    for (let col = 0; col < GRID_SIZE - 1; col++) {
+      for (const dr of offsets) {
+        for (const dc of offsets) {
+          points.push({ row: row + dr, col: col + dc });
+        }
+      }
+    }
+  }
+  return points;
+})();
+
 describe('invariante: cero caras acotadas sin dueño', () => {
-  test('se cumple en cada jugada de 5 partidas completas aleatorias', () => {
-    for (let seed = 1; seed <= 5; seed++) {
+  test('se cumple en cada jugada de 40 partidas completas aleatorias', () => {
+    for (let seed = 1; seed <= 40; seed++) {
       const rng = mulberry32(seed);
       let state = createInitialState();
 
@@ -521,15 +622,37 @@ describe('invariante: cero caras acotadas sin dueño', () => {
         const elegido = legales[Math.floor(rng() * legales.length)];
         state = jugarFence(state, elegido.fence);
 
+        // Multiset EXACTO de claves entre las caras acotadas recomputadas
+        // desde cero (sobre el fence set actual completo) y las regiones
+        // reclamadas hasta ahora — no solo el conteo. Esto es lo que hace
+        // esta comparación no-tautológica: extractBoundedFaces se
+        // recomputa aquí desde cero, independientemente de cómo
+        // jugarFence fue acumulando `state.regions` jugada a jugada.
         const carasAcotadas = extractBoundedFaces(state.fences);
-        expect(carasAcotadas.length).toBe(state.regions.length);
-
-        const areaTotal = state.regions.reduce((sum, r) => sum + r.area, 0);
-        const puntajeTotal = state.scores[1] + state.scores[2];
-        expect(puntajeTotal).toBeCloseTo(areaTotal, 10);
+        const clavesRecomputadas = carasAcotadas.map(c => regionKey(c.vertices)).sort();
+        const clavesReclamadas = state.regions.map(r => r.key).sort();
+        expect(clavesRecomputadas).toEqual(clavesReclamadas);
       }
 
       expect(state.status).toBe('finished');
+
+      // Invariante de área INDEPENDIENTE (no compara region.area contra sí
+      // mismo — esa comparación es tautológica y no detecta nada, fue
+      // exactamente lo que dejó pasar el bug del anillo desconectado que
+      // duplicaba área, Task 7 hallazgo crítico). En vez de comparar
+      // áreas, se verifica por muestreo geométrico que ningún punto del
+      // tablero cae dentro de 2 regiones reclamadas a la vez — eso es
+      // exactamente lo que el bug producía (el punto medio del triángulo
+      // caía dentro del triángulo Y dentro del anillo que lo encerraba).
+      // Se chequea solo al final de la partida (no en cada jugada): una
+      // vez reclamada, una región nunca se modifica ni se elimina (regla 3
+      // impide subdividirla después), así que un solapamiento introducido
+      // a mitad de partida persiste hasta el final — comprobarlo al final
+      // detecta el mismo bug a una fracción del costo.
+      for (const p of SAMPLE_POINTS) {
+        const contenedoras = state.regions.filter(r => pointInPolygon(p, r.vertices));
+        expect(contenedoras.length).toBeLessThanOrEqual(1);
+      }
     }
   });
 });
