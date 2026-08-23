@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'vitest';
-import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY, buildGraph } from './engine';
-import type { ConquistaState, ConquistaRegion, Point } from './engine';
+import { describe, expect, it, test } from 'vitest';
+import { ALL_CANDIDATES, GRID_SIZE, fenceKey, CANDIDATES_BY_KEY, buildGraph, esFence } from './engine';
+import type { ConquistaState, ConquistaRegion, Point, Fence } from './engine';
 import { esFenceLegal } from './engine';
 import { extractBoundedFaces, signedArea } from './engine';
 import { createInitialState, jugarFence } from './engine';
@@ -656,3 +656,37 @@ describe('invariante: cero caras acotadas sin dueño', () => {
     }
   });
 });
+
+describe('conquista - guarda de payload (esFence)', () => {
+  it('acepta objetos Fence con puntos enteros válidos dentro del tablero', () => {
+    const fence: Fence = {
+      a: { row: 0, col: 0 },
+      b: { row: 0, col: 1 },
+    };
+    expect(esFence(fence)).toBe(true);
+  });
+
+  it('rechaza fences con puntos fuera de rango', () => {
+    expect(esFence({ a: { row: -1, col: 0 }, b: { row: 0, col: 0 } })).toBe(false);
+    expect(esFence({ a: { row: 0, col: 0 }, b: { row: GRID_SIZE, col: 0 } })).toBe(false);
+  });
+
+  it('rechaza fences con el mismo punto de origen y destino', () => {
+    expect(esFence({ a: { row: 2, col: 2 }, b: { row: 2, col: 2 } })).toBe(false);
+  });
+
+  it('rechaza coordenadas no numéricas o flotantes', () => {
+    expect(esFence({ a: { row: 1.5, col: 0 }, b: { row: 0, col: 0 } })).toBe(false);
+    expect(esFence({ a: { row: '0', col: 0 }, b: { row: 0, col: 1 } })).toBe(false);
+  });
+
+  it('rechaza estructuras malformadas o primitivos', () => {
+    expect(esFence(null)).toBe(false);
+    expect(esFence(undefined)).toBe(false);
+    expect(esFence('0,0-0,1')).toBe(false);
+    expect(esFence({})).toBe(false);
+    expect(esFence({ a: { row: 0, col: 0 } })).toBe(false);
+    expect(esFence({ a: null, b: null })).toBe(false);
+  });
+});
+

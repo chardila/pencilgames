@@ -157,6 +157,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     createInitialState,
     jugarFence,
     esFenceLegal,
+    esFence,
     ALL_CANDIDATES,
     type ConquistaState,
     type Point,
@@ -344,7 +345,11 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
 
     canal.alRecibir((mensaje: MensajeJuego) => {
       if (mensaje.tipo === 'movimiento') {
-        jugar(mensaje.payload as Fence);
+        if (esFence(mensaje.payload)) {
+          jugar(mensaje.payload);
+        } else {
+          console.warn('Mensaje de movimiento ignorado por payload inválido:', mensaje.payload);
+        }
       } else if (mensaje.tipo === 'nombre') {
         nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
         render();

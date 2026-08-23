@@ -457,3 +457,26 @@ export function jugarFence(state: ConquistaState, fence: Fence): ConquistaState 
 
   return nextState;
 }
+
+function esPointValido(p: unknown): p is Point {
+  if (typeof p !== 'object' || p === null) return false;
+  const point = p as Record<string, unknown>;
+  return (
+    typeof point.row === 'number' &&
+    Number.isInteger(point.row) &&
+    point.row >= 0 &&
+    point.row < GRID_SIZE &&
+    typeof point.col === 'number' &&
+    Number.isInteger(point.col) &&
+    point.col >= 0 &&
+    point.col < GRID_SIZE
+  );
+}
+
+export function esFence(payload: unknown): payload is Fence {
+  if (typeof payload !== 'object' || payload === null) return false;
+  const candidato = payload as Record<string, unknown>;
+  if (!esPointValido(candidato.a) || !esPointValido(candidato.b)) return false;
+  return candidato.a.row !== candidato.b.row || candidato.a.col !== candidato.b.col;
+}
+
