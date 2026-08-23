@@ -514,20 +514,12 @@ describe('invariante: cero caras acotadas sin dueño', () => {
     for (let seed = 1; seed <= 5; seed++) {
       const rng = mulberry32(seed);
       let state = createInitialState();
-      let moveCount = 0;
 
       while (state.status === 'playing') {
         const legales = ALL_CANDIDATES.filter(c => esFenceLegal(state, c));
         if (legales.length === 0) break;
         const elegido = legales[Math.floor(rng() * legales.length)];
-        moveCount++;
-
-        try {
-          state = jugarFence(state, elegido.fence);
-        } catch (e) {
-          console.error(`Failed at seed=${seed}, move=${moveCount}, fence=${JSON.stringify(elegido.fence)}`);
-          throw e;
-        }
+        state = jugarFence(state, elegido.fence);
 
         const carasAcotadas = extractBoundedFaces(state.fences);
         expect(carasAcotadas.length).toBe(state.regions.length);
@@ -537,7 +529,6 @@ describe('invariante: cero caras acotadas sin dueño', () => {
         expect(puntajeTotal).toBeCloseTo(areaTotal, 10);
       }
 
-      console.log(`Seed ${seed} completed with ${moveCount} moves`);
       expect(state.status).toBe('finished');
     }
   });
