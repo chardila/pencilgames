@@ -27,16 +27,84 @@ const { id = 'tablero-juego', class: className = '' } = Astro.props;
     font-weight: 700;
     min-height: 2rem;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .indicador-turno :global(.indicador-turno__badge) {
+    font-size: 0.85rem;
+    font-weight: 800;
+    padding: 0.25rem 0.85rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    animation: badgePopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    letter-spacing: 0.02em;
+  }
+
+  .indicador-turno[data-jugador='1'] :global(.indicador-turno__badge) {
+    background: var(--color-player-1);
+    color: #ffffff;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-player-1) 40%, transparent);
+  }
+
+  .indicador-turno[data-jugador='2'] :global(.indicador-turno__badge) {
+    background: var(--color-player-2);
+    color: #ffffff;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-player-2) 40%, transparent);
+  }
+
+  .indicador-turno[data-repite='true'] :global(.indicador-turno__principal) {
+    animation: turnoPulse 0.4s ease-out;
   }
 
   .indicador-turno :global(.indicador-turno__jugador[data-jugador='1']) {
     color: var(--color-player-1);
     font-weight: 700;
+    padding: 0.1rem 0.35rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
   }
 
   .indicador-turno :global(.indicador-turno__jugador[data-jugador='2']) {
     color: var(--color-player-2);
     font-weight: 700;
+    padding: 0.1rem 0.35rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .indicador-turno :global(.indicador-turno__jugador[data-activo='true']) {
+    font-weight: 800;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+
+  @keyframes badgePopIn {
+    0% {
+      transform: scale(0.7);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes turnoPulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.08);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
 
   .banner-ganador {

@@ -151,12 +151,14 @@ const SIZE = 4;
   const cajas = Array.from(tablero.querySelectorAll<HTMLElement>('.caja'));
 
   let state: PuntosYCajasState = createInitialState(4);
+  let repiteTurno = false;
 
   const sesion = iniciarSesionJuego<LineId>({
     validarMovimiento: esLineId,
     onMovimientoRemoto: line => jugar(line, false),
     onAplicarReinicio: () => {
       state = createInitialState(4);
+      repiteTurno = false;
       render();
     },
     onRender: render,
@@ -197,6 +199,8 @@ const SIZE = 4;
       sesion.mostrarTurno({
         jugador: state.currentPlayer,
         etiqueta: sesion.nombres[state.currentPlayer],
+        repiteTurno,
+        motivoRepeticion: '✨ ¡Caja completada! Vuelves a jugar',
         marcador: {
           1: { nombre: sesion.nombres[1], puntaje: state.scores[1] },
           2: { nombre: sesion.nombres[2], puntaje: state.scores[2] },
@@ -212,7 +216,10 @@ const SIZE = 4;
   }
 
   function jugar(line: LineId, emitirRemoto = true): void {
+    const prevBoxesFilled = state.scores[1] + state.scores[2];
     state = playLine(state, line);
+    const nuevasCajas = state.scores[1] + state.scores[2] - prevBoxesFilled;
+    repiteTurno = nuevasCajas > 0 && state.status === 'playing';
     render();
     if (emitirRemoto) {
       sesion.enviarMovimiento(line);

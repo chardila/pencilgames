@@ -13,3 +13,4 @@ dist/
 .env
 .dev.vars
 .wrangler/
+.rtk/

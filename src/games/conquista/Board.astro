@@ -148,12 +148,14 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
 
   let state: ConquistaState = createInitialState();
   let origen: Point | null = null;
+  let repiteTurno = false;
 
   const sesion = iniciarSesionJuego<Fence>({
     validarMovimiento: esFence,
     onMovimientoRemoto: fence => jugar(fence, false),
     onAplicarReinicio: () => {
       state = createInitialState();
+      repiteTurno = false;
       limpiarSeleccion();
       render();
     },
@@ -225,7 +227,10 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
   }
 
   function jugar(fence: Fence, emitirRemoto = true): void {
+    const prevRegionsCount = state.regions.length;
     state = jugarFence(state, fence);
+    const nuevasRegiones = state.regions.length - prevRegionsCount;
+    repiteTurno = nuevasRegiones > 0 && state.status === 'playing';
     render();
     if (emitirRemoto) {
       sesion.enviarMovimiento(fence);
@@ -273,6 +278,8 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
       sesion.mostrarTurno({
         jugador: state.currentPlayer,
         etiqueta: sesion.nombres[state.currentPlayer],
+        repiteTurno,
+        motivoRepeticion: '✨ ¡Área conquistada! Vuelves a jugar',
         marcador: {
           1: { nombre: sesion.nombres[1], puntaje: state.scores[1].toFixed(1) },
           2: { nombre: sesion.nombres[2], puntaje: state.scores[2].toFixed(1) },
