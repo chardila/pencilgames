@@ -68,7 +68,6 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   .casilla.casilla--linea {
     background: var(--color-accent);
-    color: #ffffff;
   }
 
   @media (max-width: 30rem) {
@@ -122,6 +121,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
       } else {
         delete mini.dataset.muerto;
       }
+      mini.setAttribute(
+        'aria-label',
+        `Tablero ${t + 1}${state.deadBoards[t] ? ' (muerto)' : ''}`
+      );
     });
 
     casillas.forEach(casilla => {

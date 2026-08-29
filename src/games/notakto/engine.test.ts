@@ -28,19 +28,19 @@ describe('notakto engine - playMove', () => {
   it('ignora una jugada sobre una casilla ocupada', () => {
     const state = playMove(createInitialState(), { board: 1, cell: 0 });
     const next = playMove(state, { board: 1, cell: 0 });
-    expect(next).toEqual(state);
+    expect(next).toBe(state);
   });
 
   it('ignora una jugada con tablero fuera de rango', () => {
     const state = createInitialState();
-    expect(playMove(state, { board: 3, cell: 0 })).toEqual(state);
-    expect(playMove(state, { board: -1, cell: 0 })).toEqual(state);
+    expect(playMove(state, { board: 3, cell: 0 })).toBe(state);
+    expect(playMove(state, { board: -1, cell: 0 })).toBe(state);
   });
 
   it('ignora una jugada con casilla fuera de rango', () => {
     const state = createInitialState();
-    expect(playMove(state, { board: 0, cell: 9 })).toEqual(state);
-    expect(playMove(state, { board: 0, cell: -1 })).toEqual(state);
+    expect(playMove(state, { board: 0, cell: 9 })).toBe(state);
+    expect(playMove(state, { board: 0, cell: -1 })).toBe(state);
   });
 
   it('mata un tablero al formar tres en línea y sigue cambiando de turno', () => {
@@ -65,7 +65,7 @@ describe('notakto engine - playMove', () => {
     state = playMove(state, { board: 0, cell: 2 }); // tablero 0 muerto
     const antes = state;
     const despues = playMove(state, { board: 0, cell: 5 });
-    expect(despues).toEqual(antes);
+    expect(despues).toBe(antes);
   });
 
   it('termina la partida cuando muere el último tablero: pierde quien hizo la jugada', () => {
@@ -96,7 +96,29 @@ describe('notakto engine - playMove', () => {
       state = playMove(state, { board, cell });
     }
     const next = playMove(state, { board: 0, cell: 5 });
-    expect(next).toEqual(state);
+    expect(next).toBe(state);
+  });
+
+  it('termina la partida cuando el jugador 2 mata el último tablero: gana el jugador 1', () => {
+    // Un movimiento de relleno extra en el tablero 2 (jugada 9) invierte la
+    // paridad para que la jugada final que mata el tablero 2 sea del jugador 2.
+    // Las jugadas se alternan 1,2,1,2,… y el turno NO cambia en la jugada final.
+    const secuencia: Array<[number, number]> = [
+      [0, 0], [0, 1], [0, 2], // j1,j2,j1 -> tablero 0 muerto
+      [1, 0], [1, 1], [1, 2], // j2,j1,j2 -> tablero 1 muerto
+      [2, 0], [2, 1],         // j1,j2 en el tablero 2
+      [2, 3],                 // j1 relleno: no forma línea, tablero 2 sigue vivo
+      [2, 2],                 // j2 cierra la fila superior -> tablero 2 muerto -> fin
+    ];
+    let state = createInitialState();
+    for (const [board, cell] of secuencia) {
+      state = playMove(state, { board, cell });
+    }
+    expect(state.status).toBe('won');
+    expect(state.deadBoards).toEqual([true, true, true]);
+    expect(state.loser).toBe(2); // el jugador 2 hizo la jugada [2,2]
+    expect(state.winner).toBe(1);
+    expect(state.currentPlayer).toBe(2); // no cambia al terminar
   });
 
   it('no muta el estado que recibe', () => {
