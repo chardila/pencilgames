@@ -14,3 +14,6 @@ dist/
 .dev.vars
 .wrangler/
 .rtk/
+
+# Instrucciones locales de RTK, específicas de la máquina
+CLAUDE.md
