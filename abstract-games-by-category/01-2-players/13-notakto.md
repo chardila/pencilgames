@@ -1,5 +1,9 @@
 # Notakto
 
+> ✅ **Implementado** (5º juego) — en vivo en https://games.cardila.com/juegos/notakto/
+> Variante final: 3 tableros fijos, 2 jugadores, sin IA, con juego remoto.
+> Diseño: `docs/superpowers/specs/2026-08-29-notakto-design.md`.
+
 ## Players
 2
 
