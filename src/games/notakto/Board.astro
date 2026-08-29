@@ -1,0 +1,176 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+---
+
+<TableroJuego class="tablero-notakto">
+  <div id="tableros" class="tableros">
+    {Array.from({ length: 3 }).map((_, t) => (
+      <div class="mini-tablero" data-tablero={t} role="grid" aria-label={`Tablero ${t + 1}`}>
+        {Array.from({ length: 9 }).map((_, i) => (
+          <button
+            type="button"
+            class="casilla"
+            data-tablero={t}
+            data-indice={i}
+            aria-label={`Tablero ${t + 1}, casilla ${i + 1}`}
+          />
+        ))}
+      </div>
+    ))}
+  </div>
+</TableroJuego>
+
+<style>
+  .tableros {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.25rem;
+  }
+
+  .mini-tablero {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(2.75rem, 4rem));
+    grid-template-rows: repeat(3, minmax(2.75rem, 4rem));
+    gap: 0.35rem;
+    padding: 0.5rem 0.5rem 1rem;
+    border-radius: 12px;
+    position: relative;
+    transition: opacity 0.2s ease;
+  }
+
+  .mini-tablero[data-muerto='true'] {
+    opacity: 0.55;
+  }
+
+  .mini-tablero[data-muerto='true']::after {
+    content: 'muerto';
+    position: absolute;
+    bottom: 0.15rem;
+    right: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+
+  .casilla {
+    font-size: 1.9rem;
+    font-weight: 700;
+    background: var(--color-surface);
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    min-height: var(--tap-target-min);
+    min-width: var(--tap-target-min);
+    color: var(--color-player-1);
+  }
+
+  .casilla.casilla--linea {
+    background: var(--color-accent);
+    color: #ffffff;
+  }
+
+  @media (max-width: 30rem) {
+    .mini-tablero {
+      grid-template-columns: repeat(3, minmax(3rem, 4.5rem));
+      grid-template-rows: repeat(3, minmax(3rem, 4.5rem));
+    }
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    type NotaktoState,
+    type Move,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const contenedor = document.getElementById('tableros')!;
+  const casillas = Array.from(
+    contenedor.querySelectorAll<HTMLButtonElement>('.casilla')
+  );
+  const miniTableros = Array.from(
+    contenedor.querySelectorAll<HTMLElement>('.mini-tablero')
+  );
+
+  let state: NotaktoState = createInitialState();
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      casillas.forEach(casilla => (casilla.disabled = true));
+    },
+  });
+
+  function render(): void {
+    const jugadorDelTurno = state.currentPlayer;
+    const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+
+    miniTableros.forEach((mini, t) => {
+      if (state.deadBoards[t]) {
+        mini.dataset.muerto = 'true';
+      } else {
+        delete mini.dataset.muerto;
+      }
+    });
+
+    casillas.forEach(casilla => {
+      const t = Number(casilla.dataset.tablero);
+      const i = Number(casilla.dataset.indice);
+      const valor = state.boards[t][i];
+      casilla.textContent = valor === 'X' ? '✕' : '';
+      if (valor) {
+        casilla.dataset.valor = valor;
+      } else {
+        delete casilla.dataset.valor;
+      }
+      const enLinea = state.deadLines[t]?.includes(i) ?? false;
+      casilla.classList.toggle('casilla--linea', enLinea);
+      casilla.disabled =
+        valor !== null ||
+        state.deadBoards[t] ||
+        state.status !== 'playing' ||
+        !esMiTurno;
+    });
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: jugadorDelTurno,
+        etiqueta: `${sesion.nombres[jugadorDelTurno]} (pone ✕)`,
+      });
+    } else {
+      sesion.mostrarFinDeJuego({
+        titulo: `💀 ¡Perdió ${sesion.nombres[state.loser!]}! Ganó ${sesion.nombres[state.winner!]}`,
+      });
+    }
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    state = playMove(state, move);
+    render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(move);
+    }
+  }
+
+  casillas.forEach(casilla => {
+    casilla.addEventListener('click', () => {
+      jugar({
+        board: Number(casilla.dataset.tablero),
+        cell: Number(casilla.dataset.indice),
+      });
+    });
+  });
+
+  render();
+</script>
