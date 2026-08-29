@@ -9,12 +9,14 @@ import TresEnRayaBoard from '../../games/tres-en-raya/Board.astro';
 import PuntosYCajasBoard from '../../games/puntos-y-cajas/Board.astro';
 import AgujeroNegroBoard from '../../games/agujero-negro/Board.astro';
 import ConquistaBoard from '../../games/conquista/Board.astro';
+import NotaktoBoard from '../../games/notakto/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
   'puntos-y-cajas': PuntosYCajasBoard,
   'agujero-negro': AgujeroNegroBoard,
   conquista: ConquistaBoard,
+  notakto: NotaktoBoard,
 } as const;
 
 export async function getStaticPaths() {
