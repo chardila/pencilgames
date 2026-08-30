@@ -3,10 +3,7 @@ import {
   createInitialState,
   esJugadaValida,
   playMove,
-  FILAS,
-  COLUMNAS,
   TOTAL_CASILLAS,
-  INDICE_VENENO,
 } from './engine';
 
 describe('createInitialState', () => {
