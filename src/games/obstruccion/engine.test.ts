@@ -5,6 +5,8 @@ import {
   casillaLegal,
   playMove,
   TAMANO,
+  ObstruccionState,
+  CellValue,
 } from './engine';
 
 // Helper: índice fila-mayor en un tablero 6×6.
@@ -139,5 +141,76 @@ describe('playMove — colocación y turno', () => {
     playMove(state, 18);
     expect(boardRef.every(c => c === null)).toBe(true);
     expect(state.currentPlayer).toBe(1);
+  });
+});
+
+// Helper: aplica una lista de índices alternando jugadores desde el estado
+// inicial (asume que cada jugada es legal en su momento).
+function jugarSecuencia(indices: number[]) {
+  return indices.reduce((s, i) => playMove(s, i), createInitialState());
+}
+
+describe('playMove — fin de partida', () => {
+  it('gana el jugador que coloca la última ficha (rival sin jugada legal)', () => {
+    // Construimos un board donde solo queda UNA casilla legal (la 35) y es el
+    // turno del jugador 1. Al jugarla, el jugador 2 se queda sin nada → gana 1.
+    const board: CellValue[] = Array(36).fill(null);
+    // Ocupamos casillas de forma que toda casilla vacía salvo la 35 tenga al
+    // menos una vecina ocupada. La forma más simple: llenar todo menos la 35
+    // y su situación (35 = esquina (5,5); sus vecinas son 28,34,29... ver abajo).
+    // Vecinas de (5,5): (4,4)=28, (4,5)=29, (5,4)=34.
+    // Para que 35 sea legal, 28/29/34 deben estar vacías; para que NINGUNA otra
+    // casilla vacía sea legal, cada una debe tener una vecina ocupada.
+    // Dejamos vacías: 28,29,34,35. Ocupamos el resto (con cualquier color;
+    // el color de las fichas previas no afecta la legalidad).
+    for (let i = 0; i < 36; i++) {
+      if (![28, 29, 34, 35].includes(i)) board[i] = 1;
+    }
+    // Ahora: casillaLegal(28)? vecinas incluyen 21,22,23,27,29,33,34,35.
+    // 21,22,23,27,33 están ocupadas → 28 NO es legal. Igual 29 y 34.
+    // 35: vecinas 28,29,34 → todas vacías → 35 SÍ es legal.
+    expect(casillaLegal(board, 35)).toBe(true);
+    expect(casillaLegal(board, 28)).toBe(false);
+    expect(casillaLegal(board, 29)).toBe(false);
+    expect(casillaLegal(board, 34)).toBe(false);
+
+    const state: ObstruccionState = {
+      board,
+      currentPlayer: 1,
+      status: 'playing',
+      winner: null,
+      lastMove: null,
+    };
+    const resultado = playMove(state, 35);
+    expect(resultado.status).toBe('won');
+    expect(resultado.winner).toBe(1);
+    expect(resultado.currentPlayer).toBe(1); // no alterna al ganar
+    expect(resultado.lastMove).toBe(35);
+  });
+
+  it('mientras quede una casilla legal para el rival, la partida sigue y el turno alterna', () => {
+    const state = jugarSecuencia([0]); // jugador 1 en la esquina; quedan muchas legales
+    expect(state.status).toBe('playing');
+    expect(state.currentPlayer).toBe(2);
+  });
+
+  it('no permite más jugadas tras ganar', () => {
+    const board: CellValue[] = Array(36).fill(null);
+    for (let i = 0; i < 36; i++) {
+      if (![28, 29, 34, 35].includes(i)) board[i] = 1;
+    }
+    const ganado = playMove(
+      { board, currentPlayer: 1, status: 'playing', winner: null, lastMove: null },
+      35,
+    );
+    expect(ganado.status).toBe('won');
+    // intentar jugar 28 (que además está bloqueada) no cambia nada
+    expect(playMove(ganado, 28)).toBe(ganado);
+  });
+
+  it('la primera jugada de la partida nunca termina el juego', () => {
+    const state = playMove(createInitialState(), 18);
+    expect(state.status).toBe('playing');
+    expect(state.winner).toBeNull();
   });
 });

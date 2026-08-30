@@ -52,6 +52,13 @@ export function casillaLegal(board: CellValue[], index: number): boolean {
   return true;
 }
 
+function hayCasillaLegal(board: CellValue[]): boolean {
+  for (let i = 0; i < TOTAL; i++) {
+    if (casillaLegal(board, i)) return true;
+  }
+  return false;
+}
+
 export function playMove(state: ObstruccionState, index: number): ObstruccionState {
   if (state.status !== 'playing') return state;
   if (!esJugadaValida(index)) return state;
@@ -59,6 +66,16 @@ export function playMove(state: ObstruccionState, index: number): ObstruccionSta
 
   const board = [...state.board];
   board[index] = state.currentPlayer;
+
+  if (!hayCasillaLegal(board)) {
+    return {
+      board,
+      currentPlayer: state.currentPlayer,
+      status: 'won',
+      winner: state.currentPlayer,
+      lastMove: index,
+    };
+  }
 
   return {
     board,
