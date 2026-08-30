@@ -98,6 +98,15 @@ import TableroJuego from '../../components/TableroJuego.astro';
     outline: none;
   }
 
+  :global(.hex-grupo-celda) {
+    outline: none;
+  }
+
+  :global(.hex-grupo-celda:focus-visible .hex-celda) {
+    stroke: var(--color-accent);
+    stroke-width: 3.5;
+  }
+
   :global(.hex-celda:hover:not([data-ocupada='true'])) {
     fill: rgba(0, 0, 0, 0.06);
     stroke: var(--color-accent);
