@@ -7,7 +7,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [00-agujero-negro.md](01-2-players/00-agujero-negro.md) | ✅ |
 | 01-2-players | [01-cram.md](01-2-players/01-cram.md) | |
 | 01-2-players | [03-dots-and-boxes.md](01-2-players/03-dots-and-boxes.md) | ✅ (Puntos y Cajas) |
-| 01-2-players | [04-sim.md](01-2-players/04-sim.md) | |
+| 01-2-players | [04-sim.md](01-2-players/04-sim.md) | ✅ |
 | 01-2-players | [05-hex.md](01-2-players/05-hex.md) | ✅ |
 | 01-2-players | [06-paper-soccer.md](01-2-players/06-paper-soccer.md) | |
 | 01-2-players | [07-rabbit-hole.md](01-2-players/07-rabbit-hole.md) | |

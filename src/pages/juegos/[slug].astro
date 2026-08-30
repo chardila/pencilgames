@@ -15,6 +15,7 @@ import SOSBoard from '../../games/sos/Board.astro';
 import ChompBoard from '../../games/chomp/Board.astro';
 import ObstruccionBoard from '../../games/obstruccion/Board.astro';
 import HexBoard from '../../games/hex/Board.astro';
+import SimBoard from '../../games/sim/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
@@ -27,6 +28,7 @@ const BOARDS = {
   chomp: ChompBoard,
   obstruccion: ObstruccionBoard,
   hex: HexBoard,
+  sim: SimBoard,
 } as const;
 
 export async function getStaticPaths() {

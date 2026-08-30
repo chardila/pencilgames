@@ -1,0 +1,489 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+import { getAllEdges, TOTAL_VERTICES, type Vertex } from './engine';
+
+const R = 140;
+const CX = 200;
+const CY = 200;
+
+// Posiciones angulares de los 6 vértices (empezando arriba a -90°)
+const vertices = Array.from({ length: TOTAL_VERTICES }, (_, i) => {
+  const angle = -Math.PI / 2 + (i * 2 * Math.PI) / TOTAL_VERTICES;
+  const x = CX + R * Math.cos(angle);
+  const y = CY + R * Math.sin(angle);
+  return { id: i as Vertex, x, y, label: String(i + 1) };
+});
+
+const allEdges = getAllEdges().map(edge => {
+  const v1 = vertices[edge.u];
+  const v2 = vertices[edge.v];
+  return {
+    ...edge,
+    x1: v1.x,
+    y1: v1.y,
+    x2: v2.x,
+    y2: v2.y,
+  };
+});
+---
+
+<TableroJuego class="tablero-sim">
+  <div id="tablero" class="tablero-sim__container">
+    <svg
+      id="svg-sim"
+      viewBox="0 0 400 400"
+      class="tablero-sim__svg"
+      role="application"
+      aria-label="Tablero del juego Sim con 6 vértices y 15 aristas"
+    >
+      <defs>
+        <filter id="glow-loser" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      <!-- Triángulo fatal resaltado al terminar -->
+      <polygon id="triangulo-fatal" class="triangulo-fatal" points="" />
+
+      <!-- Línea fantasma de preview -->
+      <line id="arista-preview" class="arista-preview" x1="0" y1="0" x2="0" y2="0" />
+
+      <!-- Capa de aristas visuales -->
+      <g class="capa-aristas-visuales">
+        {allEdges.map(edge => (
+          <line
+            id={`arista-visual-${edge.u}-${edge.v}`}
+            class="arista-visual"
+            x1={edge.x1}
+            y1={edge.y1}
+            x2={edge.x2}
+            y2={edge.y2}
+            data-u={edge.u}
+            data-v={edge.v}
+          />
+        ))}
+      </g>
+
+      <!-- Capa de áreas de impacto táctil (hitboxes transparentes) -->
+      <g class="capa-aristas-hitbox">
+        {allEdges.map(edge => (
+          <line
+            class="arista-hitbox"
+            x1={edge.x1}
+            y1={edge.y1}
+            x2={edge.x2}
+            y2={edge.y2}
+            data-u={edge.u}
+            data-v={edge.v}
+            aria-label={`Conectar punto ${edge.u + 1} con punto ${edge.v + 1}`}
+          />
+        ))}
+      </g>
+
+      <!-- Capa de nodos / vértices -->
+      <g class="capa-nodos">
+        {vertices.map(v => (
+          <g class="nodo" data-indice={v.id} tabindex="0" role="button" aria-label={`Punto ${v.label}`}>
+            <circle class="nodo__circulo-halo" cx={v.x} cy={v.y} r="24" />
+            <circle class="nodo__circulo" cx={v.x} cy={v.y} r="16" />
+            <text class="nodo__texto" x={v.x} y={v.y + 1} text-anchor="middle" dominant-baseline="central">
+              {v.label}
+            </text>
+          </g>
+        ))}
+      </g>
+    </svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-sim__container {
+    width: min(92vw, 28rem);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  .tablero-sim__svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Aristas visuales */
+  .arista-visual {
+    stroke: rgba(0, 0, 0, 0.15);
+    stroke-width: 2.5px;
+    stroke-dasharray: 4 4;
+    stroke-linecap: round;
+    transition: stroke 0.2s ease, stroke-width 0.2s ease, stroke-dasharray 0.2s ease;
+  }
+
+  .arista-visual[data-jugador='1'] {
+    stroke: var(--color-player-1);
+    stroke-width: 5px;
+    stroke-dasharray: none;
+  }
+
+  .arista-visual[data-jugador='2'] {
+    stroke: var(--color-player-2);
+    stroke-width: 5px;
+    stroke-dasharray: none;
+  }
+
+  /* Zonas de toque invisible */
+  .arista-hitbox {
+    stroke: transparent;
+    stroke-width: 32px;
+    stroke-linecap: round;
+    cursor: pointer;
+    pointer-events: stroke;
+  }
+
+  .arista-hitbox[data-deshabilitada='true'],
+  .arista-hitbox[data-jugada='true'] {
+    cursor: default;
+    pointer-events: none;
+  }
+
+  /* Preview fantasma */
+  .arista-preview {
+    stroke: transparent;
+    stroke-width: 3.5px;
+    stroke-dasharray: 6 4;
+    stroke-linecap: round;
+    pointer-events: none;
+    transition: stroke 0.15s ease;
+  }
+
+  .arista-preview.activa--p1 {
+    stroke: color-mix(in srgb, var(--color-player-1) 70%, transparent);
+  }
+
+  .arista-preview.activa--p2 {
+    stroke: color-mix(in srgb, var(--color-player-2) 70%, transparent);
+  }
+
+  /* Nodos */
+  .nodo {
+    cursor: pointer;
+    outline: none;
+  }
+
+  .nodo__circulo-halo {
+    fill: transparent;
+    transition: fill 0.2s ease, r 0.2s ease;
+  }
+
+  .nodo.seleccionado .nodo__circulo-halo {
+    fill: color-mix(in srgb, var(--color-accent) 25%, transparent);
+    animation: pulse-halo 1.5s infinite ease-in-out;
+  }
+
+  .nodo.posible-destino .nodo__circulo-halo {
+    fill: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  }
+
+  .nodo__circulo {
+    fill: var(--color-surface, #ffffff);
+    stroke: var(--color-text, #222222);
+    stroke-width: 2.5px;
+    transition: fill 0.2s ease, stroke 0.2s ease, transform 0.15s ease;
+  }
+
+  .nodo.seleccionado .nodo__circulo {
+    stroke: var(--color-accent);
+    stroke-width: 3.5px;
+    fill: #ffffff;
+  }
+
+  .nodo__texto {
+    font-size: 14px;
+    font-weight: 700;
+    fill: var(--color-text, #222222);
+    pointer-events: none;
+    font-family: inherit;
+  }
+
+  /* Triángulo fatal */
+  .triangulo-fatal {
+    fill: transparent;
+    stroke: transparent;
+    stroke-width: 5px;
+    stroke-linejoin: round;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .triangulo-fatal.visible--p1 {
+    opacity: 1;
+    fill: color-mix(in srgb, var(--color-player-1) 25%, transparent);
+    stroke: var(--color-player-1);
+    animation: pulse-triangle 1.8s infinite ease-in-out;
+  }
+
+  .triangulo-fatal.visible--p2 {
+    opacity: 1;
+    fill: color-mix(in srgb, var(--color-player-2) 25%, transparent);
+    stroke: var(--color-player-2);
+    animation: pulse-triangle 1.8s infinite ease-in-out;
+  }
+
+  @keyframes pulse-halo {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.15); opacity: 0.3; }
+  }
+
+  @keyframes pulse-triangle {
+    0%, 100% { stroke-width: 4.5px; }
+    50% { stroke-width: 7.5px; filter: drop-shadow(0 0 8px currentColor); }
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    getEdgeIndex,
+    esEdgeValido,
+    playMove,
+    TOTAL_VERTICES,
+    type SimState,
+    type Edge,
+    type Vertex,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const svg = document.getElementById('svg-sim') as unknown as SVGSVGElement;
+  const trianguloFatal = document.getElementById('triangulo-fatal') as unknown as SVGPolygonElement;
+  const aristaPreview = document.getElementById('arista-preview') as unknown as SVGLineElement;
+  const hitboxes = Array.from(svg.querySelectorAll<SVGLineElement>('.arista-hitbox'));
+  const visuales = Array.from(svg.querySelectorAll<SVGLineElement>('.arista-visual'));
+  const nodos = Array.from(svg.querySelectorAll<SVGGElement>('.nodo'));
+
+  const R = 140;
+  const CX = 200;
+  const CY = 200;
+  const vertexCoords: { x: number; y: number }[] = Array.from({ length: TOTAL_VERTICES }, (_, i) => {
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI) / TOTAL_VERTICES;
+    return {
+      x: CX + R * Math.cos(angle),
+      y: CY + R * Math.sin(angle),
+    };
+  });
+
+  let state: SimState = createInitialState();
+  let selectedVertex: Vertex | null = null;
+
+  const sesion = iniciarSesionJuego<Edge>({
+    validarMovimiento: esEdgeValido,
+    onMovimientoRemoto: edge => jugar(edge, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      selectedVertex = null;
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      selectedVertex = null;
+      actualizarPreview(null);
+      render();
+    },
+  });
+
+  function render(): void {
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer) && state.status === 'playing';
+
+    // Renderizado de aristas visuales
+    for (const visual of visuales) {
+      const u = Number(visual.dataset.u);
+      const v = Number(visual.dataset.v);
+      const idx = getEdgeIndex(u, v);
+      const jugador = state.edges[idx];
+
+      if (jugador) {
+        visual.dataset.jugador = String(jugador);
+      } else {
+        delete visual.dataset.jugador;
+      }
+    }
+
+    // Hitboxes
+    for (const hitbox of hitboxes) {
+      const u = Number(hitbox.dataset.u);
+      const v = Number(hitbox.dataset.v);
+      const idx = getEdgeIndex(u, v);
+      const ocupada = state.edges[idx] !== null;
+      const deshabilitada = !esMiTurno || ocupada;
+
+      hitbox.dataset.jugada = String(ocupada);
+      hitbox.dataset.deshabilitada = String(deshabilitada);
+    }
+
+    // Nodos
+    for (const nodo of nodos) {
+      const idx = Number(nodo.dataset.indice) as Vertex;
+      nodo.classList.toggle('seleccionado', selectedVertex === idx);
+
+      let posibleDestino = false;
+      if (selectedVertex !== null && selectedVertex !== idx) {
+        const edgeIdx = getEdgeIndex(selectedVertex, idx);
+        posibleDestino = state.edges[edgeIdx] === null;
+      }
+      nodo.classList.toggle('posible-destino', posibleDestino);
+    }
+
+    // Triángulo fatal
+    if (state.status === 'finished' && state.losingTriangle && state.loser) {
+      const [v0, v1, v2] = state.losingTriangle;
+      const c0 = vertexCoords[v0];
+      const c1 = vertexCoords[v1];
+      const c2 = vertexCoords[v2];
+      trianguloFatal.setAttribute('points', `${c0.x},${c0.y} ${c1.x},${c1.y} ${c2.x},${c2.y}`);
+      trianguloFatal.setAttribute('class', `triangulo-fatal visible--p${state.loser}`);
+    } else {
+      trianguloFatal.setAttribute('points', '');
+      trianguloFatal.setAttribute('class', 'triangulo-fatal');
+    }
+
+    // Banner y turnos
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: state.currentPlayer,
+      });
+    } else {
+      const ganador = state.winner!;
+      const perdedor = state.loser!;
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[ganador]}!`,
+        detalle: `${sesion.nombres[perdedor]} cerró un triángulo de su color.`,
+      });
+    }
+  }
+
+  function actualizarPreview(edge: { u: number; v: number } | null): void {
+    if (!edge || state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) {
+      aristaPreview.setAttribute('x1', '0');
+      aristaPreview.setAttribute('y1', '0');
+      aristaPreview.setAttribute('x2', '0');
+      aristaPreview.setAttribute('y2', '0');
+      aristaPreview.setAttribute('class', 'arista-preview');
+      return;
+    }
+
+    const c1 = vertexCoords[edge.u];
+    const c2 = vertexCoords[edge.v];
+    aristaPreview.setAttribute('x1', String(c1.x));
+    aristaPreview.setAttribute('y1', String(c1.y));
+    aristaPreview.setAttribute('x2', String(c2.x));
+    aristaPreview.setAttribute('y2', String(c2.y));
+    aristaPreview.setAttribute('class', `arista-preview activa--p${state.currentPlayer}`);
+  }
+
+  function jugar(edge: Edge, emitirRemoto = true): void {
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+    const prevState = state;
+    state = playMove(state, edge);
+    if (state === prevState) return;
+
+    selectedVertex = null;
+    actualizarPreview(null);
+    render();
+
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(edge);
+    }
+  }
+
+  // Interacción en aristas (hitboxes directas)
+  for (const hitbox of hitboxes) {
+    hitbox.addEventListener('click', () => {
+      if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+      const u = Number(hitbox.dataset.u) as Vertex;
+      const v = Number(hitbox.dataset.v) as Vertex;
+      jugar({ u, v });
+    });
+
+    hitbox.addEventListener('pointerenter', () => {
+      const u = Number(hitbox.dataset.u);
+      const v = Number(hitbox.dataset.v);
+      const idx = getEdgeIndex(u, v);
+      if (state.edges[idx] === null) {
+        actualizarPreview({ u, v });
+      }
+    });
+  }
+
+  // Interacción en nodos (flujo nodo-a-nodo)
+  function manejarClickNodo(idx: Vertex): void {
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+
+    if (selectedVertex === null) {
+      selectedVertex = idx;
+      render();
+    } else if (selectedVertex === idx) {
+      selectedVertex = null;
+      actualizarPreview(null);
+      render();
+    } else {
+      const edgeIdx = getEdgeIndex(selectedVertex, idx);
+      if (state.edges[edgeIdx] === null) {
+        const edge: Edge = { u: selectedVertex, v: idx };
+        jugar(edge);
+      } else {
+        // Cambia la selección al nodo nuevo si la arista ya estaba ocupada
+        selectedVertex = idx;
+        actualizarPreview(null);
+        render();
+      }
+    }
+  }
+
+  for (const nodo of nodos) {
+    nodo.addEventListener('click', () => {
+      const idx = Number(nodo.dataset.indice) as Vertex;
+      manejarClickNodo(idx);
+    });
+
+    nodo.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const idx = Number(nodo.dataset.indice) as Vertex;
+        manejarClickNodo(idx);
+      }
+    });
+
+    nodo.addEventListener('pointerenter', () => {
+      if (selectedVertex !== null) {
+        const idx = Number(nodo.dataset.indice) as Vertex;
+        if (selectedVertex !== idx) {
+          const edgeIdx = getEdgeIndex(selectedVertex, idx);
+          if (state.edges[edgeIdx] === null) {
+            actualizarPreview({ u: selectedVertex, v: idx });
+          }
+        }
+      }
+    });
+  }
+
+  svg.addEventListener('pointerleave', () => {
+    if (selectedVertex === null) {
+      actualizarPreview(null);
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && selectedVertex !== null) {
+      selectedVertex = null;
+      actualizarPreview(null);
+      render();
+    }
+  });
+
+  render();
+</script>
