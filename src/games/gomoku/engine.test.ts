@@ -73,12 +73,6 @@ describe('playMove — colocación y turno', () => {
   });
 });
 
-// Helper: aplica una lista de índices alternando jugadores (1, 2, 1, 2, …)
-// partiendo del estado inicial.
-function jugarSecuencia(indices: number[]) {
-  return indices.reduce((s, i) => playMove(s, i), createInitialState());
-}
-
 // Helper: fuerza una fila de 5 fichas del jugador 1 intercalando jugadas
 // "de relleno" del jugador 2 en una zona lejana que nunca forma línea.
 // relleno usa la última fila (índices 72..80), que no colisiona con las

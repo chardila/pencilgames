@@ -41,8 +41,8 @@ No se usa una tabla de líneas ganadoras (el patrón de `tres-en-raya` y
 entradas). En su lugar, desde la casilla recién colocada se cuenta la racha
 contigua del jugador hacia atrás y adelante en cada uno de los 4 ejes:
 
-- `[1, 0]`  horizontal
-- `[0, 1]`  vertical
+- `[1, 0]`  vertical
+- `[0, 1]`  horizontal
 - `[1, 1]`  diagonal ↘
 - `[1, -1]` diagonal ↗
 

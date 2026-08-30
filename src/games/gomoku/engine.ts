@@ -36,8 +36,8 @@ export function esJugadaValida(payload: unknown): payload is number {
 }
 
 const DIRECCIONES: ReadonlyArray<readonly [number, number]> = [
-  [1, 0], // horizontal
-  [0, 1], // vertical
+  [1, 0], // vertical
+  [0, 1], // horizontal
   [1, 1], // diagonal ↘
   [1, -1], // diagonal ↗
 ];
