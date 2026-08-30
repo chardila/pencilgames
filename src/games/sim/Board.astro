@@ -145,7 +145,7 @@ const allEdges = getAllEdges().map(edge => {
     pointer-events: stroke;
   }
 
-  .arista-hitbox:disabled,
+  .arista-hitbox[data-deshabilitada='true'],
   .arista-hitbox[data-jugada='true'] {
     cursor: default;
     pointer-events: none;
@@ -319,13 +319,10 @@ const allEdges = getAllEdges().map(edge => {
       const v = Number(hitbox.dataset.v);
       const idx = getEdgeIndex(u, v);
       const ocupada = state.edges[idx] !== null;
+      const deshabilitada = !esMiTurno || ocupada;
 
       hitbox.dataset.jugada = String(ocupada);
-      if (!esMiTurno || ocupada) {
-        hitbox.setAttribute('disabled', 'true');
-      } else {
-        hitbox.removeAttribute('disabled');
-      }
+      hitbox.dataset.deshabilitada = String(deshabilitada);
     }
 
     // Nodos
@@ -389,7 +386,7 @@ const allEdges = getAllEdges().map(edge => {
   }
 
   function jugar(edge: Edge, emitirRemoto = true): void {
-    if (state.status !== 'playing') return;
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
     const prevState = state;
     state = playMove(state, edge);
     if (state === prevState) return;
@@ -406,6 +403,7 @@ const allEdges = getAllEdges().map(edge => {
   // Interacción en aristas (hitboxes directas)
   for (const hitbox of hitboxes) {
     hitbox.addEventListener('click', () => {
+      if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
       const u = Number(hitbox.dataset.u) as Vertex;
       const v = Number(hitbox.dataset.v) as Vertex;
       jugar({ u, v });
