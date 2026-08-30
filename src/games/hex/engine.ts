@@ -59,6 +59,76 @@ export function getNeighbors(index: number, size: BoardSize): number[] {
   return neighbors;
 }
 
+export function findWinningPath(
+  board: CellValue[],
+  size: BoardSize,
+  player: Player
+): number[] | null {
+  const queue: number[] = [];
+  const visited = new Set<number>();
+  const parentMap = new Map<number, number | null>();
+
+  // Definir nodos iniciales y condición de meta según el jugador
+  if (player === 1) {
+    // Jugador 1: inicia en fila 0, busca llegar a fila size - 1
+    for (let c = 0; c < size; c++) {
+      const index = c;
+      if (board[index] === 1) {
+        queue.push(index);
+        visited.add(index);
+        parentMap.set(index, null);
+      }
+    }
+  } else {
+    // Jugador 2: inicia en col 0, busca llegar a col size - 1
+    for (let r = 0; r < size; r++) {
+      const index = r * size;
+      if (board[index] === 2) {
+        queue.push(index);
+        visited.add(index);
+        parentMap.set(index, null);
+      }
+    }
+  }
+
+  let goalNode: number | null = null;
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const r = Math.floor(current / size);
+    const c = current % size;
+
+    if (player === 1 && r === size - 1) {
+      goalNode = current;
+      break;
+    }
+    if (player === 2 && c === size - 1) {
+      goalNode = current;
+      break;
+    }
+
+    for (const neighbor of getNeighbors(current, size)) {
+      if (board[neighbor] === player && !visited.has(neighbor)) {
+        visited.add(neighbor);
+        parentMap.set(neighbor, current);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  if (goalNode === null) return null;
+
+  // Reconstruir camino desde la meta hasta el inicio
+  const path: number[] = [];
+  let curr: number | null = goalNode;
+  while (curr !== null) {
+    path.push(curr);
+    curr = parentMap.get(curr) ?? null;
+  }
+
+  return path.reverse();
+}
+
 export function playMove(state: HexState, index: number): HexState {
   if (state.status !== 'playing') return state;
   if (!esJugadaValida(index, state.size)) return state;
@@ -67,6 +137,19 @@ export function playMove(state: HexState, index: number): HexState {
   const board = [...state.board];
   board[index] = state.currentPlayer;
 
+  const winningPath = findWinningPath(board, state.size, state.currentPlayer);
+
+  if (winningPath !== null) {
+    return {
+      ...state,
+      board,
+      status: 'won',
+      winner: state.currentPlayer,
+      winningPath,
+      lastMove: index,
+    };
+  }
+
   return {
     ...state,
     board,
@@ -74,3 +157,4 @@ export function playMove(state: HexState, index: number): HexState {
     lastMove: index,
   };
 }
+
