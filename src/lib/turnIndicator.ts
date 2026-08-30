@@ -11,6 +11,7 @@ export interface TurnIndicatorOptions {
   detalle?: string;
   repiteTurno?: boolean;
   motivoRepeticion?: string;
+  estadoReconexion?: 'propia' | 'rival' | 'reconectando' | string;
 }
 
 const FORMA: Record<1 | 2, string> = { 1: '●', 2: '▲' };
@@ -21,14 +22,30 @@ function textoEstado(jugador: 1 | 2, miAsiento: 1 | 2 | null | undefined): strin
   return '← su turno';
 }
 
+function textoReconexion(estadoReconexion: string): string {
+  if (estadoReconexion === 'propia' || estadoReconexion === 'reconectando') {
+    return '🔄 Reconectando con la partida...';
+  }
+  if (estadoReconexion === 'rival') {
+    return '⏳ Tu rival se desconectó temporalmente. Esperando...';
+  }
+  return estadoReconexion;
+}
+
 function prosaAccesible(
   jugador: 1 | 2,
   fichas: Record<1 | 2, FichaJugador>,
   miAsiento: 1 | 2 | null | undefined,
   detalle: string | undefined,
   repiteTurno: boolean | undefined,
-  motivoRepeticion: string | undefined
+  motivoRepeticion: string | undefined,
+  estadoReconexion?: string
 ): string {
+  const partes: string[] = [];
+  if (estadoReconexion) {
+    partes.push(textoReconexion(estadoReconexion));
+  }
+
   const nombre = fichas[jugador].nombre;
   let base: string;
   if (miAsiento == null) base = `Turno de ${nombre}`;
@@ -36,8 +53,7 @@ function prosaAccesible(
   else base = `Turno de ${nombre}, esperando`;
 
   const esMio = miAsiento == null || miAsiento === jugador;
-  const partes: string[] = [];
-  if (repiteTurno && esMio) partes.push(motivoRepeticion || '¡Vuelves a jugar!');
+  if (repiteTurno && esMio && !estadoReconexion) partes.push(motivoRepeticion || '¡Vuelves a jugar!');
   partes.push(base);
   if (detalle) partes.push(detalle);
   return partes.join('. ');
@@ -68,7 +84,15 @@ function plantilla(): string {
 
 export function renderTurnIndicator(
   container: HTMLElement,
-  { jugador, fichas, miAsiento, detalle, repiteTurno, motivoRepeticion }: TurnIndicatorOptions
+  {
+    jugador,
+    fichas,
+    miAsiento,
+    detalle,
+    repiteTurno,
+    motivoRepeticion,
+    estadoReconexion,
+  }: TurnIndicatorOptions
 ): void {
   container.hidden = false;
   container.dataset.jugador = String(jugador);
@@ -85,6 +109,12 @@ export function renderTurnIndicator(
     delete container.dataset.repite;
   }
 
+  if (estadoReconexion) {
+    container.dataset.reconexion = estadoReconexion;
+  } else {
+    delete container.dataset.reconexion;
+  }
+
   if (container.dataset.rendered !== 'true') {
     container.innerHTML = plantilla();
     container.dataset.rendered = 'true';
@@ -93,8 +123,15 @@ export function renderTurnIndicator(
   const esperando = miAsiento != null && miAsiento !== jugador;
 
   const badgeEl = container.querySelector<HTMLElement>('.indicador-turno__badge')!;
-  badgeEl.hidden = !repiteTurno;
-  badgeEl.textContent = repiteTurno ? motivoRepeticion || '¡Vuelves a jugar!' : '';
+  const hayBadge = Boolean(repiteTurno || estadoReconexion);
+  badgeEl.hidden = !hayBadge;
+  if (estadoReconexion) {
+    badgeEl.textContent = textoReconexion(estadoReconexion);
+  } else if (repiteTurno) {
+    badgeEl.textContent = motivoRepeticion || '¡Vuelves a jugar!';
+  } else {
+    badgeEl.textContent = '';
+  }
 
   for (const n of [1, 2] as const) {
     const ficha = fichas[n];
@@ -147,7 +184,8 @@ export function renderTurnIndicator(
     miAsiento,
     detalle,
     repiteTurno,
-    motivoRepeticion
+    motivoRepeticion,
+    estadoReconexion
   );
 }
 
@@ -155,6 +193,7 @@ export function ocultarTurnIndicator(container: HTMLElement): void {
   container.hidden = true;
   delete container.dataset.repite;
   delete container.dataset.miAsiento;
+  delete container.dataset.reconexion;
   delete container.dataset.rendered;
   container.innerHTML = '';
 }

@@ -1,6 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { iniciarSesionJuego } from './gameSession';
 import type { MoveChannel, MensajeJuego } from './remoto/types';
+import {
+  solicitarWakeLock,
+  liberarWakeLock,
+  registrarReactivacionWakeLock,
+} from './wakeLock';
+
+vi.mock('./wakeLock', () => {
+  const mockLimpiar = vi.fn();
+  return {
+    solicitarWakeLock: vi.fn().mockResolvedValue(true),
+    liberarWakeLock: vi.fn().mockResolvedValue(undefined),
+    registrarReactivacionWakeLock: vi.fn(() => mockLimpiar),
+  };
+});
 
 class MemoryStorage {
   private store = new Map<string, string>();
@@ -374,5 +388,136 @@ describe('gameSession', () => {
     ).toBe('Turno de Jugador 1, esperando');
 
     sesion.destruir();
+  });
+
+  it('durante el estado reconectando, esMiTurno devuelve false y se muestra el aviso de reconexión en el indicador', () => {
+    let receptorEstado: ((estado: string) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(cb => {
+        receptorEstado = cb;
+      }),
+      cerrar: vi.fn(),
+    };
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+    });
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Jugador 1' },
+      })
+    );
+
+    sesion.mostrarTurno({ jugador: 1 });
+    expect(sesion.esMiTurno(1)).toBe(true);
+
+    // Cambiar a reconectando
+    receptorEstado!('reconectando');
+
+    expect(sesion.esMiTurno(1)).toBe(false);
+    expect(sesion.esMiTurno(2)).toBe(false);
+
+    const ind = mockDoc.getElementById('indicador-turno')!;
+    expect(ind.hidden).toBe(false);
+    expect(ind.dataset.reconexion).toBe('propia');
+    const badge = ind.querySelector<MockElement>('.indicador-turno__badge')!;
+    expect(badge.hidden).toBe(false);
+    expect(badge.textContent).toContain('Reconectando con la partida...');
+
+    const banner = mockDoc.getElementById('banner-ganador')!;
+    expect(banner.hidden).toBe(true);
+
+    sesion.destruir();
+  });
+
+  it('al volver a conectado, esMiTurno vuelve a su comportamiento normal y se restaura el indicador de turno', () => {
+    let receptorEstado: ((estado: string) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(cb => {
+        receptorEstado = cb;
+      }),
+      cerrar: vi.fn(),
+    };
+
+    const onRender = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender,
+    });
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Jugador 1' },
+      })
+    );
+
+    sesion.mostrarTurno({ jugador: 1 });
+    receptorEstado!('reconectando');
+    expect(sesion.esMiTurno(1)).toBe(false);
+
+    // Restaurar a conectado
+    receptorEstado!('conectado');
+    expect(onRender).toHaveBeenCalled();
+    expect(sesion.esMiTurno(1)).toBe(true);
+    expect(sesion.esMiTurno(2)).toBe(false);
+
+    sesion.destruir();
+  });
+
+  it('activa el wakeLock al conectar y lo libera en desconectar y en destruir', () => {
+    vi.mocked(solicitarWakeLock).mockClear();
+    vi.mocked(liberarWakeLock).mockClear();
+    vi.mocked(registrarReactivacionWakeLock).mockClear();
+
+    let receptorEstado: ((estado: string) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(cb => {
+        receptorEstado = cb;
+      }),
+      cerrar: vi.fn(),
+    };
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+    });
+
+    expect(solicitarWakeLock).not.toHaveBeenCalled();
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Jugador 1' },
+      })
+    );
+
+    expect(solicitarWakeLock).toHaveBeenCalledTimes(1);
+    expect(registrarReactivacionWakeLock).toHaveBeenCalledTimes(1);
+
+    receptorEstado!('desconectado');
+    expect(liberarWakeLock).toHaveBeenCalledTimes(1);
+
+    sesion.destruir();
+    // Debe liberarse en destruir también
+    expect(liberarWakeLock).toHaveBeenCalledTimes(2);
   });
 });

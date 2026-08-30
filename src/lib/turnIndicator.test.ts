@@ -318,4 +318,66 @@ describe('turnIndicator', () => {
     expect(badge.hidden).toBe(true);
     expect(badge.textContent).toBe('');
   });
+
+  it('renderiza aviso de reconexión propia ("🔄 Reconectando con la partida...") y establece data-reconexion', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: 1,
+      estadoReconexion: 'propia',
+    });
+    expect(container.dataset.reconexion).toBe('propia');
+    const badge = container.querySelector<MockElement>('.indicador-turno__badge')!;
+    expect(badge.hidden).toBe(false);
+    expect(badge.textContent).toBe('🔄 Reconectando con la partida...');
+    expect(container.querySelector<MockElement>('.indicador-turno__prosa')!.textContent).toContain(
+      '🔄 Reconectando con la partida...'
+    );
+  });
+
+  it('renderiza aviso de reconexión del rival ("⏳ Tu rival se desconectó temporalmente. Esperando...")', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: 1,
+      estadoReconexion: 'rival',
+    });
+    expect(container.dataset.reconexion).toBe('rival');
+    const badge = container.querySelector<MockElement>('.indicador-turno__badge')!;
+    expect(badge.hidden).toBe(false);
+    expect(badge.textContent).toBe('⏳ Tu rival se desconectó temporalmente. Esperando...');
+    expect(container.querySelector<MockElement>('.indicador-turno__prosa')!.textContent).toContain(
+      '⏳ Tu rival se desconectó temporalmente. Esperando...'
+    );
+  });
+
+  it('limpia el aviso de reconexión al renderizar sin estadoReconexion', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: 1,
+      estadoReconexion: 'propia',
+    });
+    expect(container.dataset.reconexion).toBe('propia');
+
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: 1,
+    });
+    expect(container.dataset.reconexion).toBeUndefined();
+    const badge = container.querySelector<MockElement>('.indicador-turno__badge')!;
+    expect(badge.hidden).toBe(true);
+  });
+
+  it('ocultarTurnIndicator limpia dataset.reconexion', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: 1,
+      estadoReconexion: 'propia',
+    });
+    ocultarTurnIndicator(container as unknown as HTMLElement);
+    expect(container.dataset.reconexion).toBeUndefined();
+  });
 });
