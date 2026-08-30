@@ -208,6 +208,17 @@ describe('playMove — fin de partida', () => {
     expect(playMove(ganado, 28)).toBe(ganado);
   });
 
+  it('partida más corta: 4 fichas, gana el jugador 2 (winner: 2, currentPlayer no alterna)', () => {
+    // 4 fichas bien espaciadas en filas/columnas {1,4} cubren los cuatro
+    // cuadrantes 3×3 del tablero 6×6 → no queda ninguna casilla legal.
+    // jugador 1: (1,1); jugador 2: (1,4); jugador 1: (4,1); jugador 2: (4,4).
+    const state = jugarSecuencia([idx(1, 1), idx(1, 4), idx(4, 1), idx(4, 4)]);
+    expect(state.status).toBe('won');
+    expect(state.winner).toBe(2);
+    expect(state.currentPlayer).toBe(2);
+    expect(state.board.filter(c => c !== null)).toHaveLength(4);
+  });
+
   it('la primera jugada de la partida nunca termina el juego', () => {
     const state = playMove(createInitialState(), 18);
     expect(state.status).toBe('playing');

@@ -1,5 +1,8 @@
 # Obstruction
 
+> ✅ **Implementado** — en vivo en https://games.cardila.com/juegos/obstruccion/
+> Tableta fija 6×6, 2 jugadores, colocar bloquea las 8 casillas vecinas, gana quien coloca la última ficha, modo online peer-to-peer.
+
 ## Players
 2
 
@@ -7,7 +10,7 @@
 Make the opponent the first player with no legal move.
 
 ## Setup
-A rectangular grid; 6×6 is a good size. One player is 'O', the other 'X'.
+A rectangular grid; 6×6 is a good size. Player 1 places `●` (orange), player 2 places `▲` (blue).
 
 ## Turn
 Write your symbol in an empty cell that is not blocked.

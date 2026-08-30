@@ -118,8 +118,10 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
         simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
       });
     } else {
+      const perdedor = state.winner === 1 ? 2 : 1;
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]} (${FICHAS[state.winner!]})!`,
+        detalle: `${sesion.nombres[perdedor]} se quedó sin casillas`,
       });
     }
   }
