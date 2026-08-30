@@ -28,7 +28,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [23-phutball.md](01-2-players/23-phutball.md) | |
 | 01-2-players | [24-racetrack.md](01-2-players/24-racetrack.md) | |
 | 01-2-players | [26-y.md](01-2-players/26-y.md) | |
-| 01-2-players | [27-gomoku.md](01-2-players/27-gomoku.md) | |
+| 01-2-players | [27-gomoku.md](01-2-players/27-gomoku.md) | ✅ |
 | 01-2-players | [28-connect6.md](01-2-players/28-connect6.md) | |
 | 01-2-players | [31-clique.md](01-2-players/31-clique.md) | |
 | 01-2-players | [33-box-making.md](01-2-players/33-box-making.md) | |
