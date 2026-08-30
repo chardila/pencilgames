@@ -5,8 +5,8 @@ import {
   casillaLegal,
   playMove,
   TAMANO,
-  ObstruccionState,
-  CellValue,
+  type ObstruccionState,
+  type CellValue,
 } from './engine';
 
 // Helper: índice fila-mayor en un tablero 6×6.
