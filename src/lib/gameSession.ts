@@ -3,7 +3,7 @@ import type { MoveChannel, MensajeJuego } from './remoto/types';
 import {
   renderTurnIndicator,
   ocultarTurnIndicator,
-  type TurnIndicatorOptions,
+  type FichaJugador,
 } from './turnIndicator';
 import {
   showWinnerBanner,
@@ -27,9 +27,14 @@ export interface GameSession<TMovimiento> {
   esMiTurno: (jugadorActual: Player) => boolean;
   enviarMovimiento: (movimiento: TMovimiento) => void;
   reiniciar: () => void;
-  mostrarTurno: (
-    opciones: Omit<TurnIndicatorOptions, 'etiqueta'> & { etiqueta?: string }
-  ) => void;
+  mostrarTurno: (opciones: {
+    jugador: Player;
+    detalle?: string;
+    repiteTurno?: boolean;
+    motivoRepeticion?: string;
+    puntajes?: Record<Player, number | string>;
+    simbolos?: Record<Player, string>;
+  }) => void;
   mostrarFinDeJuego: (
     opciones: Omit<WinnerBannerOptions, 'onReiniciar'>
   ) => void;
@@ -120,17 +125,40 @@ export function iniciarSesionJuego<TMovimiento>(
     canal?.enviar({ tipo: 'reiniciar' });
   }
 
-  function mostrarTurno(
-    opciones: Omit<TurnIndicatorOptions, 'etiqueta'> & { etiqueta?: string }
-  ): void {
+  function mostrarTurno(opciones: {
+    jugador: Player;
+    detalle?: string;
+    repiteTurno?: boolean;
+    motivoRepeticion?: string;
+    puntajes?: Record<Player, number | string>;
+    simbolos?: Record<Player, string>;
+  }): void {
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
     if (!ind) return;
-    const etiqueta = opciones.etiqueta ?? nombres[opciones.jugador];
+
+    const fichas: Record<Player, FichaJugador> = {
+      1: {
+        nombre: nombres[1],
+        puntaje: opciones.puntajes?.[1],
+        simbolo: opciones.simbolos?.[1],
+      },
+      2: {
+        nombre: nombres[2],
+        puntaje: opciones.puntajes?.[2],
+        simbolo: opciones.simbolos?.[2],
+      },
+    };
+
     renderTurnIndicator(ind, {
-      ...opciones,
-      etiqueta,
+      jugador: opciones.jugador,
+      fichas,
+      miAsiento,
+      detalle: opciones.detalle,
+      repiteTurno: opciones.repiteTurno,
+      motivoRepeticion: opciones.motivoRepeticion,
     });
+
     if (ban) hideWinnerBanner(ban);
   }
 

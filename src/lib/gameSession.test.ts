@@ -237,9 +237,12 @@ describe('gameSession', () => {
     });
 
     sesion.mostrarTurno({ jugador: 1 });
-    const ind = document.getElementById('indicador-turno')!;
+    const ind = mockDoc.getElementById('indicador-turno')!;
     expect(ind.hidden).toBe(false);
-    expect(ind.textContent).toContain('Turno de Jugador 1');
+    expect(ind.dataset.jugador).toBe('1');
+    expect(
+      ind.querySelector<MockElement>('.indicador-turno__prosa')!.textContent
+    ).toBe('Turno de Jugador 1');
 
     sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 1!' });
     const ban = document.getElementById('banner-ganador')!;
@@ -318,9 +321,11 @@ describe('gameSession', () => {
       onRender: vi.fn(),
     });
 
-    sesion.mostrarTurno({ jugador: 2, etiqueta: 'Personalizado' });
+    sesion.mostrarTurno({ jugador: 2 });
     expect(customIndicador.hidden).toBe(false);
-    expect(customIndicador.textContent).toContain('Turno de Personalizado');
+    expect(
+      customIndicador.querySelector<MockElement>('.indicador-turno__prosa')!.textContent
+    ).toBe('Turno de Jugador 2');
 
     sesion.mostrarFinDeJuego({ titulo: 'Fin de la partida' });
     expect(customBanner.hidden).toBe(false);
@@ -330,6 +335,43 @@ describe('gameSession', () => {
     const boton = customBanner.querySelector<MockElement>('.banner-ganador__reiniciar')!;
     boton.dispatchEvent(new Event('click'));
     expect(onAplicarReinicio).toHaveBeenCalled();
+
+    sesion.destruir();
+  });
+
+  it('mostrarTurno inyecta miAsiento null en local y el asiento real tras canal-remoto-listo', () => {
+    const mockCanal: MoveChannel = {
+      asiento: 2,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+    });
+    const ind = mockDoc.getElementById('indicador-turno')!;
+
+    sesion.mostrarTurno({ jugador: 1 });
+    expect(ind.dataset.miAsiento).toBeUndefined();
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Yo' },
+      })
+    );
+
+    sesion.mostrarTurno({ jugador: 1, puntajes: { 1: 3, 2: 5 } });
+    expect(ind.dataset.miAsiento).toBe('2');
+    const f2 = ind.querySelector<MockElement>('.ficha-turno[data-jugador="2"]')!;
+    expect(f2.querySelector<MockElement>('.ficha-turno__puntaje')!.textContent).toBe('5');
+    expect(
+      ind.querySelector<MockElement>('.indicador-turno__prosa')!.textContent
+    ).toBe('Turno de Jugador 1, esperando');
 
     sesion.destruir();
   });
