@@ -113,8 +113,9 @@ function idsDeFila(row: number): number[] {
     if (state.status === 'playing') {
       sesion.mostrarTurno({
         jugador: state.currentPlayer,
-        etiqueta: sesion.nombres[state.currentPlayer],
-        detalle: `Coloca el número ${state.nextValue[state.currentPlayer]}`,
+        detalle: esMiTurno
+          ? `Coloca el número ${state.nextValue[state.currentPlayer]}`
+          : undefined,
       });
     } else {
       const ganador = state.scores[1] === state.scores[2] ? null : state.scores[1] > state.scores[2] ? 1 : 2;

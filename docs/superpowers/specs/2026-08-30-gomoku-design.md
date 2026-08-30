@@ -41,8 +41,8 @@ No se usa una tabla de líneas ganadoras (el patrón de `tres-en-raya` y
 entradas). En su lugar, desde la casilla recién colocada se cuenta la racha
 contigua del jugador hacia atrás y adelante en cada uno de los 4 ejes:
 
-- `[1, 0]`  horizontal
-- `[0, 1]`  vertical
+- `[1, 0]`  vertical
+- `[0, 1]`  horizontal
 - `[1, 1]`  diagonal ↘
 - `[1, -1]` diagonal ↗
 
@@ -129,20 +129,18 @@ capa de mapeo glifo→asiento).
 - **Estilos de casilla**:
   - `.casilla--ganadora` para cada índice de `state.winningLine`.
   - `.casilla--ultima` (anillo interior) para `state.lastMove`.
-- **Sesión**: `iniciarSesionJuego<number>({ validarMovimiento: esJugadaValida,
-  onMovimientoRemoto, onAplicarReinicio, onRender, onDesconectar })`. El
-  payload del movimiento es el índice (`number`), igual que Tres en Raya.
-  `onDesconectar` deshabilita todas las casillas.
+- **Sesión**: `iniciarSesionJuego<number>({...})` idéntico a Tres en Raya. El
+  payload del movimiento es el índice (`number`). `onDesconectar` deshabilita
+  todas las casillas.
 - **`render()`**:
   - `jugadorDelTurno = state.currentPlayer` (ya es `1 | 2`).
   - Por casilla: pinta la ficha, aplica clases, y
     `disabled = valor !== null || state.status !== 'playing' || !esMiTurno`.
   - Si `status === 'playing'`:
-    `sesion.mostrarTurno({ jugador: jugadorDelTurno,
-    etiqueta: sesion.nombres[jugadorDelTurno] })`.
+    `sesion.mostrarTurno({ jugador, etiqueta })` con la etiqueta ya
+    formateada (`"<nombre> (●)"`), como en `tres-en-raya/Board.astro`.
   - Si no: `sesion.mostrarFinDeJuego({ titulo })` con
-    `🎉 ¡Ganó <nombre>!` (`status === 'won'`) o `🤝 ¡Empate!`
-    (`status === 'draw'`).
+    `🎉 ¡Ganó <nombre> (<ficha>)!` (`won`) o `🤝 ¡Empate!` (`draw`).
 - **`jugar(indice, emitirRemoto = true)`**: `state = playMove(state, indice)`,
   `render()`, y si `emitirRemoto` → `sesion.enviarMovimiento(indice)`.
 - Listener `click` por casilla → `jugar(Number(casilla.dataset.indice))`.
@@ -223,14 +221,10 @@ Idéntico al de Tres en Raya (payload = índice `number`):
 - Victoria de **6 en línea** (cinco o más): `winningLine.length === 6`.
 - Victoria por unión de dos grupos (`XX_XX` + jugada central) → racha de 5.
 - `winningLine` contiene exactamente los índices de la racha.
-- **No-envolvimiento horizontal**: 4 fichas al final de la fila 0
-  (índices 5–8) + 1 al inicio de la fila 1 (índice 9) → **no** es victoria.
-- **No-envolvimiento diagonal**: racha diagonal que llegaría al borde y
-  "continuaría" en la fila siguiente → no cuenta.
-- Victoria cuya racha **termina exactamente en el borde** (columna 8 o fila
-  8) → sí cuenta.
-- Empate: tablero lleno sin ninguna racha de 5 → `status: 'draw'`,
-  `winner: null`.
+- **No-envolvimiento de borde** (fila 0 fin + fila 1 inicio) → no victoria.
+- Diagonal que se sale del tablero → no cuenta.
+- Victoria cuya racha **termina exactamente en el borde** → sí cuenta.
+- Empate por tablero lleno → `status: 'draw'`, `winner: null`.
 - Inmutabilidad: `playMove` no muta el `state` de entrada ni su `board`.
 
 ## Trabajo fuera de alcance

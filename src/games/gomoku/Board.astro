@@ -1,0 +1,144 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const TAMANO = 9;
+const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
+---
+
+<TableroJuego class="tablero-gomoku">
+  <div id="tablero" class="tablero" role="grid" aria-label="Tablero de Gomoku, 9 por 9">
+    {casillas.map(i => (
+      <button
+        type="button"
+        class="casilla"
+        data-indice={i}
+        aria-label={`Fila ${Math.floor(i / TAMANO) + 1}, columna ${(i % TAMANO) + 1}`}
+      />
+    ))}
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    width: min(92vw, 34rem);
+    aspect-ratio: 1;
+    gap: 0.25rem;
+    margin: 0 auto;
+    touch-action: manipulation;
+  }
+
+  .casilla {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(1rem, 5vw, 1.8rem);
+    font-weight: 700;
+    line-height: 1;
+    background: var(--color-surface);
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 0;
+  }
+
+  .casilla[data-valor='1'] {
+    color: var(--color-player-1);
+  }
+
+  .casilla[data-valor='2'] {
+    color: var(--color-player-2);
+  }
+
+  .casilla--ultima {
+    box-shadow: inset 0 0 0 3px var(--color-accent);
+  }
+
+  .casilla--ganadora {
+    background: var(--color-accent);
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    type GomokuState,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const FICHAS = { 1: '●', 2: '▲' } as const;
+
+  const tablero = document.getElementById('tablero')!;
+  const casillas = Array.from(
+    tablero.querySelectorAll<HTMLButtonElement>('.casilla')
+  );
+
+  let state: GomokuState = createInitialState();
+
+  const sesion = iniciarSesionJuego<number>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: indice => jugar(indice, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      casillas.forEach(casilla => (casilla.disabled = true));
+    },
+  });
+
+  function render(): void {
+    const jugadorDelTurno = state.currentPlayer;
+    const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+
+    casillas.forEach((casilla, i) => {
+      const valor = state.board[i];
+      casilla.textContent = valor ? FICHAS[valor] : '';
+      if (valor) {
+        casilla.dataset.valor = String(valor);
+      } else {
+        delete casilla.dataset.valor;
+      }
+      casilla.classList.toggle(
+        'casilla--ganadora',
+        state.winningLine?.includes(i) ?? false
+      );
+      casilla.classList.toggle('casilla--ultima', state.lastMove === i);
+      casilla.disabled =
+        valor !== null || state.status !== 'playing' || !esMiTurno;
+    });
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: jugadorDelTurno,
+        simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
+      });
+    } else if (state.status === 'won') {
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]} (${FICHAS[state.winner!]})!`,
+      });
+    } else {
+      sesion.mostrarFinDeJuego({ titulo: '🤝 ¡Empate!' });
+    }
+  }
+
+  function jugar(indice: number, emitirRemoto = true): void {
+    state = playMove(state, indice);
+    render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(indice);
+    }
+  }
+
+  casillas.forEach(casilla => {
+    casilla.addEventListener('click', () => {
+      jugar(Number(casilla.dataset.indice));
+    });
+  });
+
+  render();
+</script>

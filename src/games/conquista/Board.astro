@@ -277,13 +277,9 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     if (state.status === 'playing') {
       sesion.mostrarTurno({
         jugador: state.currentPlayer,
-        etiqueta: sesion.nombres[state.currentPlayer],
         repiteTurno,
         motivoRepeticion: '✨ ¡Área conquistada! Vuelves a jugar',
-        marcador: {
-          1: { nombre: sesion.nombres[1], puntaje: state.scores[1].toFixed(1) },
-          2: { nombre: sesion.nombres[2], puntaje: state.scores[2].toFixed(1) },
-        },
+        puntajes: { 1: state.scores[1].toFixed(1), 2: state.scores[2].toFixed(1) },
       });
     } else {
       const ganador =

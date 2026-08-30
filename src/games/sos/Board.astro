@@ -281,13 +281,9 @@ const SIZE = 6;
     if (state.status === 'playing') {
       sesion.mostrarTurno({
         jugador: state.currentPlayer,
-        etiqueta: sesion.nombres[state.currentPlayer],
         repiteTurno,
         motivoRepeticion: '✨ ¡SOS completado! Vuelves a jugar',
-        marcador: {
-          1: { nombre: sesion.nombres[1], puntaje: state.scores[1] },
-          2: { nombre: sesion.nombres[2], puntaje: state.scores[2] },
-        },
+        puntajes: { 1: state.scores[1], 2: state.scores[2] },
       });
     } else {
       let titulo = '🤝 ¡Empate!';
