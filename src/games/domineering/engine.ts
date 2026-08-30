@@ -105,6 +105,21 @@ function esFormaLegal(a: number, b: number, player: Player): boolean {
   return b - a === 1 && Math.floor(a / TAMANO) === Math.floor(b / TAMANO);
 }
 
+export function tieneJugadaLegal(board: CellValue[], player: Player): boolean {
+  const vertical = orientacionDe(player) === 'vertical';
+  for (let i = 0; i < TOTAL; i++) {
+    if (board[i] !== null) continue;
+    const fila = Math.floor(i / TAMANO);
+    const col = i % TAMANO;
+    if (vertical) {
+      if (fila < TAMANO - 1 && board[i + TAMANO] === null) return true;
+    } else {
+      if (col < TAMANO - 1 && board[i + 1] === null) return true;
+    }
+  }
+  return false;
+}
+
 export function playMove(state: DomineeringState, move: Move): DomineeringState {
   if (state.status !== 'playing') return state;
   if (!esJugadaValida(move)) return state;
@@ -119,9 +134,21 @@ export function playMove(state: DomineeringState, move: Move): DomineeringState 
   board[a] = state.currentPlayer;
   board[b] = state.currentPlayer;
 
+  const siguiente: Player = state.currentPlayer === 1 ? 2 : 1;
+
+  if (!tieneJugadaLegal(board, siguiente)) {
+    return {
+      board,
+      currentPlayer: state.currentPlayer,
+      status: 'won',
+      winner: state.currentPlayer,
+      lastMove: { a, b },
+    };
+  }
+
   return {
     board,
-    currentPlayer: state.currentPlayer === 1 ? 2 : 1,
+    currentPlayer: siguiente,
     status: 'playing',
     winner: null,
     lastMove: { a, b },

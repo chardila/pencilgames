@@ -6,6 +6,7 @@ import {
   dominosLegalesEn,
   dominosEnTablero,
   playMove,
+  tieneJugadaLegal,
   TAMANO,
   type CellValue,
   type DomineeringState,
@@ -177,5 +178,97 @@ describe('playMove — colocación y turno', () => {
     playMove(state, { a: idx(0, 0), b: idx(1, 0) });
     expect(boardRef.every(c => c === null)).toBe(true);
     expect(state.currentPlayer).toBe(1);
+  });
+});
+
+describe('tieneJugadaLegal', () => {
+  it('tablero vacío → true para ambos jugadores', () => {
+    const board = tableroVacio();
+    expect(tieneJugadaLegal(board, 1)).toBe(true);
+    expect(tieneJugadaLegal(board, 2)).toBe(true);
+  });
+
+  it('detecta ausencia de par vertical libre aunque queden pares horizontales', () => {
+    const board = tableroVacio();
+    for (let fila = 0; fila < TAMANO; fila += 2) {
+      for (let col = 0; col < TAMANO; col++) board[idx(fila, col)] = 1;
+    }
+    expect(tieneJugadaLegal(board, 1)).toBe(false);
+    expect(tieneJugadaLegal(board, 2)).toBe(true);
+  });
+});
+
+describe('playMove — fin de partida', () => {
+  it('gana el jugador que coloca el último dominó (rival sin colocación legal)', () => {
+    const board: CellValue[] = tableroVacio();
+    for (let col = 1; col < TAMANO; col += 2) {
+      for (let fila = 0; fila < TAMANO; fila++) board[idx(fila, col)] = 1;
+    }
+    expect(tieneJugadaLegal(board, 2)).toBe(false);
+
+    const state: DomineeringState = {
+      board,
+      currentPlayer: 1,
+      status: 'playing',
+      winner: null,
+      lastMove: null,
+    };
+    const resultado = playMove(state, { a: idx(0, 0), b: idx(1, 0) });
+    expect(resultado.status).toBe('won');
+    expect(resultado.winner).toBe(1);
+    expect(resultado.currentPlayer).toBe(1);
+    expect(resultado.lastMove).toEqual({ a: idx(0, 0), b: idx(1, 0) });
+  });
+
+  it('mientras el rival tenga una colocación legal, la partida sigue y el turno alterna', () => {
+    const state = playMove(createInitialState(), { a: idx(0, 0), b: idx(1, 0) });
+    expect(state.status).toBe('playing');
+    expect(state.currentPlayer).toBe(2);
+  });
+
+  it('no permite más jugadas tras ganar', () => {
+    const board: CellValue[] = tableroVacio();
+    for (let col = 1; col < TAMANO; col += 2) {
+      for (let fila = 0; fila < TAMANO; fila++) board[idx(fila, col)] = 1;
+    }
+    const ganado = playMove(
+      { board, currentPlayer: 1, status: 'playing', winner: null, lastMove: null },
+      { a: idx(0, 0), b: idx(1, 0) },
+    );
+    expect(ganado.status).toBe('won');
+    expect(playMove(ganado, { a: idx(2, 0), b: idx(3, 0) })).toBe(ganado);
+  });
+
+  it('la primera jugada de la partida nunca termina el juego', () => {
+    const state = playMove(createInitialState(), { a: idx(3, 3), b: idx(4, 3) });
+    expect(state.status).toBe('playing');
+    expect(state.winner).toBeNull();
+  });
+});
+
+describe('fuzzing — invariantes sobre partidas aleatorias completas', () => {
+  it('2000 partidas: sin solapes, gana quien hizo la última jugada, el perdedor no tenía jugada', () => {
+    for (let partida = 0; partida < 2000; partida++) {
+      let s = createInitialState();
+      let jugadas = 0;
+      while (s.status === 'playing' && jugadas < 64) {
+        const legales: { a: number; b: number }[] = [];
+        for (let i = 0; i < TAMANO * TAMANO; i++) {
+          for (const m of dominosLegalesEn(s.board, s.currentPlayer, i)) {
+            if (m.a === i) legales.push(m);
+          }
+        }
+        expect(legales.length).toBeGreaterThan(0);
+        const m = legales[Math.floor(Math.random() * legales.length)];
+        const antes = s;
+        s = playMove(s, m);
+        expect(s).not.toBe(antes);
+        jugadas++;
+      }
+      expect(s.status).toBe('won');
+      const perdedor = s.winner === 1 ? 2 : 1;
+      expect(tieneJugadaLegal(s.board, perdedor)).toBe(false);
+      expect(s.board.every(c => c === null || c === 1 || c === 2)).toBe(true);
+    }
   });
 });
