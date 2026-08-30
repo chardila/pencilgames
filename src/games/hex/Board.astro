@@ -5,9 +5,9 @@ import TableroJuego from '../../components/TableroJuego.astro';
 <TableroJuego class="tablero-hex-contenedor">
   <div class="hex-controles">
     <div class="selector-tamano" role="radiogroup" aria-label="Tamaño del tablero">
-      <button type="button" class="btn-tamano" data-tamano="5">5×5 (Rápido)</button>
-      <button type="button" class="btn-tamano btn-tamano--activo" data-tamano="7">7×7 (Estándar)</button>
-      <button type="button" class="btn-tamano" data-tamano="9">9×9 (Estratégico)</button>
+      <button type="button" role="radio" aria-checked="false" class="btn-tamano" data-tamano="5">5×5 (Rápido)</button>
+      <button type="button" role="radio" aria-checked="true" class="btn-tamano btn-tamano--activo" data-tamano="7">7×7 (Estándar)</button>
+      <button type="button" role="radio" aria-checked="false" class="btn-tamano" data-tamano="9">9×9 (Estratégico)</button>
     </div>
   </div>
 
@@ -358,12 +358,14 @@ import TableroJuego from '../../components/TableroJuego.astro';
     const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
     const size = state.size;
 
-    // Deshabilitar selector de tamaño una vez que hay jugadas
+    // Deshabilitar selector de tamaño una vez que hay jugadas o en multijugador remoto
     const hayJugadas = state.board.some(c => c !== null);
     botonesTamano.forEach(btn => {
       const btnSize = Number(btn.dataset.tamano);
-      btn.classList.toggle('btn-tamano--activo', btnSize === size);
-      btn.disabled = hayJugadas;
+      const isActivo = btnSize === size;
+      btn.classList.toggle('btn-tamano--activo', isActivo);
+      btn.setAttribute('aria-checked', isActivo ? 'true' : 'false');
+      btn.disabled = hayJugadas || sesion.miAsiento !== null;
     });
 
     const grupos = svg.querySelectorAll<SVGGElement>('.hex-grupo-celda');
@@ -371,15 +373,26 @@ import TableroJuego from '../../components/TableroJuego.astro';
       const valor = state.board[i];
       const poly = grupo.querySelector<SVGPolygonElement>('.hex-celda')!;
       const text = grupo.querySelector<SVGTextElement>('.hex-glifo')!;
+      const r = Math.floor(i / size);
+      const c = i % size;
 
       if (valor) {
         poly.dataset.ocupada = 'true';
         poly.dataset.jugador = String(valor);
-        text.textContent = valor === 1 ? '●' : '▲';
+        const simbolo = valor === 1 ? '●' : '▲';
+        text.textContent = simbolo;
+        grupo.setAttribute('aria-label', `Fila ${r + 1}, columna ${c + 1} (Jugador ${valor} ${simbolo})`);
+        grupo.setAttribute('aria-disabled', 'true');
       } else {
         delete poly.dataset.ocupada;
         delete poly.dataset.jugador;
         text.textContent = '';
+        grupo.setAttribute('aria-label', `Fila ${r + 1}, columna ${c + 1}`);
+        if (state.status !== 'playing' || !esMiTurno) {
+          grupo.setAttribute('aria-disabled', 'true');
+        } else {
+          grupo.removeAttribute('aria-disabled');
+        }
       }
 
       poly.classList.toggle('hex-celda--ultima', state.lastMove === i);
@@ -426,7 +439,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   botonesTamano.forEach(btn => {
     btn.addEventListener('click', () => {
-      if (state.board.some(c => c !== null)) return;
+      if (state.board.some(c => c !== null) || sesion.miAsiento !== null) return;
       currentSize = Number(btn.dataset.tamano) as BoardSize;
       state = createInitialState(currentSize);
       construirTablero();
