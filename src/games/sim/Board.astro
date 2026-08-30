@@ -386,7 +386,11 @@ const allEdges = getAllEdges().map(edge => {
   }
 
   function jugar(edge: Edge, emitirRemoto = true): void {
-    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+    // El guard de turno solo aplica a la entrada local. Los movimientos remotos
+    // llegan cuando `currentPlayer` es el asiento del rival, así que `esMiTurno`
+    // sería falso y los descartaría en silencio (boards desincronizados).
+    if (state.status !== 'playing') return;
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
     const prevState = state;
     state = playMove(state, edge);
     if (state === prevState) return;
