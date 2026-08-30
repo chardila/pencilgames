@@ -8,12 +8,12 @@ Estado: aprobado (diseño)
 Al jugar con niños, con frecuencia se confunde de quién es el turno. Dos
 causas concretas, verificadas en el código:
 
-1. **El indicador de turno no tiene identidad visual en 4 de 5 juegos.**
+1. **El indicador de turno no tiene identidad visual en 3 de 5 juegos.**
    `renderTurnIndicator` (`src/lib/turnIndicator.ts`) solo aplica los
    colores por jugador (`--color-player-1/2`) a los spans del *marcador*, y
-   el marcador únicamente lo pasa Conquista. Tres en raya, Notakto y
-   Agujero Negro muestran el turno como texto plano gris ("Turno de Ana"),
-   sin color ni forma que distinga a un jugador del otro.
+   el marcador solo lo pasan Conquista y Puntos y Cajas. Tres en raya,
+   Notakto y Agujero Negro muestran el turno como texto plano gris
+   ("Turno de Ana"), sin color ni forma que distinga a un jugador del otro.
 
 2. **En modo internet los dos jugadores ven exactamente lo mismo.**
    `gameSession.mostrarTurno` calcula la etiqueta con `nombres[jugador]` y
@@ -109,14 +109,16 @@ export interface TurnIndicatorOptions {
   jugador: 1 | 2;                       // asiento cuyo turno es
   fichas: Record<1 | 2, FichaJugador>;
   miAsiento?: 1 | 2 | null;             // elige la palabra clave
+  detalle?: string;                     // instrucción del juego (Agujero Negro: "Coloca el número 3")
   repiteTurno?: boolean;
   motivoRepeticion?: string;
 }
 ```
 
-Se eliminan `etiqueta`, `detalle` y la interfaz `Marcador` de este módulo
-(no se usaban en el turno salvo el marcador, ahora integrado en las
-fichas). `ocultarTurnIndicator` no cambia.
+Se eliminan `etiqueta` y la interfaz `Marcador` de este módulo (el
+marcador queda integrado en las fichas). Se conserva `detalle`: hoy
+Agujero Negro lo usa para "Coloca el número N"; se muestra como texto
+auxiliar bajo las fichas. `ocultarTurnIndicator` no cambia.
 
 ### `src/lib/gameSession.ts` (`mostrarTurno`)
 
@@ -126,6 +128,7 @@ inyecta nombres y `miAsiento`:
 ```ts
 mostrarTurno(opciones: {
   jugador: Player;
+  detalle?: string;
   repiteTurno?: boolean;
   motivoRepeticion?: string;
   puntajes?: Record<Player, number | string>;
@@ -143,10 +146,10 @@ y llama a `renderTurnIndicator` con `miAsiento`.
 
 | Juego | Llamada nueva | Nota |
 |---|---|---|
-| Tres en raya | `mostrarTurno({ jugador, simbolos: { 1: 'X', 2: 'O' } })` | quitar `(${ETIQUETAS...})` de la etiqueta |
+| Tres en raya | `mostrarTurno({ jugador: jugadorDelTurno, simbolos: { 1: ETIQUETAS.X, 2: ETIQUETAS.O } })` | quitar `(${ETIQUETAS...})` de la etiqueta |
 | Notakto | `mostrarTurno({ jugador })` | quitar `(pone ✕)`; ambos ponen ✕, la forma distingue |
-| Agujero Negro | `mostrarTurno({ jugador })` | — |
-| Puntos y Cajas | `mostrarTurno({ jugador, puntajes: { 1: cajas1, 2: cajas2 } })` | mejora incluida: hoy no muestra marcador |
+| Agujero Negro | `mostrarTurno({ jugador, detalle: 'Coloca el número N' })` | conserva el `detalle` actual |
+| Puntos y Cajas | `mostrarTurno({ jugador, repiteTurno, motivoRepeticion, puntajes: { 1: state.scores[1], 2: state.scores[2] } })` | ya pasaba `marcador`/`repiteTurno`; se traduce a la nueva API |
 | Conquista | `mostrarTurno({ jugador, repiteTurno, motivoRepeticion, puntajes: { 1: s1.toFixed(1), 2: s2.toFixed(1) } })` | equivalente a hoy |
 
 Los banners de fin de juego de cada Board quedan igual.
