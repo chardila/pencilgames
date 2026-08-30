@@ -237,7 +237,11 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
   }
 
   function jugar(move: Move, emitirRemoto = true): void {
-    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+    // Sin guardia de esMiTurno: los movimientos remotos llegan con el
+    // currentPlayer local aún en el emisor. El input local ya está protegido
+    // por seleccionarAncla (guarda esMiTurno) y por casilla.disabled en render;
+    // playMove es la autoridad y es idempotente.
+    if (state.status !== 'playing') return;
     const prev = state;
     state = playMove(state, move);
     if (state === prev) return;
