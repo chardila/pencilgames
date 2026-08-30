@@ -422,29 +422,41 @@ const allEdges = getAllEdges().map(edge => {
   }
 
   // Interacción en nodos (flujo nodo-a-nodo)
-  for (const nodo of nodos) {
-    nodo.addEventListener('click', () => {
-      if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
-      const idx = Number(nodo.dataset.indice) as Vertex;
+  function manejarClickNodo(idx: Vertex): void {
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
 
-      if (selectedVertex === null) {
+    if (selectedVertex === null) {
+      selectedVertex = idx;
+      render();
+    } else if (selectedVertex === idx) {
+      selectedVertex = null;
+      actualizarPreview(null);
+      render();
+    } else {
+      const edgeIdx = getEdgeIndex(selectedVertex, idx);
+      if (state.edges[edgeIdx] === null) {
+        const edge: Edge = { u: selectedVertex, v: idx };
+        jugar(edge);
+      } else {
+        // Cambia la selección al nodo nuevo si la arista ya estaba ocupada
         selectedVertex = idx;
-        render();
-      } else if (selectedVertex === idx) {
-        selectedVertex = null;
         actualizarPreview(null);
         render();
-      } else {
-        const edgeIdx = getEdgeIndex(selectedVertex, idx);
-        if (state.edges[edgeIdx] === null) {
-          const edge: Edge = { u: selectedVertex, v: idx };
-          jugar(edge);
-        } else {
-          // Cambia la selección al nodo nuevo si la arista ya estaba ocupada
-          selectedVertex = idx;
-          actualizarPreview(null);
-          render();
-        }
+      }
+    }
+  }
+
+  for (const nodo of nodos) {
+    nodo.addEventListener('click', () => {
+      const idx = Number(nodo.dataset.indice) as Vertex;
+      manejarClickNodo(idx);
+    });
+
+    nodo.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const idx = Number(nodo.dataset.indice) as Vertex;
+        manejarClickNodo(idx);
       }
     });
 
