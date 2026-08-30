@@ -1,0 +1,200 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const FILAS = 4;
+const COLUMNAS = 7;
+const TOTAL = FILAS * COLUMNAS;
+const casillas = Array.from({ length: TOTAL }, (_, i) => i);
+---
+
+<TableroJuego class="tablero-chomp">
+  <div id="tablero" class="tablero" role="grid" aria-label="Tableta de chocolate Chomp, 4 filas por 7 columnas">
+    {casillas.map(i => (
+      <button
+        type="button"
+        class={`casilla ${i === 0 ? 'casilla--veneno' : ''}`}
+        data-indice={i}
+        aria-label={
+          i === 0
+            ? 'Onza envenenada (Fila 1, columna 1)'
+            : `Onza fila ${Math.floor(i / COLUMNAS) + 1}, columna ${(i % COLUMNAS) + 1}`
+        }
+      >
+        {i === 0 ? '☠️' : ''}
+      </button>
+    ))}
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    width: min(92vw, 34rem);
+    aspect-ratio: 7 / 4;
+    gap: 0.35rem;
+    margin: 0 auto;
+    padding: 0.75rem;
+    background: #3e2723;
+    border-radius: 12px;
+    box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15);
+    touch-action: manipulation;
+  }
+
+  .casilla {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(1.2rem, 5vw, 1.8rem);
+    font-weight: 700;
+    line-height: 1;
+    background: linear-gradient(135deg, #795548 0%, #5d4037 100%);
+    color: #fff;
+    border: 2px solid #4e342e;
+    border-radius: 6px;
+    box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.2), inset -2px -2px 4px rgba(0, 0, 0, 0.4);
+    padding: 0;
+    cursor: pointer;
+    transition: transform 0.1s ease, background 0.15s ease, opacity 0.2s ease;
+  }
+
+  .casilla:not(:disabled):hover,
+  .casilla--preview {
+    background: linear-gradient(135deg, #8d6e63 0%, #6d4c41 100%);
+    transform: scale(0.96);
+    box-shadow: 0 0 0 2px var(--color-accent);
+  }
+
+  .casilla--veneno {
+    background: linear-gradient(135deg, #212121 0%, #000000 100%) !important;
+    border-color: #d32f2f !important;
+    box-shadow: inset 0 0 8px rgba(211, 47, 47, 0.6) !important;
+    cursor: not-allowed;
+  }
+
+  .casilla--comida {
+    background: rgba(0, 0, 0, 0.25) !important;
+    border: 1px dashed rgba(255, 255, 255, 0.1) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+    opacity: 0.35;
+    cursor: default;
+    transform: none !important;
+  }
+
+  .casilla--ultima-comida {
+    box-shadow: inset 0 0 0 2px var(--color-accent) !important;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    COLUMNAS,
+    INDICE_VENENO,
+    type ChompState,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const tablero = document.getElementById('tablero')!;
+  const casillas = Array.from(
+    tablero.querySelectorAll<HTMLButtonElement>('.casilla')
+  );
+
+  let state: ChompState = createInitialState();
+
+  const sesion = iniciarSesionJuego<number>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: indice => jugar(indice, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      casillas.forEach(casilla => (casilla.disabled = true));
+    },
+  });
+
+  function render(): void {
+    const jugadorDelTurno = state.currentPlayer;
+    const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+
+    casillas.forEach((casilla, i) => {
+      const viva = state.board[i];
+      casilla.classList.toggle('casilla--comida', !viva);
+      casilla.classList.toggle(
+        'casilla--ultima-comida',
+        state.lastEaten.includes(i) && !viva
+      );
+
+      if (i === INDICE_VENENO) {
+        casilla.disabled = true;
+      } else {
+        casilla.disabled = !viva || state.status !== 'playing' || !esMiTurno;
+      }
+    });
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: jugadorDelTurno,
+      });
+    } else if (state.status === 'won') {
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]}! 🍫`,
+      });
+    }
+  }
+
+  function jugar(indice: number, emitirRemoto = true): void {
+    state = playMove(state, indice);
+    render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(indice);
+    }
+  }
+
+  // Previsualización en hover (área del mordisco)
+  function actualizarPreview(indiceHover: number | null): void {
+    if (indiceHover === null || indiceHover === INDICE_VENENO || !state.board[indiceHover]) {
+      casillas.forEach(c => c.classList.remove('casilla--preview'));
+      return;
+    }
+    const targetRow = Math.floor(indiceHover / COLUMNAS);
+    const targetCol = indiceHover % COLUMNAS;
+
+    casillas.forEach((casilla, i) => {
+      if (i === INDICE_VENENO || !state.board[i]) {
+        casilla.classList.remove('casilla--preview');
+        return;
+      }
+      const r = Math.floor(i / COLUMNAS);
+      const c = i % COLUMNAS;
+      casilla.classList.toggle(
+        'casilla--preview',
+        r >= targetRow && c >= targetCol
+      );
+    });
+  }
+
+  casillas.forEach(casilla => {
+    casilla.addEventListener('click', () => {
+      const idx = Number(casilla.dataset.indice);
+      actualizarPreview(null);
+      jugar(idx);
+    });
+
+    casilla.addEventListener('pointerenter', () => {
+      const idx = Number(casilla.dataset.indice);
+      actualizarPreview(idx);
+    });
+  });
+
+  tablero.addEventListener('pointerleave', () => {
+    actualizarPreview(null);
+  });
+
+  render();
+</script>
