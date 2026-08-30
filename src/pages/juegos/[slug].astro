@@ -11,6 +11,7 @@ import AgujeroNegroBoard from '../../games/agujero-negro/Board.astro';
 import ConquistaBoard from '../../games/conquista/Board.astro';
 import NotaktoBoard from '../../games/notakto/Board.astro';
 import GomokuBoard from '../../games/gomoku/Board.astro';
+import SOSBoard from '../../games/sos/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
@@ -19,6 +20,7 @@ const BOARDS = {
   conquista: ConquistaBoard,
   notakto: NotaktoBoard,
   gomoku: GomokuBoard,
+  sos: SOSBoard,
 } as const;
 
 export async function getStaticPaths() {

@@ -1,0 +1,345 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const SIZE = 6;
+---
+
+<TableroJuego class="tablero-sos">
+  <div class="selector-letra" role="radiogroup" aria-label="Elegir letra">
+    <span class="selector-letra__label">Letra:</span>
+    <div class="selector-letra__controles">
+      <button
+        type="button"
+        role="radio"
+        aria-checked="true"
+        class="btn-letra activo"
+        data-letra="S"
+        id="btn-letra-s"
+      >
+        S
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked="false"
+        class="btn-letra"
+        data-letra="O"
+        id="btn-letra-o"
+      >
+        O
+      </button>
+    </div>
+  </div>
+
+  <div class="tablero-sos__contenedor">
+    <svg id="lineas-sos-svg" class="tablero-sos__lineas" viewBox="0 0 600 600" aria-hidden="true"></svg>
+
+    <div id="tablero-grid" class="tablero-sos__grid" role="grid" aria-label="Tablero SOS de 6 por 6">
+      {Array.from({ length: SIZE }).map((_, r) =>
+        Array.from({ length: SIZE }).map((_, c) => (
+          <button
+            type="button"
+            class="casilla"
+            data-fila={r}
+            data-columna={c}
+            aria-label={`Fila ${r + 1}, Columna ${c + 1}`}
+          />
+        ))
+      )}
+    </div>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-sos {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .selector-letra {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: color-mix(in srgb, var(--color-surface) 80%, rgba(0, 0, 0, 0.04));
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .selector-letra__label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    opacity: 0.8;
+  }
+
+  .selector-letra__controles {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .btn-letra {
+    min-width: 2.5rem;
+    min-height: 2.2rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: transparent;
+    cursor: pointer;
+    color: var(--color-text);
+    transition: all 0.15s ease;
+  }
+
+  .btn-letra:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .btn-letra.activo {
+    background: var(--color-text);
+    color: var(--color-surface);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn-letra:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .tablero-sos__contenedor {
+    position: relative;
+    width: min(92vw, 26rem);
+    aspect-ratio: 1;
+    margin: 0 auto;
+  }
+
+  .tablero-sos__lineas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .tablero-sos__lineas :global(.linea-sos) {
+    stroke-linecap: round;
+    stroke-width: 7;
+    animation: drawLine 0.25s ease-out;
+  }
+
+  .tablero-sos__lineas :global(.linea-sos--p1) {
+    stroke: var(--color-player-1);
+    filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--color-player-1) 50%, transparent));
+  }
+
+  .tablero-sos__lineas :global(.linea-sos--p2) {
+    stroke: var(--color-player-2);
+    filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--color-player-2) 50%, transparent));
+  }
+
+  @keyframes drawLine {
+    from {
+      stroke-dasharray: 600;
+      stroke-dashoffset: 600;
+    }
+    to {
+      stroke-dasharray: 600;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .tablero-sos__grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+    width: 100%;
+    height: 100%;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.08);
+    padding: 4px;
+    border-radius: var(--radius);
+  }
+
+  .casilla {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    border: none;
+    border-radius: 4px;
+    font-size: clamp(1.1rem, 4vw, 1.4rem);
+    font-weight: 800;
+    color: var(--color-text);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease, transform 0.1s ease;
+    padding: 0;
+  }
+
+  .casilla:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-surface) 90%, black);
+    transform: scale(0.98);
+  }
+
+  .casilla:disabled {
+    cursor: default;
+  }
+
+  .casilla.casilla--ultima {
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--color-text) 30%, transparent);
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    type SOSState,
+    type Move,
+    type Letter,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const SIZE = 6;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  const tableroGrid = document.getElementById('tablero-grid')!;
+  const svgLineas = document.getElementById('lineas-sos-svg') as unknown as SVGSVGElement;
+  const casillas = Array.from(tableroGrid.querySelectorAll<HTMLButtonElement>('.casilla'));
+  const botonesLetra = Array.from(document.querySelectorAll<HTMLButtonElement>('.btn-letra'));
+
+  let state: SOSState = createInitialState(SIZE);
+  let letraActiva: Letter = 'S';
+  let repiteTurno = false;
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState(SIZE);
+      letraActiva = 'S';
+      repiteTurno = false;
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      for (const casilla of casillas) casilla.disabled = true;
+      for (const btn of botonesLetra) btn.disabled = true;
+    },
+  });
+
+  function render(): void {
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer);
+
+    // Actualizar botones de letra
+    for (const btn of botonesLetra) {
+      const letra = btn.dataset.letra as Letter;
+      const activa = letra === letraActiva;
+      btn.classList.toggle('activo', activa);
+      btn.setAttribute('aria-checked', String(activa));
+      btn.disabled = state.status !== 'playing' || !esMiTurno;
+    }
+
+    // Actualizar casillas
+    for (const casilla of casillas) {
+      const fila = Number(casilla.dataset.fila);
+      const columna = Number(casilla.dataset.columna);
+      const valor = state.board[fila][columna];
+
+      casilla.textContent = valor ?? '';
+      casilla.disabled = valor !== null || state.status !== 'playing' || !esMiTurno;
+
+      const esUltima =
+        state.lastMove !== null &&
+        state.lastMove.row === fila &&
+        state.lastMove.col === columna;
+      casilla.classList.toggle('casilla--ultima', esUltima);
+    }
+
+    // Renderizar líneas SVG
+    svgLineas.innerHTML = '';
+    const cellSize = 600 / SIZE;
+    for (const line of state.completedLines) {
+      const lineEl = document.createElementNS(SVG_NS, 'line');
+      const x1 = line.from.col * cellSize + cellSize / 2;
+      const y1 = line.from.row * cellSize + cellSize / 2;
+      const x2 = line.to.col * cellSize + cellSize / 2;
+      const y2 = line.to.row * cellSize + cellSize / 2;
+
+      lineEl.setAttribute('x1', String(x1));
+      lineEl.setAttribute('y1', String(y1));
+      lineEl.setAttribute('x2', String(x2));
+      lineEl.setAttribute('y2', String(y2));
+      lineEl.setAttribute('class', `linea-sos linea-sos--p${line.player}`);
+      svgLineas.appendChild(lineEl);
+    }
+
+    // Actualizar turno / fin de juego
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: state.currentPlayer,
+        repiteTurno,
+        motivoRepeticion: '✨ ¡SOS completado! Vuelves a jugar',
+        puntajes: { 1: state.scores[1], 2: state.scores[2] },
+      });
+    } else {
+      let titulo = '🤝 ¡Empate!';
+      if (state.winner === 1 || state.winner === 2) {
+        titulo = `🎉 ¡Ganó ${sesion.nombres[state.winner]}!`;
+      }
+      sesion.mostrarFinDeJuego({
+        titulo,
+        detalle: `${sesion.nombres[1]} ${state.scores[1]} · ${sesion.nombres[2]} ${state.scores[2]}`,
+      });
+    }
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    const prevLinesCount = state.completedLines.length;
+    state = playMove(state, move);
+    const newLinesCount = state.completedLines.length - prevLinesCount;
+    repiteTurno = newLinesCount > 0 && state.status === 'playing';
+
+    render();
+
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(move);
+    }
+  }
+
+  // Event Listeners
+  for (const btn of botonesLetra) {
+    btn.addEventListener('click', () => {
+      letraActiva = btn.dataset.letra as Letter;
+      render();
+    });
+  }
+
+  for (const casilla of casillas) {
+    casilla.addEventListener('click', () => {
+      const fila = Number(casilla.dataset.fila);
+      const columna = Number(casilla.dataset.columna);
+      jugar({ row: fila, col: columna, letter: letraActiva });
+    });
+  }
+
+  // Teclado: teclas S y O cambian letra activa
+  document.addEventListener('keydown', e => {
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+      return;
+    }
+    if (e.key === 's' || e.key === 'S') {
+      letraActiva = 'S';
+      render();
+    } else if (e.key === 'o' || e.key === 'O') {
+      letraActiva = 'O';
+      render();
+    }
+  });
+
+  render();
+</script>

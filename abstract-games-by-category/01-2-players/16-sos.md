@@ -1,5 +1,8 @@
 # SOS
 
+> ✅ **Implementado** — en vivo en https://games.cardila.com/juegos/sos/
+> Tablero 6×6, 2 jugadores, turnos con selector S/O, líneas de puntuación por color y modo online peer-to-peer.
+
 ## Players
 2
 
@@ -7,7 +10,7 @@
 Score more SOS patterns.
 
 ## Setup
-Draw a square grid, e.g. 5×5.
+Draw a square grid (6×6).
 
 ## Turn
 On each turn, place either S or O in any empty cell.
