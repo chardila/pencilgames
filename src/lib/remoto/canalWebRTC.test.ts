@@ -27,6 +27,7 @@ class WebSocketFalso {
     for (const cb of this.listeners['message'] ?? []) cb({ data: JSON.stringify(datos) });
   }
   emitirCierre(code: number) {
+    this.readyState = 3;
     for (const cb of this.listeners['close'] ?? []) cb({ code });
   }
 }
@@ -432,5 +433,266 @@ describe('CanalWebRTC — responde a una oferta (asiento 2)', () => {
 
     const respuestaEnviada = ws.enviados.map(m => JSON.parse(m)).find(m => m.tipo === 'respuesta');
     expect(respuestaEnviada).toEqual({ tipo: 'respuesta', sdp: 'respuesta-falsa' });
+  });
+});
+
+describe('CanalWebRTC — heartbeat (ping / pong)', () => {
+  it('emite ping cada 15 segundos y no lo reenvía como mensaje de juego', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    const recibidos: unknown[] = [];
+    channel.alRecibir(m => recibidos.push(m));
+
+    // A los 15s debe enviar un ping
+    vi.advanceTimersByTime(15000);
+
+    const pings = ws.enviados.filter(m => JSON.parse(m).tipo === 'ping');
+    expect(pings.length).toBe(1);
+
+    // A los 30s debe haber enviado un segundo ping
+    vi.advanceTimersByTime(15000);
+    const pings2 = ws.enviados.filter(m => JSON.parse(m).tipo === 'ping');
+    expect(pings2.length).toBe(2);
+
+    expect(recibidos.length).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it('al recibir pong lo consume internamente y no lo entrega al callback de alRecibir', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    const recibidos: unknown[] = [];
+    channel.alRecibir(m => recibidos.push(m));
+
+    ws.emitirMensaje({ tipo: 'pong' });
+
+    expect(recibidos.length).toBe(0);
+  });
+});
+
+describe('CanalWebRTC — estados de desconexión y reconexión del rival', () => {
+  it('pasa a estado reconectando-rival al recibir rival-desconectado-temporal y vuelve a conectado al recibir rival-reconectado', async () => {
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const ws = WebSocketFalso.instancias[0];
+    ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    const estados: string[] = [];
+    channel.alCambiarEstado(e => estados.push(e));
+
+    // El rival se desconecta temporalmente
+    ws.emitirMensaje({ tipo: 'rival-desconectado-temporal', tiempoLimiteMs: 15000 });
+    expect(channel.estado).toBe('reconectando-rival');
+    expect(estados).toEqual(['reconectando-rival']);
+
+    // El rival se reconecta dentro de la ventana
+    ws.emitirMensaje({ tipo: 'rival-reconectado' });
+    expect(channel.estado).toBe('conectado');
+    expect(estados).toEqual(['reconectando-rival', 'conectado']);
+  });
+});
+
+describe('CanalWebRTC — bucle de reconexión local', () => {
+  it('reintenta reconectar automáticamente con /reconectar y token al cerrarse el WebSocket inesperadamente', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const wsInicial = WebSocketFalso.instancias[0];
+    wsInicial.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    wsInicial.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    wsInicial.emitirMensaje({ tipo: 'rival-conectado' });
+    const dataChannel = RTCDataChannelFalso.instancias[0];
+    dataChannel.emitirAbierto();
+    expect(channel.estado).toBe('conectado');
+
+    const estados: string[] = [];
+    channel.alCambiarEstado(e => estados.push(e));
+
+    // Se cae el WebSocket
+    wsInicial.emitirCierre(1006);
+
+    // Debe haber pasado a estado reconectando
+    expect(channel.estado).toBe('reconectando');
+    expect(estados).toContain('reconectando');
+
+    // Debe haber creado un nuevo WebSocket hacia /reconectar de inmediato
+    expect(WebSocketFalso.instancias.length).toBe(2);
+    const wsRecon = WebSocketFalso.instancias[1];
+    expect(wsRecon.url).toBe(
+      'wss://ejemplo.test/reconectar?codigo=ABC123&asiento=1&token=tok-123'
+    );
+
+    // El nuevo WebSocket recibe 'conectado'
+    wsRecon.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+
+    // Debe volver a estado conectado
+    expect(channel.estado).toBe('conectado');
+    expect(estados).toEqual(['reconectando', 'conectado']);
+
+    vi.useRealTimers();
+  });
+
+  it('reintenta periódicamente cada 1.5s si el intento de reconexión falla', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const wsInicial = WebSocketFalso.instancias[0];
+    wsInicial.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    wsInicial.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    wsInicial.emitirMensaje({ tipo: 'rival-conectado' });
+    RTCDataChannelFalso.instancias[0]?.emitirAbierto();
+
+    // Se cae el WebSocket
+    wsInicial.emitirCierre(1006);
+    expect(WebSocketFalso.instancias.length).toBe(2);
+
+    // El primer intento de reconexión falla con error de red
+    const wsIntento1 = WebSocketFalso.instancias[1];
+    wsIntento1.emitirCierre(1006);
+
+    // Avanzamos 1.5s
+    vi.advanceTimersByTime(1500);
+
+    // Se debe haber abierto un segundo intento de reconexión
+    expect(WebSocketFalso.instancias.length).toBe(3);
+    const wsIntento2 = WebSocketFalso.instancias[2];
+    expect(wsIntento2.url).toBe(
+      'wss://ejemplo.test/reconectar?codigo=ABC123&asiento=1&token=tok-123'
+    );
+
+    // El segundo intento responde exitosamente
+    wsIntento2.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    expect(channel.estado).toBe('conectado');
+
+    vi.useRealTimers();
+  });
+
+  it('si no logra reconectar en 15s, pasa a desconectado definitivamente', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const wsInicial = WebSocketFalso.instancias[0];
+    wsInicial.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    wsInicial.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    wsInicial.emitirMensaje({ tipo: 'rival-conectado' });
+    RTCDataChannelFalso.instancias[0]?.emitirAbierto();
+
+    const estados: string[] = [];
+    channel.alCambiarEstado(e => estados.push(e));
+
+    // Se cae el WebSocket
+    wsInicial.emitirCierre(1006);
+    expect(channel.estado).toBe('reconectando');
+
+    // Avanzamos 15s sin que ningún intento responda con 'conectado'
+    vi.advanceTimersByTime(15000);
+
+    expect(channel.estado).toBe('desconectado');
+    expect(estados).toEqual(['reconectando', 'desconectado']);
+
+    vi.useRealTimers();
+  });
+
+  it('si el servidor rechaza la reconexión con 4041, aborta reintentos y pasa a desconectado inmediatamente', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const wsInicial = WebSocketFalso.instancias[0];
+    wsInicial.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    wsInicial.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    wsInicial.emitirMensaje({ tipo: 'rival-conectado' });
+    RTCDataChannelFalso.instancias[0]?.emitirAbierto();
+
+    const estados: string[] = [];
+    channel.alCambiarEstado(e => estados.push(e));
+
+    // Se cae el WebSocket
+    wsInicial.emitirCierre(1006);
+    expect(channel.estado).toBe('reconectando');
+
+    // El socket de reconexión recibe 4041 (sala expirada o token inválido)
+    const wsRecon = WebSocketFalso.instancias[1];
+    wsRecon.emitirCierre(4041);
+
+    expect(channel.estado).toBe('desconectado');
+    expect(estados).toEqual(['reconectando', 'desconectado']);
+
+    // No debe haber más intentos de reconexión tras avanzar el tiempo
+    const numInstancias = WebSocketFalso.instancias.length;
+    vi.advanceTimersByTime(3000);
+    expect(WebSocketFalso.instancias.length).toBe(numInstancias);
+
+    vi.useRealTimers();
+  });
+
+  it('los mensajes enviados durante la reconexión se encolan y se envían al restablecer la conexión', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const wsInicial = WebSocketFalso.instancias[0];
+    wsInicial.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    // Ponemos en conectado vía relay
+    wsInicial.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    wsInicial.emitirMensaje({ tipo: 'rival-conectado' });
+    vi.advanceTimersByTime(15000);
+    expect(channel.estado).toBe('conectado');
+
+    // Se cae el WebSocket
+    wsInicial.emitirCierre(1006);
+    expect(channel.estado).toBe('reconectando');
+
+    // Durante reconectando el usuario realiza un movimiento
+    channel.enviar({ tipo: 'movimiento', payload: 99 });
+
+    // Reconecta exitosamente
+    const wsRecon = WebSocketFalso.instancias[1];
+    wsRecon.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+
+    expect(channel.estado).toBe('conectado');
+    const enviadosRecon = wsRecon.enviados.map(m => JSON.parse(m));
+    expect(enviadosRecon).toContainEqual({ tipo: 'movimiento', payload: 99 });
+
+    vi.useRealTimers();
+  });
+
+  it('cerrar() detiene el intervalo de ping y los temporizadores de reconexión', async () => {
+    vi.useFakeTimers();
+    const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
+    const wsInicial = WebSocketFalso.instancias[0];
+    wsInicial.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
+    const { channel } = await promesa;
+
+    wsInicial.emitirMensaje({ tipo: 'ice-servers', iceServers: [] });
+    wsInicial.emitirMensaje({ tipo: 'rival-conectado' });
+    RTCDataChannelFalso.instancias[0]?.emitirAbierto();
+
+    // Se cae el WebSocket y entra a reconexión
+    wsInicial.emitirCierre(1006);
+    expect(channel.estado).toBe('reconectando');
+
+    // El usuario cierra deliberadamente
+    channel.cerrar();
+
+    // Avanzamos el tiempo: no debe emitir pings ni generar nuevos WebSockets
+    const totalInstancias = WebSocketFalso.instancias.length;
+    const enviadosAntes = wsInicial.enviados.length;
+    vi.advanceTimersByTime(30000);
+
+    expect(WebSocketFalso.instancias.length).toBe(totalInstancias);
+    expect(wsInicial.enviados.length).toBe(enviadosAntes);
+
+    vi.useRealTimers();
   });
 });

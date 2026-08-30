@@ -45,6 +45,21 @@ export default {
       return derivarASala(request, env, 'unirse', codigo);
     }
 
+    if (url.pathname === '/reconectar') {
+      const codigo = url.searchParams.get('codigo');
+      const asientoStr = url.searchParams.get('asiento');
+      const token = url.searchParams.get('token');
+      if (!codigo || !asientoStr || !token) {
+        return new Response('Parámetros de reconexión incompletos', { status: 400 });
+      }
+      if (!esCodigoSalaValido(codigo)) {
+        return new Response('Código de sala inválido', { status: 400 });
+      }
+      const rechazoOrigen = verificarOrigen(request, env);
+      if (rechazoOrigen) return rechazoOrigen;
+      return derivarASala(request, env, 'reconectar', codigo);
+    }
+
     return new Response('No encontrado', { status: 404 });
   },
 };
@@ -71,7 +86,12 @@ export function verificarOrigen(request: Request, env: Env): Response | null {
   return null;
 }
 
-function derivarASala(request: Request, env: Env, rol: 'crear' | 'unirse', codigo: string): Promise<Response> {
+function derivarASala(
+  request: Request,
+  env: Env,
+  rol: 'crear' | 'unirse' | 'reconectar',
+  codigo: string
+): Promise<Response> {
   const id = env.ROOMS.idFromName(codigo);
   const stub = env.ROOMS.get(id);
   const url = new URL(request.url);

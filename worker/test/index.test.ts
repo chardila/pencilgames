@@ -155,14 +155,80 @@ describe('Worker — flujo completo crear/unirse', () => {
 
   it('/crear seguido de /unirse con ese código conecta a los dos jugadores', async () => {
     const ws1 = await conectar('/crear');
-    const { codigo } = await esperarMensajeDeTipo(ws1, 'conectado');
+    const { codigo, tokenSesion: token1 } = await esperarMensajeDeTipo(ws1, 'conectado');
+    expect(typeof token1).toBe('string');
+    expect(token1.length).toBeGreaterThan(0);
 
     const ws2 = await conectar(`/unirse?codigo=${codigo}`);
     const conectado2 = await esperarMensajeDeTipo(ws2, 'conectado');
     expect(conectado2.asiento).toBe(2);
+    expect(typeof conectado2.tokenSesion).toBe('string');
+    expect(conectado2.tokenSesion.length).toBeGreaterThan(0);
 
     ws1.send(JSON.stringify({ tipo: 'movimiento', payload: 7 }));
     const recibido = await esperarMensajeDeTipo(ws2, 'movimiento');
     expect(recibido).toEqual({ tipo: 'movimiento', payload: 7 });
+  });
+
+  it('responde 400 a /reconectar si faltan parámetros requeridos', async () => {
+    const sinCodigo = await SELF.fetch('https://ejemplo.test/reconectar?asiento=1&token=abc', {
+      headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
+    });
+    expect(sinCodigo.status).toBe(400);
+
+    const sinAsiento = await SELF.fetch('https://ejemplo.test/reconectar?codigo=ABCDEF&token=abc', {
+      headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
+    });
+    expect(sinAsiento.status).toBe(400);
+
+    const sinToken = await SELF.fetch('https://ejemplo.test/reconectar?codigo=ABCDEF&asiento=1', {
+      headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
+    });
+    expect(sinToken.status).toBe(400);
+  });
+
+  it('responde 400 a /reconectar con código de sala de formato inválido', async () => {
+    const respuesta = await SELF.fetch('https://ejemplo.test/reconectar?codigo=invalido!&asiento=1&token=abc', {
+      headers: { Upgrade: 'websocket', Origin: ORIGEN_PERMITIDO },
+    });
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.webSocket).toBeNull();
+  });
+
+  it('rechaza /reconectar con 403 cuando el Origin no coincide con ALLOWED_ORIGIN', async () => {
+    const respuesta = await SELF.fetch('https://ejemplo.test/reconectar?codigo=ABCDEF&asiento=1&token=abc', {
+      headers: { Upgrade: 'websocket', Origin: 'https://sitio-ajeno.test' },
+    });
+    expect(respuesta.status).toBe(403);
+    expect(respuesta.webSocket).toBeNull();
+  });
+
+  it('flujo completo de reconexión a través del worker', async () => {
+    const ws1 = await conectar('/crear');
+    const { codigo, tokenSesion: token1 } = await esperarMensajeDeTipo(ws1, 'conectado');
+
+    const ws2 = await conectar(`/unirse?codigo=${codigo}`);
+    const con2 = await esperarMensajeDeTipo(ws2, 'conectado');
+    await esperarMensajeDeTipo(ws1, 'rival-conectado');
+
+    ws2.close();
+    const avisoTemp = await esperarMensajeDeTipo(ws1, 'rival-desconectado-temporal');
+    expect(avisoTemp).toEqual({ tipo: 'rival-desconectado-temporal', tiempoLimiteMs: 15000 });
+
+    const ws2Recon = await conectar(`/reconectar?codigo=${codigo}&asiento=2&token=${con2.tokenSesion}`);
+    const conRecon = await esperarMensajeDeTipo(ws2Recon, 'conectado');
+    expect(conRecon).toEqual({
+      tipo: 'conectado',
+      asiento: 2,
+      codigo,
+      tokenSesion: con2.tokenSesion,
+    });
+
+    const rivalRecon = await esperarMensajeDeTipo(ws1, 'rival-reconectado');
+    expect(rivalRecon).toEqual({ tipo: 'rival-reconectado' });
+
+    ws2Recon.send(JSON.stringify({ tipo: 'movimiento', payload: 99 }));
+    const recibido = await esperarMensajeDeTipo(ws1, 'movimiento');
+    expect(recibido).toEqual({ tipo: 'movimiento', payload: 99 });
   });
 });

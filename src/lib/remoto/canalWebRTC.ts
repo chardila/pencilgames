@@ -4,6 +4,9 @@ import { ErrorSala } from './types';
 const ICE_SERVERS_INICIALES: RTCIceServer[] = [{ urls: 'stun:stun.cloudflare.com:3478' }];
 const TIMEOUT_DATACHANNEL_MS = 15000;
 const TIMEOUT_CONEXION_MS = 10000;
+const INTERVALO_PING_MS = 15000;
+const INTERVALO_RECONEXION_MS = 1500;
+const TIMEOUT_RECONEXION_MS = 15000;
 // Constante propia en vez de `WebSocket.OPEN`: el global `WebSocket` puede
 // venir stubeado (tests) sin esa propiedad estática. El valor 1 es el mismo
 // en el estándar WebSocket (readyState OPEN) que usan tanto el navegador
@@ -11,9 +14,12 @@ const TIMEOUT_CONEXION_MS = 10000;
 const WS_ABIERTO = 1;
 
 type MensajeControl =
-  | { tipo: 'conectado'; asiento: 1 | 2; codigo: string }
+  | { tipo: 'conectado'; asiento: 1 | 2; codigo: string; tokenSesion?: string }
   | { tipo: 'rival-conectado' }
   | { tipo: 'rival-desconectado' }
+  | { tipo: 'rival-desconectado-temporal'; tiempoLimiteMs?: number }
+  | { tipo: 'rival-reconectado' }
+  | { tipo: 'pong' }
   | { tipo: 'ice-servers'; iceServers: RTCIceServer[] }
   | { tipo: 'oferta'; sdp: string }
   | { tipo: 'respuesta'; sdp: string }
@@ -23,13 +29,17 @@ const TIPOS_CONTROL = new Set([
   'conectado',
   'rival-conectado',
   'rival-desconectado',
+  'rival-desconectado-temporal',
+  'rival-reconectado',
+  'pong',
+  'ping',
   'ice-servers',
   'oferta',
   'respuesta',
   'ice',
 ]);
 
-function esperarConectado(ws: WebSocket): Promise<{ asiento: 1 | 2; codigo: string }> {
+function esperarConectado(ws: WebSocket): Promise<{ asiento: 1 | 2; codigo: string; tokenSesion: string }> {
   return new Promise((resolve, reject) => {
     const limpiar = () => {
       ws.removeEventListener('message', alMensaje);
@@ -41,12 +51,17 @@ function esperarConectado(ws: WebSocket): Promise<{ asiento: 1 | 2; codigo: stri
       const mensaje = JSON.parse(evento.data as string) as MensajeControl;
       if (mensaje.tipo === 'conectado') {
         limpiar();
-        resolve({ asiento: mensaje.asiento, codigo: mensaje.codigo });
+        resolve({
+          asiento: mensaje.asiento,
+          codigo: mensaje.codigo,
+          tokenSesion: mensaje.tokenSesion ?? '',
+        });
       }
     };
     const alCerrar = (evento: CloseEvent) => {
       limpiar();
       if (evento.code === 4040) reject(new ErrorSala('invalido', 'Ese código no es válido'));
+      else if (evento.code === 4041) reject(new ErrorSala('invalido', 'Sesión expirada o inválida'));
       else if (evento.code === 4090) reject(new ErrorSala('llena', 'Esa sala ya está llena'));
       else if (evento.code === 4091)
         reject(new ErrorSala('nombre-duplicado', 'Ese nombre ya lo tiene el otro jugador'));
@@ -82,28 +97,39 @@ export class CanalWebRTC implements MoveChannel {
   private callbacksEstado: Array<(e: EstadoConexion) => void> = [];
   private timeoutFallback: ReturnType<typeof setTimeout> | null = null;
   private mensajesEnBuffer: MensajeJuego[] = [];
+  private mensajesPendientesEnvio: MensajeJuego[] = [];
+  private intervaloPing: ReturnType<typeof setInterval> | null = null;
+  private timerReconexion: ReturnType<typeof setTimeout> | null = null;
+  private intervaloReintento: ReturnType<typeof setInterval> | null = null;
+  private socketReconexion: WebSocket | null = null;
   private cerrado = false;
+
+  private alMensajeWsHandler = (evento: MessageEvent) => this.alMensajeWs(evento);
+  private alCerrarWsHandler = (evento: CloseEvent) => this.alCerrarWs(evento);
 
   private constructor(
     public readonly asiento: 1 | 2,
-    private readonly ws: WebSocket
+    private ws: WebSocket,
+    private readonly workerUrl: string,
+    public readonly codigo: string,
+    private tokenSesion: string
   ) {
-    this.ws.addEventListener('message', evento => this.alMensajeWs(evento as MessageEvent));
-    this.ws.addEventListener('close', () => this.cambiarEstado('desconectado'));
+    this.adjuntarListenersWs(this.ws);
+    this.iniciarPing();
   }
 
   static async crear(workerUrl: string, nombre: string): Promise<{ channel: CanalWebRTC; codigo: string }> {
     const ws = new WebSocket(`${workerUrl}/crear?nombre=${encodeURIComponent(nombre)}`);
-    const { asiento, codigo } = await esperarConectado(ws);
-    return { channel: new CanalWebRTC(asiento, ws), codigo };
+    const { asiento, codigo, tokenSesion } = await esperarConectado(ws);
+    return { channel: new CanalWebRTC(asiento, ws, workerUrl, codigo, tokenSesion), codigo };
   }
 
   static async unirse(workerUrl: string, codigo: string, nombre: string): Promise<CanalWebRTC> {
     const ws = new WebSocket(
       `${workerUrl}/unirse?codigo=${encodeURIComponent(codigo)}&nombre=${encodeURIComponent(nombre)}`
     );
-    const { asiento } = await esperarConectado(ws);
-    return new CanalWebRTC(asiento, ws);
+    const { asiento, tokenSesion } = await esperarConectado(ws);
+    return new CanalWebRTC(asiento, ws, workerUrl, codigo, tokenSesion);
   }
 
   enviar(mensaje: MensajeJuego): void {
@@ -120,14 +146,19 @@ export class CanalWebRTC implements MoveChannel {
     // al usuario, así que acá basta con no enviar y no lanzar.
     if (this.ws.readyState === WS_ABIERTO) {
       this.ws.send(datos);
+    } else if (this.estado === 'reconectando') {
+      this.mensajesPendientesEnvio.push(mensaje);
     }
   }
 
   cerrar(): void {
     this.cerrado = true;
+    this.limpiarPing();
+    this.limpiarTimersReconexion();
     if (this.timeoutFallback) clearTimeout(this.timeoutFallback);
     this.dataChannel?.close();
     this.pc?.close();
+    this.desadjuntarListenersWs(this.ws);
     this.ws.close();
   }
 
@@ -156,6 +187,161 @@ export class CanalWebRTC implements MoveChannel {
     for (const callback of this.callbacksEstado) callback(estado);
   }
 
+  private adjuntarListenersWs(ws: WebSocket): void {
+    ws.addEventListener('message', this.alMensajeWsHandler);
+    ws.addEventListener('close', this.alCerrarWsHandler);
+  }
+
+  private desadjuntarListenersWs(ws: WebSocket): void {
+    ws.removeEventListener('message', this.alMensajeWsHandler);
+    ws.removeEventListener('close', this.alCerrarWsHandler);
+  }
+
+  private iniciarPing(): void {
+    this.limpiarPing();
+    this.intervaloPing = setInterval(() => {
+      if (this.ws.readyState === WS_ABIERTO) {
+        try {
+          this.ws.send(JSON.stringify({ tipo: 'ping' }));
+        } catch {
+          // Ignorar error de envío en socket
+        }
+      }
+    }, INTERVALO_PING_MS);
+  }
+
+  private limpiarPing(): void {
+    if (this.intervaloPing) {
+      clearInterval(this.intervaloPing);
+      this.intervaloPing = null;
+    }
+  }
+
+  private alCerrarWs(_evento?: CloseEvent): void {
+    if (this.cerrado) return;
+    if (this.estado === 'conectado' || this.estado === 'reconectando-rival') {
+      this.cambiarEstado('reconectando');
+      this.iniciarReconexion();
+    } else if (this.estado !== 'reconectando') {
+      this.cambiarEstado('desconectado');
+    }
+  }
+
+  private iniciarReconexion(): void {
+    if (this.cerrado) return;
+    this.limpiarTimersReconexion();
+
+    this.timerReconexion = setTimeout(() => {
+      this.limpiarTimersReconexion();
+      this.cambiarEstado('desconectado');
+    }, TIMEOUT_RECONEXION_MS);
+
+    this.ejecutarIntentoReconexion();
+
+    this.intervaloReintento = setInterval(() => {
+      this.ejecutarIntentoReconexion();
+    }, INTERVALO_RECONEXION_MS);
+  }
+
+  private ejecutarIntentoReconexion(): void {
+    if (this.cerrado || this.estado === 'desconectado') return;
+    if (this.socketReconexion) {
+      try {
+        this.socketReconexion.close();
+      } catch {
+        // Ignorar error al cerrar socket previo de reconexión
+      }
+      this.socketReconexion = null;
+    }
+
+    const url = `${this.workerUrl}/reconectar?codigo=${encodeURIComponent(this.codigo)}&asiento=${this.asiento}&token=${encodeURIComponent(this.tokenSesion)}`;
+    const ws = new WebSocket(url);
+    this.socketReconexion = ws;
+
+    const alMensaje = (evento: MessageEvent) => {
+      try {
+        const mensaje = JSON.parse(evento.data as string) as MensajeControl;
+        if (mensaje.tipo === 'conectado') {
+          ws.removeEventListener('message', alMensaje);
+          ws.removeEventListener('close', alCerrar);
+          ws.removeEventListener('error', alError);
+          this.alReconectarExitoso(ws, mensaje.tokenSesion);
+        }
+      } catch {
+        // Ignorar error de parsing
+      }
+    };
+
+    const alCerrar = (evento: CloseEvent) => {
+      ws.removeEventListener('message', alMensaje);
+      ws.removeEventListener('close', alCerrar);
+      ws.removeEventListener('error', alError);
+      if (evento.code === 4041) {
+        this.limpiarTimersReconexion();
+        this.cambiarEstado('desconectado');
+      }
+    };
+
+    const alError = () => {
+      ws.removeEventListener('message', alMensaje);
+      ws.removeEventListener('close', alCerrar);
+      ws.removeEventListener('error', alError);
+    };
+
+    ws.addEventListener('message', alMensaje);
+    ws.addEventListener('close', alCerrar);
+    ws.addEventListener('error', alError);
+  }
+
+  private alReconectarExitoso(nuevoWs: WebSocket, nuevoToken?: string): void {
+    if (this.cerrado) {
+      nuevoWs.close();
+      return;
+    }
+    this.socketReconexion = null;
+    this.limpiarTimersReconexion();
+    if (nuevoToken) {
+      this.tokenSesion = nuevoToken;
+    }
+
+    this.desadjuntarListenersWs(this.ws);
+    try {
+      this.ws.close();
+    } catch {
+      // Ignorar error de cierre
+    }
+
+    this.ws = nuevoWs;
+    this.adjuntarListenersWs(this.ws);
+
+    this.cambiarEstado('conectado');
+
+    const pendientes = this.mensajesPendientesEnvio;
+    this.mensajesPendientesEnvio = [];
+    for (const mensaje of pendientes) {
+      this.enviar(mensaje);
+    }
+  }
+
+  private limpiarTimersReconexion(): void {
+    if (this.timerReconexion) {
+      clearTimeout(this.timerReconexion);
+      this.timerReconexion = null;
+    }
+    if (this.intervaloReintento) {
+      clearInterval(this.intervaloReintento);
+      this.intervaloReintento = null;
+    }
+    if (this.socketReconexion) {
+      try {
+        this.socketReconexion.close();
+      } catch {
+        // Ignorar error al cerrar socket de intento
+      }
+      this.socketReconexion = null;
+    }
+  }
+
   private alMensajeWs(evento: MessageEvent): void {
     const mensaje = JSON.parse(evento.data as string);
     if (!TIPOS_CONTROL.has(mensaje.tipo)) {
@@ -167,6 +353,14 @@ export class CanalWebRTC implements MoveChannel {
 
   private alMensajeControl(mensaje: MensajeControl): void {
     switch (mensaje.tipo) {
+      case 'pong':
+        break;
+      case 'rival-desconectado-temporal':
+        this.cambiarEstado('reconectando-rival');
+        break;
+      case 'rival-reconectado':
+        this.cambiarEstado('conectado');
+        break;
       case 'ice-servers':
         this.iceServers = mensaje.iceServers;
         this.intentarIniciarNegociacion();

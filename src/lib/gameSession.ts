@@ -1,5 +1,10 @@
 import { getPlayerNames, type Player, type PlayerNames } from './players';
-import type { MoveChannel, MensajeJuego } from './remoto/types';
+import type { EstadoConexion, MoveChannel, MensajeJuego } from './remoto/types';
+import {
+  solicitarWakeLock,
+  liberarWakeLock,
+  registrarReactivacionWakeLock,
+} from './wakeLock';
 import {
   renderTurnIndicator,
   ocultarTurnIndicator,
@@ -54,6 +59,9 @@ export function iniciarSesionJuego<TMovimiento>(
   const nombres: PlayerNames = getPlayerNames();
   let canal: MoveChannel | null = null;
   let miAsiento: Player | null = null;
+  let estadoConexion: EstadoConexion = 'conectado';
+  let limpiarVisibilidad: (() => void) | null = null;
+  let ultimoTurnoOpciones: MostrarTurnoOptions | null = null;
 
   function alActualizarNombresLocales(evento: Event): void {
     const customEvent = evento as CustomEvent<PlayerNames>;
@@ -71,6 +79,10 @@ export function iniciarSesionJuego<TMovimiento>(
     canal = detalle.channel;
     miAsiento = canal.asiento;
     nombres[miAsiento] = detalle.miNombre;
+
+    solicitarWakeLock();
+    limpiarVisibilidad?.();
+    limpiarVisibilidad = registrarReactivacionWakeLock();
 
     canal.alRecibir((mensaje: MensajeJuego) => {
       if (mensaje.tipo === 'movimiento') {
@@ -91,7 +103,30 @@ export function iniciarSesionJuego<TMovimiento>(
     });
 
     canal.alCambiarEstado(estado => {
-      if (estado === 'desconectado') {
+      estadoConexion = estado;
+      if (estado === 'reconectando' || estado === 'reconectando-rival') {
+        const modoReconexion = estado === 'reconectando' ? 'propia' : 'rival';
+        if (ultimoTurnoOpciones) {
+          mostrarTurno(ultimoTurnoOpciones);
+        } else {
+          const ind = getIndicadorTurno();
+          if (ind) {
+            const fichas: Record<Player, FichaJugador> = {
+              1: { nombre: nombres[1] },
+              2: { nombre: nombres[2] },
+            };
+            renderTurnIndicator(ind, {
+              jugador: (miAsiento ?? 1) as Player,
+              fichas,
+              miAsiento,
+              estadoReconexion: modoReconexion,
+            });
+          }
+        }
+      } else if (estado === 'conectado') {
+        config.onRender();
+      } else if (estado === 'desconectado') {
+        liberarWakeLock();
         const ind = getIndicadorTurno();
         const ban = getBannerGanador();
         if (ind) ocultarTurnIndicator(ind);
@@ -115,6 +150,7 @@ export function iniciarSesionJuego<TMovimiento>(
   document.addEventListener('canal-remoto-listo', alCanalRemotoListo);
 
   function esMiTurno(jugadorActual: Player): boolean {
+    if (estadoConexion === 'reconectando' || estadoConexion === 'reconectando-rival') return false;
     return miAsiento === null || miAsiento === jugadorActual;
   }
 
@@ -128,6 +164,7 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function mostrarTurno(opciones: MostrarTurnoOptions): void {
+    ultimoTurnoOpciones = opciones;
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
     if (!ind) return;
@@ -145,6 +182,13 @@ export function iniciarSesionJuego<TMovimiento>(
       },
     };
 
+    let estadoReconexion: 'propia' | 'rival' | undefined = undefined;
+    if (estadoConexion === 'reconectando') {
+      estadoReconexion = 'propia';
+    } else if (estadoConexion === 'reconectando-rival') {
+      estadoReconexion = 'rival';
+    }
+
     renderTurnIndicator(ind, {
       jugador: opciones.jugador,
       fichas,
@@ -152,6 +196,7 @@ export function iniciarSesionJuego<TMovimiento>(
       detalle: opciones.detalle,
       repiteTurno: opciones.repiteTurno,
       motivoRepeticion: opciones.motivoRepeticion,
+      estadoReconexion,
     });
 
     if (ban) hideWinnerBanner(ban);
@@ -172,6 +217,9 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function destruir(): void {
+    liberarWakeLock();
+    limpiarVisibilidad?.();
+    limpiarVisibilidad = null;
     document.removeEventListener(
       'nombres-jugadores-actualizados',
       alActualizarNombresLocales
