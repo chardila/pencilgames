@@ -219,7 +219,7 @@ export class CanalWebRTC implements MoveChannel {
 
   private alCerrarWs(_evento?: CloseEvent): void {
     if (this.cerrado) return;
-    if (this.estado === 'conectado') {
+    if (this.estado === 'conectado' || this.estado === 'reconectando-rival') {
       this.cambiarEstado('reconectando');
       this.iniciarReconexion();
     } else if (this.estado !== 'reconectando') {
@@ -356,7 +356,7 @@ export class CanalWebRTC implements MoveChannel {
       case 'pong':
         break;
       case 'rival-desconectado-temporal':
-        this.cambiarEstado('reconectando');
+        this.cambiarEstado('reconectando-rival');
         break;
       case 'rival-reconectado':
         this.cambiarEstado('conectado');

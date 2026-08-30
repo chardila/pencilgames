@@ -1,4 +1,4 @@
-export type EstadoConexion = 'conectando' | 'conectado' | 'reconectando' | 'desconectado';
+export type EstadoConexion = 'conectando' | 'conectado' | 'reconectando' | 'reconectando-rival' | 'desconectado';
 
 export type MensajeJuego =
   | { tipo: 'nombre'; nombre: string }

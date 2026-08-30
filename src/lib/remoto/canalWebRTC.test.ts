@@ -478,7 +478,7 @@ describe('CanalWebRTC — heartbeat (ping / pong)', () => {
 });
 
 describe('CanalWebRTC — estados de desconexión y reconexión del rival', () => {
-  it('pasa a estado reconectando al recibir rival-desconectado-temporal y vuelve a conectado al recibir rival-reconectado', async () => {
+  it('pasa a estado reconectando-rival al recibir rival-desconectado-temporal y vuelve a conectado al recibir rival-reconectado', async () => {
     const promesa = CanalWebRTC.crear('wss://ejemplo.test', 'Ana');
     const ws = WebSocketFalso.instancias[0];
     ws.emitirMensaje({ tipo: 'conectado', asiento: 1, codigo: 'ABC123', tokenSesion: 'tok-123' });
@@ -489,13 +489,13 @@ describe('CanalWebRTC — estados de desconexión y reconexión del rival', () =
 
     // El rival se desconecta temporalmente
     ws.emitirMensaje({ tipo: 'rival-desconectado-temporal', tiempoLimiteMs: 15000 });
-    expect(channel.estado).toBe('reconectando');
-    expect(estados).toEqual(['reconectando']);
+    expect(channel.estado).toBe('reconectando-rival');
+    expect(estados).toEqual(['reconectando-rival']);
 
     // El rival se reconecta dentro de la ventana
     ws.emitirMensaje({ tipo: 'rival-reconectado' });
     expect(channel.estado).toBe('conectado');
-    expect(estados).toEqual(['reconectando', 'conectado']);
+    expect(estados).toEqual(['reconectando-rival', 'conectado']);
   });
 });
 

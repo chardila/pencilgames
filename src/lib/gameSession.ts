@@ -104,7 +104,8 @@ export function iniciarSesionJuego<TMovimiento>(
 
     canal.alCambiarEstado(estado => {
       estadoConexion = estado;
-      if (estado === 'reconectando') {
+      if (estado === 'reconectando' || estado === 'reconectando-rival') {
+        const modoReconexion = estado === 'reconectando' ? 'propia' : 'rival';
         if (ultimoTurnoOpciones) {
           mostrarTurno(ultimoTurnoOpciones);
         } else {
@@ -118,7 +119,7 @@ export function iniciarSesionJuego<TMovimiento>(
               jugador: (miAsiento ?? 1) as Player,
               fichas,
               miAsiento,
-              estadoReconexion: 'propia',
+              estadoReconexion: modoReconexion,
             });
           }
         }
@@ -149,7 +150,7 @@ export function iniciarSesionJuego<TMovimiento>(
   document.addEventListener('canal-remoto-listo', alCanalRemotoListo);
 
   function esMiTurno(jugadorActual: Player): boolean {
-    if (estadoConexion === 'reconectando') return false;
+    if (estadoConexion === 'reconectando' || estadoConexion === 'reconectando-rival') return false;
     return miAsiento === null || miAsiento === jugadorActual;
   }
 
@@ -181,6 +182,13 @@ export function iniciarSesionJuego<TMovimiento>(
       },
     };
 
+    let estadoReconexion: 'propia' | 'rival' | undefined = undefined;
+    if (estadoConexion === 'reconectando') {
+      estadoReconexion = 'propia';
+    } else if (estadoConexion === 'reconectando-rival') {
+      estadoReconexion = 'rival';
+    }
+
     renderTurnIndicator(ind, {
       jugador: opciones.jugador,
       fichas,
@@ -188,7 +196,7 @@ export function iniciarSesionJuego<TMovimiento>(
       detalle: opciones.detalle,
       repiteTurno: opciones.repiteTurno,
       motivoRepeticion: opciones.motivoRepeticion,
-      estadoReconexion: estadoConexion === 'reconectando' ? 'propia' : undefined,
+      estadoReconexion,
     });
 
     if (ban) hideWinnerBanner(ban);

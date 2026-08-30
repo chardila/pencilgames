@@ -438,6 +438,54 @@ describe('gameSession', () => {
     sesion.destruir();
   });
 
+  it('durante el estado reconectando-rival, esMiTurno devuelve false y se muestra el aviso de espera del rival en el indicador', () => {
+    let receptorEstado: ((estado: string) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(cb => {
+        receptorEstado = cb;
+      }),
+      cerrar: vi.fn(),
+    };
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+    });
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Jugador 1' },
+      })
+    );
+
+    sesion.mostrarTurno({ jugador: 1 });
+    expect(sesion.esMiTurno(1)).toBe(true);
+
+    // Cambiar a reconectando-rival
+    receptorEstado!('reconectando-rival');
+
+    expect(sesion.esMiTurno(1)).toBe(false);
+    expect(sesion.esMiTurno(2)).toBe(false);
+
+    const ind = mockDoc.getElementById('indicador-turno')!;
+    expect(ind.hidden).toBe(false);
+    expect(ind.dataset.reconexion).toBe('rival');
+    const badge = ind.querySelector<MockElement>('.indicador-turno__badge')!;
+    expect(badge.hidden).toBe(false);
+    expect(badge.textContent).toContain('Tu rival se desconectó temporalmente. Esperando...');
+
+    const banner = mockDoc.getElementById('banner-ganador')!;
+    expect(banner.hidden).toBe(true);
+
+    sesion.destruir();
+  });
+
   it('al volver a conectado, esMiTurno vuelve a su comportamiento normal y se restaura el indicador de turno', () => {
     let receptorEstado: ((estado: string) => void) | null = null;
     const mockCanal: MoveChannel = {
