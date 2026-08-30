@@ -147,10 +147,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     });
 
     if (state.status === 'playing') {
-      sesion.mostrarTurno({
-        jugador: jugadorDelTurno,
-        etiqueta: `${sesion.nombres[jugadorDelTurno]} (pone ✕)`,
-      });
+      sesion.mostrarTurno({ jugador: jugadorDelTurno });
     } else {
       sesion.mostrarFinDeJuego({
         titulo: `💀 ¡Perdió ${sesion.nombres[state.loser!]}! Ganó ${sesion.nombres[state.winner!]}`,

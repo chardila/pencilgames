@@ -81,7 +81,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     if (state.status === 'playing') {
       sesion.mostrarTurno({
         jugador: jugadorDelTurno,
-        etiqueta: `${sesion.nombres[jugadorDelTurno]} (${ETIQUETAS[state.currentPlayer]})`,
+        simbolos: { 1: ETIQUETAS.X, 2: ETIQUETAS.O },
       });
     } else {
       sesion.mostrarFinDeJuego({
