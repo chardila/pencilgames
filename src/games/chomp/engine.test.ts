@@ -97,3 +97,55 @@ describe('playMove — mecánica de mordiscos', () => {
     expect(state.currentPlayer).toBe(1);
   });
 });
+
+describe('playMove — condición de victoria y fin de partida', () => {
+  it('morder (0, 1 = 1) y luego (1, 0 = 7) deja solo el veneno y declara ganador al jugador 2', () => {
+    // J1 come toda la derecha (cols 1..6)
+    const state1 = playMove(createInitialState(), 1);
+    expect(state1.status).toBe('playing');
+    expect(state1.currentPlayer).toBe(2);
+
+    // J2 come toda la parte inferior (filas 1..3 en col 0)
+    const state2 = playMove(state1, 7);
+    expect(state2.status).toBe('won');
+    expect(state2.winner).toBe(2);
+    expect(state2.currentPlayer).toBe(2); // no alterna tras victoria
+    expect(state2.board.filter(c => c === true)).toHaveLength(1);
+    expect(state2.board[0]).toBe(true);
+  });
+
+  it('no permite movimientos posteriores una vez que alguien ganó', () => {
+    const state1 = playMove(createInitialState(), 1);
+    const state2 = playMove(state1, 7);
+    expect(state2.status).toBe('won');
+
+    // Intentar mover de nuevo
+    const state3 = playMove(state2, 0);
+    expect(state3).toBe(state2);
+  });
+
+  it('partida completa simulada', () => {
+    let state = createInitialState();
+    // J1 come (2, 2 = 16)
+    state = playMove(state, 16);
+    expect(state.status).toBe('playing');
+    expect(state.currentPlayer).toBe(2);
+
+    // J2 come (1, 3 = 10)
+    state = playMove(state, 10);
+    expect(state.status).toBe('playing');
+    expect(state.currentPlayer).toBe(1);
+
+    // J1 come (0, 1 = 1) -> deja solo la columna 0
+    state = playMove(state, 1);
+    expect(state.status).toBe('playing');
+    expect(state.currentPlayer).toBe(2);
+
+    // J2 come (1, 0 = 7) -> deja solo (0, 0)
+    state = playMove(state, 7);
+    expect(state.status).toBe('won');
+    expect(state.winner).toBe(2);
+    expect(state.board[0]).toBe(true);
+  });
+});
+
