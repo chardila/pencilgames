@@ -21,20 +21,22 @@ export interface GameSessionConfig<TMovimiento> {
   onDesconectar?: () => void;
 }
 
+export interface MostrarTurnoOptions {
+  jugador: Player;
+  detalle?: string;
+  repiteTurno?: boolean;
+  motivoRepeticion?: string;
+  puntajes?: Record<Player, number | string>;
+  simbolos?: Record<Player, string>;
+}
+
 export interface GameSession<TMovimiento> {
   nombres: PlayerNames;
   miAsiento: Player | null;
   esMiTurno: (jugadorActual: Player) => boolean;
   enviarMovimiento: (movimiento: TMovimiento) => void;
   reiniciar: () => void;
-  mostrarTurno: (opciones: {
-    jugador: Player;
-    detalle?: string;
-    repiteTurno?: boolean;
-    motivoRepeticion?: string;
-    puntajes?: Record<Player, number | string>;
-    simbolos?: Record<Player, string>;
-  }) => void;
+  mostrarTurno: (opciones: MostrarTurnoOptions) => void;
   mostrarFinDeJuego: (
     opciones: Omit<WinnerBannerOptions, 'onReiniciar'>
   ) => void;
@@ -125,14 +127,7 @@ export function iniciarSesionJuego<TMovimiento>(
     canal?.enviar({ tipo: 'reiniciar' });
   }
 
-  function mostrarTurno(opciones: {
-    jugador: Player;
-    detalle?: string;
-    repiteTurno?: boolean;
-    motivoRepeticion?: string;
-    puntajes?: Record<Player, number | string>;
-    simbolos?: Record<Player, string>;
-  }): void {
+  function mostrarTurno(opciones: MostrarTurnoOptions): void {
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
     if (!ind) return;

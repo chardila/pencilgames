@@ -147,15 +147,56 @@ describe('turnIndicator', () => {
     expect(f1.querySelector<MockElement>('.ficha-turno__nombre')!.textContent).toBe('Ana (X)');
   });
 
-  it('renderiza detalle cuando se pasa', () => {
+  it('renderiza detalle cuando se pasa y lo funde en la prosa', () => {
     renderTurnIndicator(container as unknown as HTMLElement, {
       jugador: 1,
       fichas: fichasBase,
       miAsiento: null,
       detalle: 'Coloca el número 3',
     });
-    expect(container.querySelector<MockElement>('.indicador-turno__detalle')!.textContent).toBe(
-      'Coloca el número 3'
+    const detalleEl = container.querySelector<MockElement>('.indicador-turno__detalle')!;
+    expect(detalleEl.textContent).toBe('Coloca el número 3');
+    expect(detalleEl.hidden).toBe(false);
+    expect(container.querySelector<MockElement>('.indicador-turno__prosa')!.textContent).toBe(
+      'Turno de Ana. Coloca el número 3'
+    );
+  });
+
+  it('oculta el detalle y lo quita de la prosa cuando no se pasa', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: null,
+    });
+    expect(container.querySelector<MockElement>('.indicador-turno__detalle')!.hidden).toBe(true);
+    expect(container.querySelector<MockElement>('.indicador-turno__prosa')!.textContent).toBe(
+      'Turno de Ana'
+    );
+  });
+
+  it('funde el motivo de repetición en la prosa cuando es mi turno', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: null,
+      repiteTurno: true,
+      motivoRepeticion: '¡Área conquistada! Vuelves a jugar',
+    });
+    expect(container.querySelector<MockElement>('.indicador-turno__prosa')!.textContent).toBe(
+      '¡Área conquistada! Vuelves a jugar. Turno de Ana'
+    );
+  });
+
+  it('no anuncia "Vuelves a jugar" al jugador que espera en remoto', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: 2,
+      repiteTurno: true,
+      motivoRepeticion: '¡Área conquistada! Vuelves a jugar',
+    });
+    expect(container.querySelector<MockElement>('.indicador-turno__prosa')!.textContent).toBe(
+      'Turno de Ana, esperando'
     );
   });
 
@@ -197,5 +238,84 @@ describe('turnIndicator', () => {
     expect(container.innerHTML).toBe('');
     expect(container.dataset.repite).toBeUndefined();
     expect(container.dataset.miAsiento).toBeUndefined();
+    expect(container.dataset.rendered).toBeUndefined();
+  });
+
+  it('el HTML estructural del primer render contiene ambas fichas y sus clases clave', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: null,
+    });
+    const html = container.innerHTML;
+    expect(html).toContain('data-jugador="1"');
+    expect(html).toContain('data-jugador="2"');
+    expect(html).toContain('ficha-turno__forma');
+    expect(html).toContain('ficha-turno__nombre');
+    expect(html).toContain('ficha-turno__estado');
+    // la prosa es la región viva; las partes visuales quedan ocultas al lector
+    expect(html).toContain('class="indicador-turno__prosa" role="status" aria-live="polite"');
+    expect(html).toContain('class="fichas-turno" aria-hidden="true"');
+  });
+
+  it('es idempotente: no reconstruye el DOM en renders sucesivos', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: null,
+    });
+    expect(container.dataset.rendered).toBe('true');
+    // referencia capturada tras el primer render
+    const prosa = container.querySelector<MockElement>('.indicador-turno__prosa')!;
+    const f1 = container.querySelector<MockElement>('.ficha-turno[data-jugador="1"]')!;
+
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 2,
+      fichas: fichasBase,
+      miAsiento: null,
+    });
+
+    // la misma referencia se actualizó => el innerHTML no se re-asignó
+    expect(prosa.textContent).toBe('Turno de Beto');
+    expect(f1.dataset.activo).toBe('false');
+  });
+
+  it('tras ocultar, un nuevo render reconstruye el HTML estructural', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: null,
+    });
+    ocultarTurnIndicator(container as unknown as HTMLElement);
+    expect(container.dataset.rendered).toBeUndefined();
+
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: null,
+    });
+    expect(container.dataset.rendered).toBe('true');
+    expect(container.innerHTML).toContain('ficha-turno__forma');
+  });
+
+  it('gestiona la aparición y desaparición del badge entre renders', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 1,
+      fichas: fichasBase,
+      miAsiento: null,
+      repiteTurno: true,
+      motivoRepeticion: '¡Vuelves a jugar!',
+    });
+    const badge = container.querySelector<MockElement>('.indicador-turno__badge')!;
+    expect(badge.hidden).toBe(false);
+    expect(badge.textContent).toBe('¡Vuelves a jugar!');
+
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 2,
+      fichas: fichasBase,
+      miAsiento: null,
+    });
+    expect(badge.hidden).toBe(true);
+    expect(badge.textContent).toBe('');
   });
 });

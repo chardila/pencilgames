@@ -12,8 +12,6 @@ const { id = 'tablero-juego', class: className = '' } = Astro.props;
     id="indicador-turno"
     class="indicador-turno"
     data-jugador="1"
-    role="status"
-    aria-live="polite"
     hidden
   ></div>
   <slot />
@@ -118,7 +116,7 @@ const { id = 'tablero-juego', class: className = '' } = Astro.props;
   .indicador-turno :global(.ficha-turno__tu) {
     font-size: 0.75rem;
     font-weight: 600;
-    opacity: 0.85;
+    opacity: 1;
   }
 
   .indicador-turno :global([hidden]) {
