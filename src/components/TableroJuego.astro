@@ -8,7 +8,12 @@ const { id = 'tablero-juego', class: className = '' } = Astro.props;
 ---
 
 <div id={id} class={`tablero-juego ${className}`.trim()}>
-  <div id="indicador-turno" class="indicador-turno" data-jugador="1"></div>
+  <div
+    id="indicador-turno"
+    class="indicador-turno"
+    data-jugador="1"
+    hidden
+  ></div>
   <slot />
   <div id="banner-ganador" class="banner-ganador" hidden></div>
 </div>
@@ -23,14 +28,16 @@ const { id = 'tablero-juego', class: className = '' } = Astro.props;
   }
 
   .indicador-turno {
-    font-size: 1.1rem;
-    font-weight: 700;
     min-height: 2rem;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.4rem;
+  }
+
+  .indicador-turno[hidden] {
+    display: none;
   }
 
   .indicador-turno :global(.indicador-turno__badge) {
@@ -38,50 +45,115 @@ const { id = 'tablero-juego', class: className = '' } = Astro.props;
     font-weight: 800;
     padding: 0.25rem 0.85rem;
     border-radius: 9999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    background: var(--color-accent);
+    color: var(--color-text);
     animation: badgePopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     letter-spacing: 0.02em;
   }
 
-  .indicador-turno[data-jugador='1'] :global(.indicador-turno__badge) {
+  .indicador-turno :global(.fichas-turno) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .indicador-turno :global(.ficha-turno) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    background: var(--color-surface);
+    transition: background-color 0.3s ease, transform 0.3s ease;
+  }
+
+  .indicador-turno :global(.ficha-turno[data-jugador='1']) {
+    border: 2px dashed color-mix(in srgb, var(--color-player-1) 55%, transparent);
+    color: var(--color-player-1);
+  }
+
+  .indicador-turno :global(.ficha-turno[data-jugador='2']) {
+    border: 2px dashed color-mix(in srgb, var(--color-player-2) 55%, transparent);
+    color: var(--color-player-2);
+  }
+
+  .indicador-turno :global(.ficha-turno[data-jugador='1'][data-activo='true']) {
     background: var(--color-player-1);
+    border-color: var(--color-player-1);
     color: #ffffff;
+    transform: scale(1.03);
     box-shadow: 0 4px 12px color-mix(in srgb, var(--color-player-1) 40%, transparent);
   }
 
-  .indicador-turno[data-jugador='2'] :global(.indicador-turno__badge) {
+  .indicador-turno :global(.ficha-turno[data-jugador='2'][data-activo='true']) {
     background: var(--color-player-2);
+    border-color: var(--color-player-2);
     color: #ffffff;
+    transform: scale(1.03);
     box-shadow: 0 4px 12px color-mix(in srgb, var(--color-player-2) 40%, transparent);
   }
 
-  .indicador-turno[data-repite='true'] :global(.indicador-turno__principal) {
-    animation: turnoPulse 0.4s ease-out;
+  .indicador-turno :global(.ficha-turno__nombre) {
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .indicador-turno :global(.indicador-turno__jugador[data-jugador='1']) {
-    color: var(--color-player-1);
-    font-weight: 700;
-    padding: 0.1rem 0.35rem;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-  }
-
-  .indicador-turno :global(.indicador-turno__jugador[data-jugador='2']) {
-    color: var(--color-player-2);
-    font-weight: 700;
-    padding: 0.1rem 0.35rem;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-  }
-
-  .indicador-turno :global(.indicador-turno__jugador[data-activo='true']) {
+  .indicador-turno :global(.ficha-turno__puntaje) {
     font-weight: 800;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    background: color-mix(in srgb, currentColor 12%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .indicador-turno :global(.ficha-turno__estado) {
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+  }
+
+  .indicador-turno :global(.ficha-turno__tu) {
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 1;
+  }
+
+  .indicador-turno :global([hidden]) {
+    display: none;
+  }
+
+  .indicador-turno :global(.indicador-turno__detalle) {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .indicador-turno :global(.indicador-turno__espera) {
+    font-size: 0.85rem;
+    opacity: 0.7;
+  }
+
+  .indicador-turno :global(.indicador-turno__espera:empty) {
+    display: none;
+  }
+
+  .indicador-turno :global(.indicador-turno__prosa) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 28rem) {
+    .indicador-turno :global(.fichas-turno) {
+      flex-direction: column;
+      align-items: center;
+    }
   }
 
   @keyframes badgePopIn {
@@ -92,18 +164,6 @@ const { id = 'tablero-juego', class: className = '' } = Astro.props;
     100% {
       transform: scale(1);
       opacity: 1;
-    }
-  }
-
-  @keyframes turnoPulse {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.08);
-    }
-    100% {
-      transform: scale(1);
     }
   }
 
