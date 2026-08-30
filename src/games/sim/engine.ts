@@ -41,6 +41,9 @@ export function getEdgeIndex(u: number, v: number): number {
 }
 
 export function getEdgeFromIndex(index: number): Edge {
+  if (index < 0 || index >= TOTAL_EDGES) {
+    throw new Error(`Índice de arista fuera de rango: ${index}`);
+  }
   let count = 0;
   for (let u = 0; u < TOTAL_VERTICES; u++) {
     const rowCount = TOTAL_VERTICES - 1 - u;
@@ -88,4 +91,55 @@ export function esEdgeValido(payload: unknown): payload is Edge {
     v < TOTAL_VERTICES &&
     u !== v
   );
+}
+
+export function playMove(state: SimState, edge: Edge): SimState {
+  if (state.status !== 'playing') return state;
+  if (!esEdgeValido(edge)) return state;
+
+  const u = Math.min(edge.u, edge.v) as Vertex;
+  const v = Math.max(edge.u, edge.v) as Vertex;
+  const edgeIndex = getEdgeIndex(u, v);
+
+  if (state.edges[edgeIndex] !== null) return state;
+
+  const player = state.currentPlayer;
+  const newEdges = [...state.edges];
+  newEdges[edgeIndex] = player;
+
+  // Inspeccionar si se completó un triángulo monocromático con un tercer vértice w
+  let fatalTriangle: [Vertex, Vertex, Vertex] | null = null;
+  for (let w = 0; w < TOTAL_VERTICES; w++) {
+    if (w === u || w === v) continue;
+    const edgeUW = newEdges[getEdgeIndex(u, w)];
+    const edgeVW = newEdges[getEdgeIndex(v, w)];
+    if (edgeUW === player && edgeVW === player) {
+      fatalTriangle = [u, v, w as Vertex];
+      break;
+    }
+  }
+
+  const normalizedEdge: Edge = { u, v };
+
+  if (fatalTriangle !== null) {
+    return {
+      edges: newEdges,
+      currentPlayer: player,
+      status: 'finished',
+      loser: player,
+      winner: player === 1 ? 2 : 1,
+      losingTriangle: fatalTriangle,
+      moveHistory: [...state.moveHistory, normalizedEdge],
+    };
+  }
+
+  return {
+    edges: newEdges,
+    currentPlayer: player === 1 ? 2 : 1,
+    status: 'playing',
+    loser: null,
+    winner: null,
+    losingTriangle: null,
+    moveHistory: [...state.moveHistory, normalizedEdge],
+  };
 }
