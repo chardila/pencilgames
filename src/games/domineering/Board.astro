@@ -70,6 +70,10 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
 
   .casilla--ancla {
     border-color: var(--color-accent);
+    /* Pinta el ancla por encima de la capa de fantasmas para que su
+       re-toque (cancelar) sea alcanzable en pantallas táctiles. */
+    position: relative;
+    z-index: 2;
   }
 
   /* Los dominós se crean dinámicamente en el cliente, por lo que no reciben

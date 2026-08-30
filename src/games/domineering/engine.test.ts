@@ -268,7 +268,8 @@ describe('fuzzing — invariantes sobre partidas aleatorias completas', () => {
       expect(s.status).toBe('won');
       const perdedor = s.winner === 1 ? 2 : 1;
       expect(tieneJugadaLegal(s.board, perdedor)).toBe(false);
-      expect(s.board.every(c => c === null || c === 1 || c === 2)).toBe(true);
+      const ocupadas = s.board.filter(c => c !== null).length;
+      expect(dominosEnTablero(s.board).length * 2).toBe(ocupadas);
     }
   });
 });
