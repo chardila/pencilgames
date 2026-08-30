@@ -1,28 +1,57 @@
-export interface Marcador {
-  1: { nombre: string; puntaje: number | string };
-  2: { nombre: string; puntaje: number | string };
+export interface FichaJugador {
+  nombre: string;
+  puntaje?: number | string;
+  simbolo?: string;
 }
 
 export interface TurnIndicatorOptions {
   jugador: 1 | 2;
-  etiqueta: string;
+  fichas: Record<1 | 2, FichaJugador>;
+  miAsiento?: 1 | 2 | null;
   detalle?: string;
-  marcador?: Marcador;
   repiteTurno?: boolean;
   motivoRepeticion?: string;
 }
 
+const FORMA: Record<1 | 2, string> = { 1: '●', 2: '▲' };
+
+function textoEstado(jugador: 1 | 2, miAsiento: 1 | 2 | null | undefined): string {
+  if (miAsiento == null) return '← VA';
+  if (miAsiento === jugador) return '← TE TOCA';
+  return '← su turno';
+}
+
+function prosaAccesible(
+  jugador: 1 | 2,
+  fichas: Record<1 | 2, FichaJugador>,
+  miAsiento: 1 | 2 | null | undefined
+): string {
+  const nombre = fichas[jugador].nombre;
+  if (miAsiento == null) return `Turno de ${nombre}`;
+  if (miAsiento === jugador) return `Te toca, eres ${nombre}`;
+  return `Turno de ${nombre}, esperando`;
+}
+
 export function renderTurnIndicator(
   container: HTMLElement,
-  { jugador, etiqueta, detalle, marcador, repiteTurno, motivoRepeticion }: TurnIndicatorOptions
+  { jugador, fichas, miAsiento, detalle, repiteTurno, motivoRepeticion }: TurnIndicatorOptions
 ): void {
   container.hidden = false;
   container.dataset.jugador = String(jugador);
+
+  if (miAsiento != null) {
+    container.dataset.miAsiento = String(miAsiento);
+  } else {
+    delete container.dataset.miAsiento;
+  }
+
   if (repiteTurno) {
     container.dataset.repite = 'true';
   } else {
     delete container.dataset.repite;
   }
+
+  const esperando = miAsiento != null && miAsiento !== jugador;
 
   container.innerHTML = `
     ${
@@ -30,56 +59,85 @@ export function renderTurnIndicator(
         ? `<div class="indicador-turno__badge" role="status" aria-live="polite"></div>`
         : ''
     }
-    <div class="indicador-turno__principal">
-      <span class="indicador-turno__etiqueta"></span>
+    <div class="fichas-turno">
+      ${[1, 2]
+        .map(
+          n => `
+        <div class="ficha-turno" data-jugador="${n}">
+          <span class="ficha-turno__forma" aria-hidden="true"></span>
+          <span class="ficha-turno__nombre"></span>
+          <span class="ficha-turno__tu"></span>
+          <span class="ficha-turno__puntaje"></span>
+          <span class="ficha-turno__estado"></span>
+        </div>`
+        )
+        .join('')}
     </div>
     ${detalle ? `<span class="indicador-turno__detalle"></span>` : ''}
-    ${
-      marcador
-        ? `<span class="indicador-turno__marcador">
-             <span class="indicador-turno__jugador" data-jugador="1"></span>
-             ·
-             <span class="indicador-turno__jugador" data-jugador="2"></span>
-           </span>`
-        : ''
-    }
+    <span class="indicador-turno__espera"></span>
+    <span class="indicador-turno__prosa"></span>
   `;
 
   if (repiteTurno) {
     const badgeEl = container.querySelector<HTMLElement>('.indicador-turno__badge');
-    if (badgeEl) {
-      badgeEl.textContent = motivoRepeticion || '¡Vuelves a jugar!';
-    }
+    if (badgeEl) badgeEl.textContent = motivoRepeticion || '¡Vuelves a jugar!';
   }
 
-  container.querySelector<HTMLElement>('.indicador-turno__etiqueta')!.textContent =
-    `Turno de ${etiqueta}`;
+  for (const n of [1, 2] as const) {
+    const ficha = fichas[n];
+    const fichaEl = container.querySelector<HTMLElement>(
+      `.ficha-turno[data-jugador="${n}"]`
+    )!;
+    fichaEl.dataset.activo = n === jugador ? 'true' : 'false';
+
+    fichaEl.querySelector<HTMLElement>('.ficha-turno__forma')!.textContent = FORMA[n];
+
+    fichaEl.querySelector<HTMLElement>('.ficha-turno__nombre')!.textContent = ficha.simbolo
+      ? `${ficha.nombre} (${ficha.simbolo})`
+      : ficha.nombre;
+
+    const tuEl = fichaEl.querySelector<HTMLElement>('.ficha-turno__tu')!;
+    const soyYo = miAsiento != null && miAsiento === n;
+    tuEl.hidden = !soyYo;
+    tuEl.textContent = soyYo ? '(tú)' : '';
+
+    const puntajeEl = fichaEl.querySelector<HTMLElement>('.ficha-turno__puntaje')!;
+    if (ficha.puntaje !== undefined) {
+      puntajeEl.hidden = false;
+      puntajeEl.textContent = String(ficha.puntaje);
+    } else {
+      puntajeEl.hidden = true;
+      puntajeEl.textContent = '';
+    }
+
+    const estadoEl = fichaEl.querySelector<HTMLElement>('.ficha-turno__estado')!;
+    if (n === jugador) {
+      estadoEl.hidden = false;
+      estadoEl.textContent = textoEstado(jugador, miAsiento);
+    } else {
+      estadoEl.hidden = true;
+      estadoEl.textContent = '';
+    }
+  }
 
   if (detalle) {
-    const detalleEl = container.querySelector<HTMLElement>('.indicador-turno__detalle')!;
-    detalleEl.textContent = detalle;
-    detalleEl.style.display = 'block';
+    container.querySelector<HTMLElement>('.indicador-turno__detalle')!.textContent = detalle;
   }
 
-  if (marcador) {
-    const marcadorEl = container.querySelector<HTMLElement>('.indicador-turno__marcador')!;
-    marcadorEl.style.display = 'block';
-    const j1El = container.querySelector<HTMLElement>('.indicador-turno__jugador[data-jugador="1"]')!;
-    const j2El = container.querySelector<HTMLElement>('.indicador-turno__jugador[data-jugador="2"]')!;
-    j1El.textContent = `${marcador[1].nombre} ${marcador[1].puntaje}`;
-    j2El.textContent = `${marcador[2].nombre} ${marcador[2].puntaje}`;
-    if (jugador === 1) {
-      j1El.dataset.activo = 'true';
-      delete j2El.dataset.activo;
-    } else {
-      j2El.dataset.activo = 'true';
-      delete j1El.dataset.activo;
-    }
-  }
+  container.querySelector<HTMLElement>('.indicador-turno__espera')!.textContent = esperando
+    ? 'esperando…'
+    : '';
+
+  container.querySelector<HTMLElement>('.indicador-turno__prosa')!.textContent = prosaAccesible(
+    jugador,
+    fichas,
+    miAsiento
+  );
 }
 
 export function ocultarTurnIndicator(container: HTMLElement): void {
   container.hidden = true;
   delete container.dataset.repite;
+  delete container.dataset.miAsiento;
   container.innerHTML = '';
 }
