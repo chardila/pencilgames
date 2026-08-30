@@ -13,6 +13,7 @@ import NotaktoBoard from '../../games/notakto/Board.astro';
 import GomokuBoard from '../../games/gomoku/Board.astro';
 import SOSBoard from '../../games/sos/Board.astro';
 import ChompBoard from '../../games/chomp/Board.astro';
+import ObstruccionBoard from '../../games/obstruccion/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
@@ -23,6 +24,7 @@ const BOARDS = {
   gomoku: GomokuBoard,
   sos: SOSBoard,
   chomp: ChompBoard,
+  obstruccion: ObstruccionBoard,
 } as const;
 
 export async function getStaticPaths() {
