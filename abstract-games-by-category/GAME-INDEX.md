@@ -35,11 +35,19 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [36-conquista.md](01-2-players/36-conquista.md) | ✅ |
 | 01-2-players | [37-battleship.md](01-2-players/37-battleship.md) | |
 | 01-2-players | [38-estampida.md](01-2-players/38-estampida.md) | |
+| 01-2-players | [39-connect-four.md](01-2-players/39-connect-four.md) | |
+| 01-2-players | [40-3d-noughts-and-crosses.md](01-2-players/40-3d-noughts-and-crosses.md) | |
+| 01-2-players | [41-obstruction.md](01-2-players/41-obstruction.md) | |
+| 01-2-players | [42-snakes.md](01-2-players/42-snakes.md) | |
+| 01-2-players | [43-virus-war.md](01-2-players/43-virus-war.md) | |
+| 01-2-players | [44-metasquares.md](01-2-players/44-metasquares.md) | |
 | 02-solo | [10-join-five.md](02-solo/10-join-five.md) | |
 | 02-solo | [30-icosian-game.md](02-solo/30-icosian-game.md) | |
 | 03-variants-and-research | [25-tennis.md](03-variants-and-research/25-tennis.md) | |
 | 03-variants-and-research | [32-labyrinth-paper.md](03-variants-and-research/32-labyrinth-paper.md) | |
 | 03-variants-and-research | [34-crosshatching.md](03-variants-and-research/34-crosshatching.md) | |
 | 03-variants-and-research | [35-hex-race.md](03-variants-and-research/35-hex-race.md) | |
+| 03-variants-and-research | [45-misere.md](03-variants-and-research/45-misere.md) | |
+| 03-variants-and-research | [46-twixt.md](03-variants-and-research/46-twixt.md) | |
 
 Nota: Tres en Raya también está implementado pero no tiene ficha en este backlog (es anterior a la colección).
