@@ -1,0 +1,452 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+---
+
+<TableroJuego class="tablero-hex-contenedor">
+  <div class="hex-controles">
+    <div class="selector-tamano" role="radiogroup" aria-label="Tamaño del tablero">
+      <button type="button" role="radio" aria-checked="false" class="btn-tamano" data-tamano="5">5×5 (Rápido)</button>
+      <button type="button" role="radio" aria-checked="true" class="btn-tamano btn-tamano--activo" data-tamano="7">7×7 (Estándar)</button>
+      <button type="button" role="radio" aria-checked="false" class="btn-tamano" data-tamano="9">9×9 (Estratégico)</button>
+    </div>
+  </div>
+
+  <div class="hex-tablero-wrapper">
+    <svg id="hex-svg" class="hex-svg" role="grid" aria-label="Tablero de Hex"></svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-hex-contenedor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .hex-controles {
+    display: flex;
+    justify-content: center;
+  }
+
+  .selector-tamano {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--color-surface);
+    padding: 0.35rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-tamano {
+    background: transparent;
+    border: none;
+    padding: 0.4rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .btn-tamano--activo {
+    background: var(--color-accent);
+    color: #fff;
+  }
+
+  .btn-tamano:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .hex-tablero-wrapper {
+    width: min(94vw, 36rem);
+    margin: 0 auto;
+    touch-action: manipulation;
+  }
+
+  .hex-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+  }
+
+  :global(.hex-borde-banda) {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  :global(.hex-borde-j1) {
+    stroke: var(--color-player-1);
+  }
+
+  :global(.hex-borde-j2) {
+    stroke: var(--color-player-2);
+  }
+
+  :global(.hex-celda) {
+    fill: var(--color-surface);
+    stroke: #bbb;
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: fill 0.15s ease, stroke 0.15s ease, transform 0.1s ease;
+    outline: none;
+  }
+
+  :global(.hex-celda:hover:not([data-ocupada='true'])) {
+    fill: rgba(0, 0, 0, 0.06);
+    stroke: var(--color-accent);
+  }
+
+  :global(.hex-celda[data-ocupada='true']) {
+    cursor: default;
+  }
+
+  :global(.hex-celda[data-jugador='1']) {
+    fill: var(--color-player-1);
+    stroke: var(--color-player-1);
+  }
+
+  :global(.hex-celda[data-jugador='2']) {
+    fill: var(--color-player-2);
+    stroke: var(--color-player-2);
+  }
+
+  :global(.hex-celda--ultima) {
+    stroke: #ffffff !important;
+    stroke-width: 3.5 !important;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
+  }
+
+  :global(.hex-celda--ganadora) {
+    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.9));
+    animation: hex-pulso 1.5s infinite alternate ease-in-out;
+  }
+
+  :global(.hex-glifo) {
+    font-size: 1.25rem;
+    font-weight: 800;
+    fill: #ffffff;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: central;
+    user-select: none;
+  }
+
+  :global(.hex-linea-ganadora) {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
+  }
+
+  @keyframes hex-pulso {
+    0% {
+      opacity: 0.85;
+    }
+    100% {
+      opacity: 1;
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.9));
+    }
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    type HexState,
+    type BoardSize,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('hex-svg') as unknown as SVGSVGElement;
+  const botonesTamano = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('.btn-tamano')
+  );
+
+  let currentSize: BoardSize = 7;
+  let state: HexState = createInitialState(currentSize);
+
+  const sesion = iniciarSesionJuego<number>({
+    validarMovimiento: p => esJugadaValida(p, state.size),
+    onMovimientoRemoto: idx => jugar(idx, false),
+    onAplicarReinicio: () => {
+      state = createInitialState(currentSize);
+      construirTablero();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      svg.querySelectorAll<SVGPolygonElement>('.hex-celda').forEach(celda => {
+        celda.style.pointerEvents = 'none';
+      });
+      botonesTamano.forEach(btn => (btn.disabled = true));
+    },
+  });
+
+  const R = 28; // Radio del hexágono
+  const W = Math.sqrt(3) * R;
+  const MARGIN = 45;
+
+  function hexCenter(r: number, c: number): { cx: number; cy: number } {
+    const cx = MARGIN + (c + r * 0.5) * W + R;
+    const cy = MARGIN + r * (1.5 * R) + R;
+    return { cx, cy };
+  }
+
+  function hexCorners(cx: number, cy: number): string {
+    const points: string[] = [];
+    for (let k = 0; k < 6; k++) {
+      const angle = ((30 + 60 * k) * Math.PI) / 180;
+      const x = cx + R * Math.cos(angle);
+      const y = cy + R * Math.sin(angle);
+      points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    return points.join(' ');
+  }
+
+  function construirTablero(): void {
+    svg.innerHTML = '';
+    const size = state.size;
+
+    const totalWidth = MARGIN * 2 + (size - 1 + (size - 1) * 0.5) * W + 2 * R;
+    const totalHeight = MARGIN * 2 + (size - 1) * (1.5 * R) + 2 * R;
+    svg.setAttribute('viewBox', `0 0 ${totalWidth.toFixed(1)} ${totalHeight.toFixed(1)}`);
+
+    // Capa de bordes perimetrales de color
+    const gBordes = document.createElementNS(SVG_NS, 'g');
+    gBordes.setAttribute('class', 'hex-capa-bordes');
+
+    // Borde Norte (J1): conecta centros o vértices superiores de fila 0
+    const bordeNorte = document.createElementNS(SVG_NS, 'polyline');
+    const ptsNorte: string[] = [];
+    for (let c = 0; c < size; c++) {
+      const { cx, cy } = hexCenter(0, c);
+      const angle1 = (210 * Math.PI) / 180;
+      const angle2 = (270 * Math.PI) / 180;
+      const angle3 = (330 * Math.PI) / 180;
+      if (c === 0) ptsNorte.push(`${(cx + R * Math.cos(angle1)).toFixed(1)},${(cy + R * Math.sin(angle1)).toFixed(1)}`);
+      ptsNorte.push(`${(cx + R * Math.cos(angle2)).toFixed(1)},${(cy + R * Math.sin(angle2)).toFixed(1)}`);
+      ptsNorte.push(`${(cx + R * Math.cos(angle3)).toFixed(1)},${(cy + R * Math.sin(angle3)).toFixed(1)}`);
+    }
+    bordeNorte.setAttribute('points', ptsNorte.join(' '));
+    bordeNorte.setAttribute('class', 'hex-borde-banda hex-borde-j1');
+    gBordes.appendChild(bordeNorte);
+
+    // Borde Sur (J1): conecta vértices inferiores de fila size-1
+    const bordeSur = document.createElementNS(SVG_NS, 'polyline');
+    const ptsSur: string[] = [];
+    for (let c = 0; c < size; c++) {
+      const { cx, cy } = hexCenter(size - 1, c);
+      const angle1 = (150 * Math.PI) / 180;
+      const angle2 = (90 * Math.PI) / 180;
+      const angle3 = (30 * Math.PI) / 180;
+      if (c === 0) ptsSur.push(`${(cx + R * Math.cos(angle1)).toFixed(1)},${(cy + R * Math.sin(angle1)).toFixed(1)}`);
+      ptsSur.push(`${(cx + R * Math.cos(angle2)).toFixed(1)},${(cy + R * Math.sin(angle2)).toFixed(1)}`);
+      ptsSur.push(`${(cx + R * Math.cos(angle3)).toFixed(1)},${(cy + R * Math.sin(angle3)).toFixed(1)}`);
+    }
+    bordeSur.setAttribute('points', ptsSur.join(' '));
+    bordeSur.setAttribute('class', 'hex-borde-banda hex-borde-j1');
+    gBordes.appendChild(bordeSur);
+
+    // Borde Oeste (J2): conecta vértices izquierdos de col 0
+    const bordeOeste = document.createElementNS(SVG_NS, 'polyline');
+    const ptsOeste: string[] = [];
+    for (let r = 0; r < size; r++) {
+      const { cx, cy } = hexCenter(r, 0);
+      const angle1 = (270 * Math.PI) / 180;
+      const angle2 = (210 * Math.PI) / 180;
+      const angle3 = (150 * Math.PI) / 180;
+      if (r === 0) ptsOeste.push(`${(cx + R * Math.cos(angle1)).toFixed(1)},${(cy + R * Math.sin(angle1)).toFixed(1)}`);
+      ptsOeste.push(`${(cx + R * Math.cos(angle2)).toFixed(1)},${(cy + R * Math.sin(angle2)).toFixed(1)}`);
+      ptsOeste.push(`${(cx + R * Math.cos(angle3)).toFixed(1)},${(cy + R * Math.sin(angle3)).toFixed(1)}`);
+    }
+    bordeOeste.setAttribute('points', ptsOeste.join(' '));
+    bordeOeste.setAttribute('class', 'hex-borde-banda hex-borde-j2');
+    gBordes.appendChild(bordeOeste);
+
+    // Borde Este (J2): conecta vértices derechos de col size-1
+    const bordeEste = document.createElementNS(SVG_NS, 'polyline');
+    const ptsEste: string[] = [];
+    for (let r = 0; r < size; r++) {
+      const { cx, cy } = hexCenter(r, size - 1);
+      const angle1 = (270 * Math.PI) / 180;
+      const angle2 = (330 * Math.PI) / 180;
+      const angle3 = (30 * Math.PI) / 180;
+      if (r === 0) ptsEste.push(`${(cx + R * Math.cos(angle1)).toFixed(1)},${(cy + R * Math.sin(angle1)).toFixed(1)}`);
+      ptsEste.push(`${(cx + R * Math.cos(angle2)).toFixed(1)},${(cy + R * Math.sin(angle2)).toFixed(1)}`);
+      ptsEste.push(`${(cx + R * Math.cos(angle3)).toFixed(1)},${(cy + R * Math.sin(angle3)).toFixed(1)}`);
+    }
+    bordeEste.setAttribute('points', ptsEste.join(' '));
+    bordeEste.setAttribute('class', 'hex-borde-banda hex-borde-j2');
+    gBordes.appendChild(bordeEste);
+
+    svg.appendChild(gBordes);
+
+    // Capa de celdas hexagonales
+    const gCeldas = document.createElementNS(SVG_NS, 'g');
+    gCeldas.setAttribute('class', 'hex-capa-celdas');
+
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const i = r * size + c;
+        const { cx, cy } = hexCenter(r, c);
+
+        const g = document.createElementNS(SVG_NS, 'g');
+        g.setAttribute('class', 'hex-grupo-celda');
+        g.setAttribute('data-indice', String(i));
+        g.setAttribute('tabindex', '0');
+        g.setAttribute('role', 'button');
+        g.setAttribute('aria-label', `Fila ${r + 1}, columna ${c + 1}`);
+
+        const poly = document.createElementNS(SVG_NS, 'polygon');
+        poly.setAttribute('points', hexCorners(cx, cy));
+        poly.setAttribute('class', 'hex-celda');
+        poly.setAttribute('data-indice', String(i));
+
+        const text = document.createElementNS(SVG_NS, 'text');
+        text.setAttribute('x', cx.toFixed(1));
+        text.setAttribute('y', (cy + 1).toFixed(1));
+        text.setAttribute('class', 'hex-glifo');
+
+        g.appendChild(poly);
+        g.appendChild(text);
+
+        g.addEventListener('click', () => jugar(i));
+        g.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            jugar(i);
+          }
+        });
+
+        gCeldas.appendChild(g);
+      }
+    }
+    svg.appendChild(gCeldas);
+
+    // Capa para la línea de conexión ganadora
+    const gVictoria = document.createElementNS(SVG_NS, 'g');
+    gVictoria.setAttribute('class', 'hex-capa-victoria');
+    svg.appendChild(gVictoria);
+  }
+
+  function jugar(indice: number, emitirRemoto = true): void {
+    if (state.board[indice] !== null || state.status !== 'playing') return;
+    if (!sesion.esMiTurno(state.currentPlayer)) return;
+
+    state = playMove(state, indice);
+    render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(indice);
+    }
+  }
+
+  function render(): void {
+    const jugadorDelTurno = state.currentPlayer;
+    const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+    const size = state.size;
+
+    // Deshabilitar selector de tamaño una vez que hay jugadas o en multijugador remoto
+    const hayJugadas = state.board.some(c => c !== null);
+    botonesTamano.forEach(btn => {
+      const btnSize = Number(btn.dataset.tamano);
+      const isActivo = btnSize === size;
+      btn.classList.toggle('btn-tamano--activo', isActivo);
+      btn.setAttribute('aria-checked', isActivo ? 'true' : 'false');
+      btn.disabled = hayJugadas || sesion.miAsiento !== null;
+    });
+
+    const grupos = svg.querySelectorAll<SVGGElement>('.hex-grupo-celda');
+    grupos.forEach((grupo, i) => {
+      const valor = state.board[i];
+      const poly = grupo.querySelector<SVGPolygonElement>('.hex-celda')!;
+      const text = grupo.querySelector<SVGTextElement>('.hex-glifo')!;
+      const r = Math.floor(i / size);
+      const c = i % size;
+
+      if (valor) {
+        poly.dataset.ocupada = 'true';
+        poly.dataset.jugador = String(valor);
+        const simbolo = valor === 1 ? '●' : '▲';
+        text.textContent = simbolo;
+        grupo.setAttribute('aria-label', `Fila ${r + 1}, columna ${c + 1} (Jugador ${valor} ${simbolo})`);
+        grupo.setAttribute('aria-disabled', 'true');
+      } else {
+        delete poly.dataset.ocupada;
+        delete poly.dataset.jugador;
+        text.textContent = '';
+        grupo.setAttribute('aria-label', `Fila ${r + 1}, columna ${c + 1}`);
+        if (state.status !== 'playing' || !esMiTurno) {
+          grupo.setAttribute('aria-disabled', 'true');
+        } else {
+          grupo.removeAttribute('aria-disabled');
+        }
+      }
+
+      poly.classList.toggle('hex-celda--ultima', state.lastMove === i);
+      const esGanadora = state.winningPath?.includes(i) ?? false;
+      poly.classList.toggle('hex-celda--ganadora', esGanadora);
+
+      const interactiva = valor === null && state.status === 'playing' && esMiTurno;
+      poly.style.pointerEvents = interactiva ? 'auto' : (valor ? 'default' : 'none');
+    });
+
+    // Dibujar línea conectora si hay camino ganador
+    const gVictoria = svg.querySelector<SVGGElement>('.hex-capa-victoria');
+    if (gVictoria) {
+      gVictoria.innerHTML = '';
+      if (state.winningPath && state.winningPath.length > 0) {
+        const pts = state.winningPath.map(idx => {
+          const r = Math.floor(idx / size);
+          const c = idx % size;
+          const { cx, cy } = hexCenter(r, c);
+          return `${cx.toFixed(1)},${cy.toFixed(1)}`;
+        }).join(' ');
+
+        const linea = document.createElementNS(SVG_NS, 'polyline');
+        linea.setAttribute('points', pts);
+        linea.setAttribute('class', 'hex-linea-ganadora');
+        gVictoria.appendChild(linea);
+      }
+    }
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: jugadorDelTurno,
+        simbolos: { 1: '●', 2: '▲' },
+      });
+    } else if (state.status === 'won') {
+      const ganador = state.winner!;
+      const simbolo = ganador === 1 ? '●' : '▲';
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[ganador]} (${simbolo})!`,
+        detalle: ganador === 1 ? 'Conexión Norte - Sur completada' : 'Conexión Oeste - Este completada',
+      });
+    }
+  }
+
+  botonesTamano.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state.board.some(c => c !== null) || sesion.miAsiento !== null) return;
+      currentSize = Number(btn.dataset.tamano) as BoardSize;
+      state = createInitialState(currentSize);
+      construirTablero();
+      render();
+    });
+  });
+
+  construirTablero();
+  render();
+</script>
