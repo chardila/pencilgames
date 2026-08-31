@@ -1,0 +1,297 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const TAMANO = 8;
+const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
+---
+
+<TableroJuego class="tablero-domineering">
+  <div class="tablero-wrap">
+    <div
+      id="tablero"
+      class="tablero"
+      role="grid"
+      aria-label="Tablero de Domineering, 8 por 8"
+    >
+      {casillas.map(i => (
+        <button
+          type="button"
+          class="casilla"
+          data-indice={i}
+          aria-label={`Fila ${Math.floor(i / TAMANO) + 1}, columna ${(i % TAMANO) + 1}`}
+        />
+      ))}
+    </div>
+    <div id="capa-dominos" class="capa-dominos"></div>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-wrap {
+    position: relative;
+    width: min(100%, 34rem);
+    margin: 0 auto;
+  }
+
+  .tablero,
+  .capa-dominos {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 0.2rem;
+  }
+
+  .tablero {
+    touch-action: manipulation;
+  }
+
+  .capa-dominos {
+    grid-template-rows: repeat(8, 1fr);
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .casilla {
+    aspect-ratio: 1;
+    min-width: 0;
+    background: var(--color-surface);
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    padding: 0;
+  }
+
+  .casilla:disabled {
+    cursor: default;
+  }
+
+  .casilla--ultima {
+    box-shadow: inset 0 0 0 3px var(--color-accent);
+  }
+
+  .casilla--ancla {
+    border-color: var(--color-accent);
+    /* Pinta el ancla por encima de la capa de fantasmas para que su
+       re-toque (cancelar) sea alcanzable en pantallas táctiles. */
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Los dominós se crean dinámicamente en el cliente, por lo que no reciben
+     el atributo de scope de Astro: sus reglas van con :global() bajo la capa. */
+  .capa-dominos :global(.domino) {
+    margin: 3px;
+    border: none;
+    border-radius: 8px;
+    padding: 0;
+    background: currentColor;
+  }
+
+  .capa-dominos :global(.domino[data-jugador='1']) {
+    color: var(--color-player-1);
+  }
+
+  .capa-dominos :global(.domino[data-jugador='2']) {
+    color: var(--color-player-2);
+  }
+
+  .capa-dominos :global(.domino--fantasma) {
+    pointer-events: auto;
+    cursor: pointer;
+    opacity: 0.35;
+  }
+
+  .capa-dominos :global(.domino--fantasma:hover),
+  .capa-dominos :global(.domino--fantasma:focus-visible) {
+    opacity: 0.6;
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    dominosLegalesEn,
+    dominosEnTablero,
+    playMove,
+    TAMANO,
+    type DomineeringState,
+    type Move,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const ORIENTACION_SIMBOLO = { 1: '▌', 2: '▬' } as const;
+
+  const tablero = document.getElementById('tablero')!;
+  const capaDominos = document.getElementById('capa-dominos')!;
+  const casillas = Array.from(
+    tablero.querySelectorAll<HTMLButtonElement>('.casilla'),
+  );
+
+  let state: DomineeringState = createInitialState();
+  let ancla: number | null = null;
+  let fantasmas: Move[] = [];
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      limpiarSeleccion();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      limpiarSeleccion();
+      casillas.forEach(c => (c.disabled = true));
+      render();
+    },
+  });
+
+  function limpiarSeleccion(): void {
+    ancla = null;
+    fantasmas = [];
+  }
+
+  function posicionarEnGrid(el: HTMLElement, move: Move): void {
+    const fila = Math.floor(move.a / TAMANO) + 1;
+    const col = (move.a % TAMANO) + 1;
+    const esVertical = move.b - move.a === TAMANO;
+    el.style.gridColumn = esVertical ? `${col}` : `${col} / span 2`;
+    el.style.gridRow = esVertical ? `${fila} / span 2` : `${fila}`;
+  }
+
+  function render(): void {
+    const esMiTurno =
+      sesion.esMiTurno(state.currentPlayer) && state.status === 'playing';
+    const hayAncla = ancla !== null;
+
+    casillas.forEach((casilla, i) => {
+      const ocupada = state.board[i] !== null;
+      casilla.classList.toggle(
+        'casilla--ultima',
+        state.lastMove !== null &&
+          (state.lastMove.a === i || state.lastMove.b === i),
+      );
+      casilla.classList.toggle('casilla--ancla', ancla === i);
+      // Con un ancla activa solo el propio ancla (para cancelar) sigue activo;
+      // el resto de la interacción pasa por los fantasmas.
+      casilla.disabled =
+        ocupada || !esMiTurno || (hayAncla && ancla !== i);
+    });
+
+    capaDominos.replaceChildren();
+
+    for (const domino of dominosEnTablero(state.board)) {
+      const jugador = state.board[domino.a]!;
+      const el = document.createElement('div');
+      el.className = 'domino';
+      el.dataset.jugador = String(jugador);
+      el.setAttribute('aria-hidden', 'true');
+      posicionarEnGrid(el, domino);
+      capaDominos.appendChild(el);
+    }
+
+    for (const fantasma of fantasmas) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'domino domino--fantasma';
+      el.dataset.jugador = String(state.currentPlayer);
+      el.setAttribute(
+        'aria-label',
+        `Colocar dominó en fila ${Math.floor(fantasma.a / TAMANO) + 1}, columna ${(fantasma.a % TAMANO) + 1}`,
+      );
+      posicionarEnGrid(el, fantasma);
+      el.addEventListener('click', () => jugar(fantasma));
+      capaDominos.appendChild(el);
+    }
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: state.currentPlayer,
+        simbolos: { 1: ORIENTACION_SIMBOLO[1], 2: ORIENTACION_SIMBOLO[2] },
+      });
+    } else {
+      const perdedor = state.winner === 1 ? 2 : 1;
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]}!`,
+        detalle: `${sesion.nombres[perdedor]} no puede colocar más dominós`,
+      });
+    }
+  }
+
+  function seleccionarAncla(i: number): void {
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+    if (state.board[i] !== null) return;
+    const opciones = dominosLegalesEn(state.board, state.currentPlayer, i);
+    if (opciones.length === 0) {
+      limpiarSeleccion();
+      render();
+      return;
+    }
+    if (opciones.length === 1) {
+      jugar(opciones[0]);
+      return;
+    }
+    ancla = i;
+    fantasmas = opciones;
+    render();
+    capaDominos.querySelector<HTMLButtonElement>('.domino--fantasma')?.focus();
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    // Sin guardia de esMiTurno: los movimientos remotos llegan con el
+    // currentPlayer local aún en el emisor. El input local ya está protegido
+    // por seleccionarAncla (guarda esMiTurno) y por casilla.disabled en render;
+    // playMove es la autoridad y es idempotente.
+    if (state.status !== 'playing') return;
+    const prev = state;
+    state = playMove(state, move);
+    if (state === prev) return;
+    limpiarSeleccion();
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  casillas.forEach(casilla => {
+    casilla.addEventListener('click', () => {
+      const i = Number(casilla.dataset.indice);
+      if (ancla === i) {
+        limpiarSeleccion();
+        render();
+        return;
+      }
+      seleccionarAncla(i);
+    });
+  });
+
+  // Navegación con flechas entre casillas (roving focus).
+  tablero.addEventListener('keydown', e => {
+    const target = e.target as HTMLElement;
+    if (!target.classList.contains('casilla')) return;
+    const i = Number((target as HTMLButtonElement).dataset.indice);
+    const fila = Math.floor(i / TAMANO);
+    const col = i % TAMANO;
+    let destino: number | null = null;
+    if (e.key === 'ArrowUp' && fila > 0) destino = i - TAMANO;
+    else if (e.key === 'ArrowDown' && fila < TAMANO - 1) destino = i + TAMANO;
+    else if (e.key === 'ArrowLeft' && col > 0) destino = i - 1;
+    else if (e.key === 'ArrowRight' && col < TAMANO - 1) destino = i + 1;
+    if (destino !== null) {
+      e.preventDefault();
+      casillas[destino].focus();
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && ancla !== null) {
+      const anclaPrev = ancla;
+      limpiarSeleccion();
+      render();
+      casillas[anclaPrev]?.focus();
+    }
+  });
+
+  render();
+</script>
