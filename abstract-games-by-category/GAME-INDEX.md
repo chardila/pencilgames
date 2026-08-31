@@ -34,7 +34,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [33-box-making.md](01-2-players/33-box-making.md) | |
 | 01-2-players | [36-conquista.md](01-2-players/36-conquista.md) | ✅ |
 | 01-2-players | [37-battleship.md](01-2-players/37-battleship.md) | |
-| 01-2-players | [38-estampida.md](01-2-players/38-estampida.md) | |
+| 01-2-players | [38-estampida.md](01-2-players/38-estampida.md) | ✅ |
 | 01-2-players | [40-3d-noughts-and-crosses.md](01-2-players/40-3d-noughts-and-crosses.md) | |
 | 01-2-players | [41-obstruction.md](01-2-players/41-obstruction.md) | ✅ |
 | 01-2-players | [42-snakes.md](01-2-players/42-snakes.md) | |
