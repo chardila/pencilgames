@@ -95,8 +95,17 @@ export function iniciarSesionJuego<TMovimiento>(
           );
         }
       } else if (mensaje.tipo === 'nombre') {
-        nombres[miAsiento === 1 ? 2 : 1] = mensaje.nombre;
-        config.onRender();
+        // El nombre llega del otro cliente sin pasar por el maxlength de un
+        // <input>; se acota y se descarta si viene vacío o de otro tipo,
+        // igual que hace el Worker con normalizarNombre (tope de 40).
+        const nombreRemoto =
+          typeof mensaje.nombre === 'string'
+            ? mensaje.nombre.trim().slice(0, 40)
+            : '';
+        if (nombreRemoto) {
+          nombres[miAsiento === 1 ? 2 : 1] = nombreRemoto;
+          config.onRender();
+        }
       } else if (mensaje.tipo === 'reiniciar') {
         config.onAplicarReinicio();
       }
