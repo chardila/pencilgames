@@ -117,11 +117,33 @@ export function iniciarSesionJuego<TMovimiento>(
       timeoutInicioSync = null;
     }
     if (!canal) return;
-    canal.enviar({ tipo: 'sync-hola', epoca, seq: registro.length });
+    canal.enviar({
+      tipo: 'sync-hola',
+      epoca,
+      seq: registro.length,
+      hash: hashRegistro(),
+    });
     rearmarSync();
   }
 
-  function manejarSyncHola(msg: { epoca: number; seq: number }): void {
+  // FNV-1a de 32 bits sobre el registro serializado. Sirve para detectar dos
+  // registros de la misma longitud pero con algún movimiento distinto: el
+  // handshake de seq iguales, sin esto, los daría por sincronizados.
+  function hashRegistro(): number {
+    const s = JSON.stringify(registro);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return h >>> 0;
+  }
+
+  function manejarSyncHola(msg: {
+    epoca: number;
+    seq: number;
+    hash?: number;
+  }): void {
     if (typeof msg.epoca !== 'number' || typeof msg.seq !== 'number') return;
     cancelarSync();
     if (!canal) return;
@@ -138,8 +160,15 @@ export function iniciarSesionJuego<TMovimiento>(
         // Estoy atrás: espero su sync-moves. Re-armo el timeout para que
         // un sync-moves perdido dispare igual el reintento/silencio.
         rearmarSync();
+      } else if (
+        typeof msg.hash === 'number' &&
+        msg.hash !== hashRegistro()
+      ) {
+        // Misma época y misma longitud, pero el contenido del registro
+        // difiere: divergencia que el seq por sí solo no detecta.
+        mostrarDesync();
       }
-      // msg.seq === registro.length: en sync, nada que hacer.
+      // msg.seq === registro.length y hash igual (o ausente): en sync.
     } else if (msg.epoca > epoca) {
       // Me perdí uno o más reinicios; el peer me manda un sync-moves
       // completo. Re-armo el timeout por si se pierde.
