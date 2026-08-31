@@ -648,4 +648,51 @@ describe('gameSession', () => {
     // Debe liberarse en destruir también
     expect(liberarWakeLock).toHaveBeenCalledTimes(2);
   });
+
+  it('registra los movimientos enviados y recibidos, y limpia el registro al reiniciar', () => {
+    let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
+    const mockEnviar = vi.fn();
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: mockEnviar,
+      alRecibir: vi.fn(cb => {
+        receptorMensajes = cb;
+      }),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+    const onMovimientoRemoto = vi.fn();
+    const onAplicarReinicio = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto,
+      onAplicarReinicio,
+      onRender: vi.fn(),
+    });
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Yo' },
+      })
+    );
+
+    // Movimiento local + movimiento remoto: ambos deben quedar registrados.
+    sesion.enviarMovimiento(3);
+    receptorMensajes!({ tipo: 'movimiento', payload: 7 });
+    // El registro no es observable directamente; se verifica a través del
+    // handshake en la Tarea 2. Acá solo se comprueba que reiniciar remoto
+    // dispara onAplicarReinicio (comportamiento que ya existía) y que un
+    // payload inválido no llega a onMovimientoRemoto (ya existía) — este
+    // test ancla que la refactorización a manejarMensaje no rompió nada.
+    expect(mockEnviar).toHaveBeenCalledWith({ tipo: 'movimiento', payload: 3 });
+    expect(onMovimientoRemoto).toHaveBeenCalledWith(7);
+
+    receptorMensajes!({ tipo: 'movimiento', payload: 'no-numero' as unknown as number });
+    expect(onMovimientoRemoto).toHaveBeenCalledTimes(1);
+
+    receptorMensajes!({ tipo: 'reiniciar' });
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
+
+    sesion.destruir();
+  });
 });

@@ -62,6 +62,8 @@ export function iniciarSesionJuego<TMovimiento>(
   let estadoConexion: EstadoConexion = 'conectado';
   let limpiarVisibilidad: (() => void) | null = null;
   let ultimoTurnoOpciones: MostrarTurnoOptions | null = null;
+  let epoca = 0;
+  let registro: TMovimiento[] = [];
 
   function alActualizarNombresLocales(evento: Event): void {
     const customEvent = evento as CustomEvent<PlayerNames>;
@@ -84,79 +86,86 @@ export function iniciarSesionJuego<TMovimiento>(
     limpiarVisibilidad?.();
     limpiarVisibilidad = registrarReactivacionWakeLock();
 
-    canal.alRecibir((mensaje: MensajeJuego) => {
-      if (mensaje.tipo === 'movimiento') {
-        if (config.validarMovimiento(mensaje.payload)) {
-          config.onMovimientoRemoto(mensaje.payload);
-        } else {
-          console.warn(
-            'Mensaje de movimiento ignorado por payload inválido:',
-            mensaje.payload
-          );
-        }
-      } else if (mensaje.tipo === 'nombre') {
-        // El nombre llega del otro cliente sin pasar por el maxlength de un
-        // <input>; se acota y se descarta si viene vacío o de otro tipo,
-        // igual que hace el Worker con normalizarNombre (tope de 40).
-        const nombreRemoto =
-          typeof mensaje.nombre === 'string'
-            ? mensaje.nombre.trim().slice(0, 40)
-            : '';
-        if (nombreRemoto) {
-          nombres[miAsiento === 1 ? 2 : 1] = nombreRemoto;
-          config.onRender();
-        }
-      } else if (mensaje.tipo === 'reiniciar') {
-        config.onAplicarReinicio();
-      }
-    });
+    canal.alRecibir(manejarMensaje);
 
-    canal.alCambiarEstado(estado => {
-      estadoConexion = estado;
-      if (estado === 'reconectando' || estado === 'reconectando-rival') {
-        // Durante la reconexión `esMiTurno()` pasa a devolver false para
-        // ambos jugadores. Hay que re-renderizar el tablero para que cada
-        // juego deshabilite su entrada; si no, el cliente no desconectado
-        // sigue viendo el tablero interactivo y puede jugar fuera de turno
-        // (el movimiento se aplica local y luego se transmite -> desync).
-        config.onRender();
-
-        const modoReconexion = estado === 'reconectando' ? 'propia' : 'rival';
-        if (ultimoTurnoOpciones) {
-          mostrarTurno(ultimoTurnoOpciones);
-        } else {
-          const ind = getIndicadorTurno();
-          if (ind) {
-            const fichas: Record<Player, FichaJugador> = {
-              1: { nombre: nombres[1] },
-              2: { nombre: nombres[2] },
-            };
-            renderTurnIndicator(ind, {
-              jugador: (miAsiento ?? 1) as Player,
-              fichas,
-              miAsiento,
-              estadoReconexion: modoReconexion,
-            });
-          }
-        }
-      } else if (estado === 'conectado') {
-        config.onRender();
-      } else if (estado === 'desconectado') {
-        liberarWakeLock();
-        const ind = getIndicadorTurno();
-        const ban = getBannerGanador();
-        if (ind) ocultarTurnIndicator(ind);
-        if (ban) {
-          showWinnerBanner(ban, {
-            titulo: '📡 Tu rival se desconectó',
-            onReiniciar: () => location.reload(),
-          });
-        }
-        config.onDesconectar?.();
-      }
-    });
+    canal.alCambiarEstado(manejarCambioEstado);
 
     config.onRender();
+  }
+
+  function manejarMensaje(mensaje: MensajeJuego): void {
+    if (mensaje.tipo === 'movimiento') {
+      if (config.validarMovimiento(mensaje.payload)) {
+        registro.push(mensaje.payload); // NUEVO
+        config.onMovimientoRemoto(mensaje.payload);
+      } else {
+        console.warn(
+          'Mensaje de movimiento ignorado por payload inválido:',
+          mensaje.payload
+        );
+      }
+    } else if (mensaje.tipo === 'nombre') {
+      // El nombre llega del otro cliente sin pasar por el maxlength de un
+      // <input>; se acota y se descarta si viene vacío o de otro tipo,
+      // igual que hace el Worker con normalizarNombre (tope de 40).
+      const nombreRemoto =
+        typeof mensaje.nombre === 'string'
+          ? mensaje.nombre.trim().slice(0, 40)
+          : '';
+      if (nombreRemoto) {
+        nombres[miAsiento === 1 ? 2 : 1] = nombreRemoto;
+        config.onRender();
+      }
+    } else if (mensaje.tipo === 'reiniciar') {
+      epoca++; // NUEVO
+      registro = []; // NUEVO
+      config.onAplicarReinicio();
+    }
+  }
+
+  function manejarCambioEstado(estado: EstadoConexion): void {
+    estadoConexion = estado;
+    if (estado === 'reconectando' || estado === 'reconectando-rival') {
+      // Durante la reconexión `esMiTurno()` pasa a devolver false para
+      // ambos jugadores. Hay que re-renderizar el tablero para que cada
+      // juego deshabilite su entrada; si no, el cliente no desconectado
+      // sigue viendo el tablero interactivo y puede jugar fuera de turno
+      // (el movimiento se aplica local y luego se transmite -> desync).
+      config.onRender();
+
+      const modoReconexion = estado === 'reconectando' ? 'propia' : 'rival';
+      if (ultimoTurnoOpciones) {
+        mostrarTurno(ultimoTurnoOpciones);
+      } else {
+        const ind = getIndicadorTurno();
+        if (ind) {
+          const fichas: Record<Player, FichaJugador> = {
+            1: { nombre: nombres[1] },
+            2: { nombre: nombres[2] },
+          };
+          renderTurnIndicator(ind, {
+            jugador: (miAsiento ?? 1) as Player,
+            fichas,
+            miAsiento,
+            estadoReconexion: modoReconexion,
+          });
+        }
+      }
+    } else if (estado === 'conectado') {
+      config.onRender();
+    } else if (estado === 'desconectado') {
+      liberarWakeLock();
+      const ind = getIndicadorTurno();
+      const ban = getBannerGanador();
+      if (ind) ocultarTurnIndicator(ind);
+      if (ban) {
+        showWinnerBanner(ban, {
+          titulo: '📡 Tu rival se desconectó',
+          onReiniciar: () => location.reload(),
+        });
+      }
+      config.onDesconectar?.();
+    }
   }
 
   document.addEventListener(
@@ -171,10 +180,13 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function enviarMovimiento(movimiento: TMovimiento): void {
+    registro.push(movimiento);
     canal?.enviar({ tipo: 'movimiento', payload: movimiento });
   }
 
   function reiniciar(): void {
+    epoca++;
+    registro = [];
     config.onAplicarReinicio();
     canal?.enviar({ tipo: 'reiniciar' });
   }
