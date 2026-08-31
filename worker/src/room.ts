@@ -126,6 +126,11 @@ export class Room {
 
     // rol === 'crear'
     await this.state.storage.put('creadaEn', Date.now());
+    // Limpieza diferida: pasada la expiración la sala ya no sirve para
+    // `unirse` ni `reconectar` (ambos chequean `creadaEn`), así que se borra
+    // el único dato persistente en vez de dejarlo para siempre. Reemplaza
+    // cualquier alarma previa si la sala se recrea con el mismo código.
+    await this.state.storage.setAlarm(Date.now() + EXPIRACION_MS);
     this.sockets.clear();
     this.nombres.clear();
     this.tokens.clear();
@@ -201,6 +206,15 @@ export class Room {
     this.sockets.get(2)?.send(mensajeIce);
     this.enviarControl(1, { tipo: 'rival-conectado' });
     this.enviarControl(2, { tipo: 'rival-conectado' });
+  }
+
+  // Se dispara ~EXPIRACION_MS después de crear la sala. Para ese momento la
+  // sala ya está muerta a efectos de `unirse`/`reconectar`; solo queda tirar
+  // el `creadaEn` guardado. Si el Durable Object ya fue evacuado, esta alarma
+  // ni siquiera corre y el storage se recicla igual; corre solo si el DO
+  // seguía vivo (p. ej. una partida muy larga).
+  async alarm(): Promise<void> {
+    await this.state.storage.deleteAll();
   }
 
   private retransmitir(desde: Asiento, datos: string): void {

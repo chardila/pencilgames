@@ -16,6 +16,19 @@ describe('generarCodigoSala', () => {
     expect(codigos.size).toBeGreaterThan(1);
   });
 
+  it('no colisiona en 500 llamadas (entropía suficiente con crypto)', () => {
+    const codigos = new Set(Array.from({ length: 500 }, () => generarCodigoSala()));
+    expect(codigos.size).toBe(500);
+  });
+
+  it('usa todo el alfabeto, no solo un prefijo (sin sesgo de módulo)', () => {
+    const vistos = new Set<string>();
+    for (let i = 0; i < 400; i++) {
+      for (const ch of generarCodigoSala()) vistos.add(ch);
+    }
+    expect(vistos.size).toBe(31);
+  });
+
   it('todo código generado es aceptado por esCodigoSalaValido', () => {
     for (let i = 0; i < 50; i++) {
       expect(esCodigoSalaValido(generarCodigoSala())).toBe(true);

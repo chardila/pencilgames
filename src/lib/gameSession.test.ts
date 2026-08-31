@@ -204,6 +204,46 @@ describe('gameSession', () => {
     sesion.destruir();
   });
 
+  it('sanea el nombre remoto: recorta, acota a 40 y descarta vacío o de otro tipo', () => {
+    let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(cb => {
+        receptorMensajes = cb;
+      }),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+    const onRender = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender,
+    });
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Yo' },
+      })
+    );
+
+    receptorMensajes!({ tipo: 'nombre', nombre: '  Beto  ' });
+    expect(sesion.nombres[2]).toBe('Beto');
+
+    receptorMensajes!({ tipo: 'nombre', nombre: 'x'.repeat(80) });
+    expect(sesion.nombres[2]).toHaveLength(40);
+
+    onRender.mockClear();
+    receptorMensajes!({ tipo: 'nombre', nombre: '   ' });
+    receptorMensajes!({ tipo: 'nombre', nombre: 42 as unknown as string });
+    expect(sesion.nombres[2]).toHaveLength(40);
+    expect(onRender).not.toHaveBeenCalled();
+
+    sesion.destruir();
+  });
+
   it('gestiona desconexión mostrando banner y ejecutando onDesconectar', () => {
     let receptorEstado: ((estado: string) => void) | null = null;
     const mockCanal: MoveChannel = {

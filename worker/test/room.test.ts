@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:test';
+import { env, runInDurableObject, runDurableObjectAlarm } from 'cloudflare:test';
 import { describe, expect, it, vi } from 'vitest';
 
 // Buzón por socket: agrega un único listener persistente en cuanto se acepta
@@ -272,5 +272,29 @@ describe('Room', () => {
     const wsReconExpirado = await conectar('reconectar', 'EXPIRA01', undefined, 2, con2.tokenSesion);
     const codigoCierre = await esperarCierre(wsReconExpirado);
     expect(codigoCierre).toBe(4041);
+  });
+
+  it('crear programa una alarma de limpieza y al dispararse borra el storage de la sala', async () => {
+    const ws1 = await conectar('crear', 'LIMPIA01');
+    await esperarMensajeDeTipo(ws1, 'conectado');
+
+    const stub = env.ROOMS.get(env.ROOMS.idFromName('LIMPIA01'));
+
+    const antes = await runInDurableObject(stub, (_instance, state) =>
+      Promise.all([state.storage.get('creadaEn'), state.storage.getAlarm()])
+    );
+    expect(typeof antes[0]).toBe('number');
+    expect(antes[1]).not.toBeNull();
+
+    const corrio = await runDurableObjectAlarm(stub);
+    expect(corrio).toBe(true);
+
+    const despues = await runInDurableObject(stub, (_instance, state) =>
+      Promise.all([state.storage.get('creadaEn'), state.storage.getAlarm()])
+    );
+    expect(despues[0]).toBeUndefined();
+    expect(despues[1]).toBeNull();
+
+    ws1.close();
   });
 });
