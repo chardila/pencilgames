@@ -105,6 +105,13 @@ export function iniciarSesionJuego<TMovimiento>(
     canal.alCambiarEstado(estado => {
       estadoConexion = estado;
       if (estado === 'reconectando' || estado === 'reconectando-rival') {
+        // Durante la reconexión `esMiTurno()` pasa a devolver false para
+        // ambos jugadores. Hay que re-renderizar el tablero para que cada
+        // juego deshabilite su entrada; si no, el cliente no desconectado
+        // sigue viendo el tablero interactivo y puede jugar fuera de turno
+        // (el movimiento se aplica local y luego se transmite -> desync).
+        config.onRender();
+
         const modoReconexion = estado === 'reconectando' ? 'propia' : 'rival';
         if (ultimoTurnoOpciones) {
           mostrarTurno(ultimoTurnoOpciones);

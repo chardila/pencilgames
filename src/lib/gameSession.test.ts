@@ -486,6 +486,46 @@ describe('gameSession', () => {
     sesion.destruir();
   });
 
+  it('al entrar en reconectando o reconectando-rival, vuelve a renderizar el tablero (onRender) para deshabilitar la entrada', () => {
+    let receptorEstado: ((estado: string) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(cb => {
+        receptorEstado = cb;
+      }),
+      cerrar: vi.fn(),
+    };
+
+    const onRender = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender,
+    });
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Jugador 1' },
+      })
+    );
+    onRender.mockClear();
+
+    receptorEstado!('reconectando');
+    expect(onRender).toHaveBeenCalledTimes(1);
+
+    receptorEstado!('conectado');
+    onRender.mockClear();
+
+    receptorEstado!('reconectando-rival');
+    expect(onRender).toHaveBeenCalledTimes(1);
+
+    sesion.destruir();
+  });
+
   it('al volver a conectado, esMiTurno vuelve a su comportamiento normal y se restaura el indicador de turno', () => {
     let receptorEstado: ((estado: string) => void) | null = null;
     const mockCanal: MoveChannel = {
