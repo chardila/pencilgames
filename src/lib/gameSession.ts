@@ -143,6 +143,66 @@ export function iniciarSesionJuego<TMovimiento>(
     }
   }
 
+  function jsonIgual(a: unknown, b: unknown): boolean {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  function mostrarDesync(): void {
+    const ban = getBannerGanador();
+    if (!ban) return;
+    showWinnerBanner(ban, {
+      titulo: '⚠️ La partida se desincronizó',
+      detalle: 'Reinicien para volver a empezar con el mismo rival.',
+      onReiniciar: reiniciar,
+    });
+  }
+
+  function aplicarLote(movimientos: unknown[]): void {
+    for (const payload of movimientos) {
+      if (!config.validarMovimiento(payload)) {
+        mostrarDesync();
+        return;
+      }
+      registro.push(payload);
+      config.onMovimientoRemoto(payload);
+    }
+  }
+
+  function manejarSyncMoves(msg: {
+    epoca: number;
+    desde: number;
+    movimientos: unknown[];
+  }): void {
+    cancelarSync();
+
+    if (msg.epoca > epoca) {
+      epoca = msg.epoca;
+      registro = [];
+      config.onAplicarReinicio();
+      aplicarLote(msg.movimientos);
+      return;
+    }
+    if (msg.epoca < epoca) return; // stale
+
+    // msg.epoca === epoca
+    if (msg.desde === registro.length) {
+      aplicarLote(msg.movimientos);
+      return;
+    }
+    if (msg.desde < registro.length) {
+      const yaCompartidos = registro.length - msg.desde;
+      const solapanEntrantes = msg.movimientos.slice(0, yaCompartidos);
+      const solapanMios = registro.slice(msg.desde);
+      if (jsonIgual(solapanEntrantes, solapanMios)) {
+        aplicarLote(msg.movimientos.slice(yaCompartidos));
+      } else {
+        mostrarDesync();
+      }
+    }
+    // msg.desde > registro.length: hueco imposible en turn-based; se ignora
+    // (el otro lado del handshake lo cubre).
+  }
+
   function alExpirarSync(): void {
     timeoutSync = null;
     if (!reintentoSyncHecho) {
@@ -180,6 +240,8 @@ export function iniciarSesionJuego<TMovimiento>(
       config.onAplicarReinicio();
     } else if (mensaje.tipo === 'sync-hola') {
       manejarSyncHola(mensaje);
+    } else if (mensaje.tipo === 'sync-moves') {
+      manejarSyncMoves(mensaje);
     }
   }
 

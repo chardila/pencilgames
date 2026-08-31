@@ -861,5 +861,109 @@ describe('gameSession', () => {
       });
       h.sesion.destruir();
     });
+
+    it('aplica los movimientos de un sync-moves que continúa exactamente donde voy', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 }); // registro: [1, 2]
+      h.onMovimientoRemoto.mockClear();
+
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 2,
+        movimientos: [3, 4],
+      });
+
+      expect(h.onMovimientoRemoto).toHaveBeenNthCalledWith(1, 3);
+      expect(h.onMovimientoRemoto).toHaveBeenNthCalledWith(2, 4);
+
+      // Y ahora un sync-hola del peer confirma que quedé en seq 4.
+      h.mockEnviar.mockClear();
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 4 });
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('ante un sync-moves de época mayor, reinicia una vez y aplica esa época', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.sesion.enviarMovimiento(2); // epoca 0, registro [1, 2]
+      h.onAplicarReinicio.mockClear();
+      h.onMovimientoRemoto.mockClear();
+
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 2,
+        desde: 0,
+        movimientos: [9],
+      });
+
+      expect(h.onAplicarReinicio).toHaveBeenCalledTimes(1);
+      expect(h.onMovimientoRemoto).toHaveBeenCalledWith(9);
+
+      // Quedé en epoca 2, seq 1: un sync-hola del peer con esos valores no
+      // provoca reenvío.
+      h.mockEnviar.mockClear();
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 2, seq: 1 });
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('aplica solo la cola no solapada cuando el solapamiento coincide', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 }); // registro [1, 2]
+      h.onMovimientoRemoto.mockClear();
+
+      // El peer manda desde 1: [2, 3, 4]. El "2" coincide con lo que tengo.
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 1,
+        movimientos: [2, 3, 4],
+      });
+
+      expect(h.onMovimientoRemoto).toHaveBeenCalledTimes(2);
+      expect(h.onMovimientoRemoto).toHaveBeenNthCalledWith(1, 3);
+      expect(h.onMovimientoRemoto).toHaveBeenNthCalledWith(2, 4);
+      h.sesion.destruir();
+    });
+
+    it('muestra el aviso de desincronización si el solapamiento se contradice', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 }); // registro [1, 2]
+
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 1,
+        movimientos: [99, 3], // el "99" contradice mi "2"
+      });
+
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(false);
+      expect(banner.textContent).toContain('La partida se desincronizó');
+      h.sesion.destruir();
+    });
+
+    it('muestra el aviso si un lote trae un payload inválido', () => {
+      const h = montarSesionConectada();
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 0,
+        movimientos: ['no-numero'],
+      });
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(false);
+      expect(banner.textContent).toContain('La partida se desincronizó');
+      h.sesion.destruir();
+    });
   });
 });
