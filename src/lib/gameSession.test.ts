@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { iniciarSesionJuego } from './gameSession';
-import type { MoveChannel, MensajeJuego } from './remoto/types';
+import type { MoveChannel, MensajeJuego, EstadoConexion } from './remoto/types';
 import {
   solicitarWakeLock,
   liberarWakeLock,
@@ -964,6 +964,115 @@ describe('gameSession', () => {
       expect(banner.hidden).toBe(false);
       expect(banner.textContent).toContain('La partida se desincronizó');
       h.sesion.destruir();
+    });
+
+    it('integración: dos sesiones recuperan un movimiento perdido durante la reconexión', () => {
+      const docA = new MockDocument();
+      const docB = new MockDocument();
+      const indA = new MockElement();
+      const banA = new MockElement();
+      banA.hidden = true;
+      const indB = new MockElement();
+      const banB = new MockElement();
+      banB.hidden = true;
+
+      let recA: ((m: MensajeJuego) => void) | null = null;
+      let recB: ((m: MensajeJuego) => void) | null = null;
+      let estA: ((e: EstadoConexion) => void) | null = null;
+      let estB: ((e: EstadoConexion) => void) | null = null;
+
+      // Relay con interruptor de pérdida: cuando `perdiendo` es true, los
+      // mensajes de A hacia B se descartan.
+      let perdiendo = false;
+      const canalA: MoveChannel = {
+        asiento: 1,
+        estado: 'conectado',
+        enviar: (m: MensajeJuego) => {
+          if (perdiendo) return;
+          recB?.(m);
+        },
+        alRecibir: (cb: (m: MensajeJuego) => void) => {
+          recA = cb;
+        },
+        alCambiarEstado: (cb: (e: EstadoConexion) => void) => {
+          estA = cb;
+        },
+        cerrar: vi.fn(),
+      };
+      const canalB: MoveChannel = {
+        asiento: 2,
+        estado: 'conectado',
+        enviar: (m: MensajeJuego) => {
+          recA?.(m);
+        },
+        alRecibir: (cb: (m: MensajeJuego) => void) => {
+          recB = cb;
+        },
+        alCambiarEstado: (cb: (e: EstadoConexion) => void) => {
+          estB = cb;
+        },
+        cerrar: vi.fn(),
+      };
+
+      const onRemotoA = vi.fn();
+      const onRemotoB = vi.fn();
+
+      vi.stubGlobal('document', docA as unknown as Document);
+      const sesionA = iniciarSesionJuego<number>({
+        indicadorTurnoEl: indA as unknown as HTMLElement,
+        bannerGanadorEl: banA as unknown as HTMLElement,
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: onRemotoA,
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+      docA.dispatchEvent(
+        new CustomEvent('canal-remoto-listo', {
+          detail: { channel: canalA, miNombre: 'A' },
+        })
+      );
+
+      vi.stubGlobal('document', docB as unknown as Document);
+      const sesionB = iniciarSesionJuego<number>({
+        indicadorTurnoEl: indB as unknown as HTMLElement,
+        bannerGanadorEl: banB as unknown as HTMLElement,
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: onRemotoB,
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+      docB.dispatchEvent(
+        new CustomEvent('canal-remoto-listo', {
+          detail: { channel: canalB, miNombre: 'B' },
+        })
+      );
+
+      // Partida normal: A juega 1, B lo recibe.
+      sesionA.enviarMovimiento(1);
+      expect(onRemotoB).toHaveBeenCalledWith(1);
+
+      // Se corta: A juega 2, se pierde en el cable.
+      perdiendo = true;
+      sesionA.enviarMovimiento(2);
+      expect(onRemotoB).toHaveBeenCalledTimes(1); // B no recibió el "2"
+
+      // Reconexión: ambos pasan por <reconexión> -> conectado. Relay vuelve.
+      estA!('reconectando');
+      estB!('reconectando-rival');
+      perdiendo = false;
+      estA!('conectado');
+      estB!('conectado');
+      vi.advanceTimersByTime(1); // flush de los setTimeout(iniciarSync, 0)
+
+      // B recuperó el movimiento perdido.
+      expect(onRemotoB).toHaveBeenCalledWith(2);
+      // Nadie mostró el aviso de desincronización.
+      expect(banA.hidden).toBe(true);
+      expect(banB.hidden).toBe(true);
+
+      sesionA.destruir();
+      sesionB.destruir();
+      vi.stubGlobal('document', new MockDocument() as unknown as Document);
     });
   });
 });
