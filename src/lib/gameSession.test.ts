@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { iniciarSesionJuego } from './gameSession';
-import type { MoveChannel, MensajeJuego } from './remoto/types';
+import type { MoveChannel, MensajeJuego, EstadoConexion } from './remoto/types';
 import {
   solicitarWakeLock,
   liberarWakeLock,
@@ -647,5 +647,503 @@ describe('gameSession', () => {
     sesion.destruir();
     // Debe liberarse en destruir también
     expect(liberarWakeLock).toHaveBeenCalledTimes(2);
+  });
+
+  it('la refactorización a manejarMensaje preserva el ruteo de movimiento/nombre/reiniciar y el descarte de payload inválido', () => {
+    let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
+    const mockEnviar = vi.fn();
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: mockEnviar,
+      alRecibir: vi.fn(cb => {
+        receptorMensajes = cb;
+      }),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+    const onMovimientoRemoto = vi.fn();
+    const onAplicarReinicio = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto,
+      onAplicarReinicio,
+      onRender: vi.fn(),
+    });
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Yo' },
+      })
+    );
+
+    // Movimiento local + movimiento remoto: ambos deben quedar registrados.
+    sesion.enviarMovimiento(3);
+    receptorMensajes!({ tipo: 'movimiento', payload: 7 });
+    // El registro no es observable directamente; se verifica a través del
+    // handshake en la Tarea 2. Acá solo se comprueba que reiniciar remoto
+    // dispara onAplicarReinicio (comportamiento que ya existía) y que un
+    // payload inválido no llega a onMovimientoRemoto (ya existía) — este
+    // test ancla que la refactorización a manejarMensaje no rompió nada.
+    expect(mockEnviar).toHaveBeenCalledWith({ tipo: 'movimiento', payload: 3 });
+    expect(onMovimientoRemoto).toHaveBeenCalledWith(7);
+
+    receptorMensajes!({ tipo: 'movimiento', payload: 'no-numero' as unknown as number });
+    expect(onMovimientoRemoto).toHaveBeenCalledTimes(1);
+
+    receptorMensajes!({ tipo: 'reiniciar' });
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
+
+    sesion.destruir();
+  });
+
+  describe('resincronización tras reconexión', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function montarSesionConectada(asiento: 1 | 2 = 1) {
+      let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
+      let receptorEstado: ((estado: string) => void) | null = null;
+      const mockEnviar = vi.fn();
+      const mockCanal: MoveChannel = {
+        asiento,
+        estado: 'conectado',
+        enviar: mockEnviar,
+        alRecibir: vi.fn(cb => {
+          receptorMensajes = cb;
+        }),
+        alCambiarEstado: vi.fn(cb => {
+          receptorEstado = cb;
+        }),
+        cerrar: vi.fn(),
+      };
+      const onMovimientoRemoto = vi.fn();
+      const onAplicarReinicio = vi.fn();
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto,
+        onAplicarReinicio,
+        onRender: vi.fn(),
+      });
+      document.dispatchEvent(
+        new CustomEvent('canal-remoto-listo', {
+          detail: { channel: mockCanal, miNombre: 'Yo' },
+        })
+      );
+      return {
+        sesion,
+        mockEnviar,
+        onMovimientoRemoto,
+        onAplicarReinicio,
+        enviarRemoto: (msg: MensajeJuego) => receptorMensajes!(msg),
+        cambiarEstado: (e: string) => receptorEstado!(e),
+      };
+    }
+
+    it('no emite sync-hola en la primera conexión', () => {
+      const h = montarSesionConectada();
+      vi.advanceTimersByTime(1);
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-hola' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('emite sync-hola con {epoca, seq} al volver a conectado tras una reconexión', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 });
+      h.mockEnviar.mockClear();
+
+      h.cambiarEstado('reconectando');
+      h.cambiarEstado('conectado');
+      vi.advanceTimersByTime(1);
+
+      expect(h.mockEnviar).toHaveBeenCalledWith({
+        tipo: 'sync-hola',
+        epoca: 0,
+        seq: 2,
+      });
+      h.sesion.destruir();
+    });
+
+    it('reintenta sync-hola una sola vez si no hay respuesta, y después se rinde', () => {
+      const h = montarSesionConectada();
+      h.cambiarEstado('reconectando-rival');
+      h.cambiarEstado('conectado');
+      vi.advanceTimersByTime(1); // primer sync-hola
+      expect(
+        h.mockEnviar.mock.calls.filter(c => c[0].tipo === 'sync-hola')
+      ).toHaveLength(1);
+
+      vi.advanceTimersByTime(3000); // expira -> reintento
+      expect(
+        h.mockEnviar.mock.calls.filter(c => c[0].tipo === 'sync-hola')
+      ).toHaveLength(2);
+
+      vi.advanceTimersByTime(3000); // expira de nuevo -> se rinde
+      expect(
+        h.mockEnviar.mock.calls.filter(c => c[0].tipo === 'sync-hola')
+      ).toHaveLength(2);
+      h.sesion.destruir();
+    });
+
+    it('cuando el peer está atrás en la misma época, le reenvía la cola de movimientos', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(10);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 20 });
+      h.sesion.enviarMovimiento(30);
+      h.mockEnviar.mockClear();
+
+      // El peer dice que solo tiene 1 movimiento; yo tengo 3.
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 1 });
+
+      expect(h.mockEnviar).toHaveBeenCalledWith({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 1,
+        movimientos: [20, 30],
+      });
+      h.sesion.destruir();
+    });
+
+    it('cuando el peer está al día, no reenvía nada', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(10);
+      h.mockEnviar.mockClear();
+
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 1 });
+
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('cuando el peer está adelante, espera su sync-moves (re-arma el timeout)', () => {
+      const h = montarSesionConectada();
+      h.cambiarEstado('reconectando');
+      h.cambiarEstado('conectado');
+      vi.advanceTimersByTime(1); // primer sync-hola
+      h.mockEnviar.mockClear();
+
+      // El peer tiene más movimientos que yo.
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 5 });
+      // No responde con sync-moves...
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      // ...pero el timeout re-armado dispara un reintento de sync-hola.
+      vi.advanceTimersByTime(3000);
+      expect(h.mockEnviar).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-hola' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('cuando el peer está atrás en época, le manda el registro completo de la época actual', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'reiniciar' }); // epoca -> 1, registro -> []
+      h.sesion.enviarMovimiento(2);
+      h.mockEnviar.mockClear();
+
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 1 });
+
+      expect(h.mockEnviar).toHaveBeenCalledWith({
+        tipo: 'sync-moves',
+        epoca: 1,
+        desde: 0,
+        movimientos: [2],
+      });
+      h.sesion.destruir();
+    });
+
+    it('aplica los movimientos de un sync-moves que continúa exactamente donde voy', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 }); // registro: [1, 2]
+      h.onMovimientoRemoto.mockClear();
+
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 2,
+        movimientos: [3, 4],
+      });
+
+      expect(h.onMovimientoRemoto).toHaveBeenNthCalledWith(1, 3);
+      expect(h.onMovimientoRemoto).toHaveBeenNthCalledWith(2, 4);
+
+      // Y ahora un sync-hola del peer confirma que quedé en seq 4.
+      h.mockEnviar.mockClear();
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 4 });
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('ante un sync-moves de época mayor, reinicia una vez y aplica esa época', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.sesion.enviarMovimiento(2); // epoca 0, registro [1, 2]
+      h.onAplicarReinicio.mockClear();
+      h.onMovimientoRemoto.mockClear();
+
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 2,
+        desde: 0,
+        movimientos: [9],
+      });
+
+      expect(h.onAplicarReinicio).toHaveBeenCalledTimes(1);
+      expect(h.onMovimientoRemoto).toHaveBeenCalledWith(9);
+
+      // Quedé en epoca 2, seq 1: un sync-hola del peer con esos valores no
+      // provoca reenvío.
+      h.mockEnviar.mockClear();
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 2, seq: 1 });
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('aplica solo la cola no solapada cuando el solapamiento coincide', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 }); // registro [1, 2]
+      h.onMovimientoRemoto.mockClear();
+
+      // El peer manda desde 1: [2, 3, 4]. El "2" coincide con lo que tengo.
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 1,
+        movimientos: [2, 3, 4],
+      });
+
+      expect(h.onMovimientoRemoto).toHaveBeenCalledTimes(2);
+      expect(h.onMovimientoRemoto).toHaveBeenNthCalledWith(1, 3);
+      expect(h.onMovimientoRemoto).toHaveBeenNthCalledWith(2, 4);
+      h.sesion.destruir();
+    });
+
+    it('muestra el aviso de desincronización si el solapamiento se contradice', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 }); // registro [1, 2]
+
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 1,
+        movimientos: [99, 3], // el "99" contradice mi "2"
+      });
+
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(false);
+      expect(banner.textContent).toContain('La partida se desincronizó');
+      h.sesion.destruir();
+    });
+
+    it('muestra el aviso si un lote trae un payload inválido', () => {
+      const h = montarSesionConectada();
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 0,
+        movimientos: ['no-numero'],
+      });
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(false);
+      expect(banner.textContent).toContain('La partida se desincronizó');
+      h.sesion.destruir();
+    });
+
+    it('el aviso de desincronización es durable: no lo borra un mostrarTurno ni una nueva reconexión', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 });
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 1,
+        movimientos: [99, 3],
+      });
+
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(false);
+
+      h.cambiarEstado('reconectando');
+      expect(banner.hidden).toBe(false);
+
+      h.enviarRemoto({ tipo: 'movimiento', payload: 5 });
+      h.sesion.mostrarTurno({ jugador: 1 });
+      expect(banner.hidden).toBe(false);
+
+      h.sesion.reiniciar();
+      h.sesion.mostrarTurno({ jugador: 1 });
+      expect(banner.hidden).toBe(true);
+      h.sesion.destruir();
+    });
+
+    it('ignora sync-moves con movimientos no-array y sync-hola con campos no numéricos', () => {
+      const h = montarSesionConectada();
+      h.enviarRemoto({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 0,
+        movimientos: 'no-es-array' as unknown as unknown[],
+      });
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(true);
+
+      h.mockEnviar.mockClear();
+      h.enviarRemoto({
+        tipo: 'sync-hola',
+        epoca: 'x' as unknown as number,
+        seq: 0,
+      });
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('el timer diferido de inicio de sync no sobrevive a destruir()', () => {
+      const h = montarSesionConectada();
+      h.cambiarEstado('reconectando');
+      h.cambiarEstado('conectado');
+      h.sesion.destruir();
+      vi.advanceTimersByTime(5000);
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-hola' })
+      );
+    });
+
+    it('integración: dos sesiones recuperan un movimiento perdido durante la reconexión', () => {
+      const docA = new MockDocument();
+      const docB = new MockDocument();
+      const indA = new MockElement();
+      const banA = new MockElement();
+      banA.hidden = true;
+      const indB = new MockElement();
+      const banB = new MockElement();
+      banB.hidden = true;
+
+      let recA: ((m: MensajeJuego) => void) | null = null;
+      let recB: ((m: MensajeJuego) => void) | null = null;
+      let estA: ((e: EstadoConexion) => void) | null = null;
+      let estB: ((e: EstadoConexion) => void) | null = null;
+
+      // Relay con interruptor de pérdida: cuando `perdiendo` es true, los
+      // mensajes de A hacia B se descartan.
+      let perdiendo = false;
+      const canalA: MoveChannel = {
+        asiento: 1,
+        estado: 'conectado',
+        enviar: (m: MensajeJuego) => {
+          if (perdiendo) return;
+          recB?.(m);
+        },
+        alRecibir: (cb: (m: MensajeJuego) => void) => {
+          recA = cb;
+        },
+        alCambiarEstado: (cb: (e: EstadoConexion) => void) => {
+          estA = cb;
+        },
+        cerrar: vi.fn(),
+      };
+      const enviarB = vi.fn((m: MensajeJuego) => {
+        recA?.(m);
+      });
+      const canalB: MoveChannel = {
+        asiento: 2,
+        estado: 'conectado',
+        enviar: enviarB,
+        alRecibir: (cb: (m: MensajeJuego) => void) => {
+          recB = cb;
+        },
+        alCambiarEstado: (cb: (e: EstadoConexion) => void) => {
+          estB = cb;
+        },
+        cerrar: vi.fn(),
+      };
+
+      const onRemotoA = vi.fn();
+      const onRemotoB = vi.fn();
+
+      vi.stubGlobal('document', docA as unknown as Document);
+      const sesionA = iniciarSesionJuego<number>({
+        indicadorTurnoEl: indA as unknown as HTMLElement,
+        bannerGanadorEl: banA as unknown as HTMLElement,
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: onRemotoA,
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+      docA.dispatchEvent(
+        new CustomEvent('canal-remoto-listo', {
+          detail: { channel: canalA, miNombre: 'A' },
+        })
+      );
+
+      vi.stubGlobal('document', docB as unknown as Document);
+      const sesionB = iniciarSesionJuego<number>({
+        indicadorTurnoEl: indB as unknown as HTMLElement,
+        bannerGanadorEl: banB as unknown as HTMLElement,
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: onRemotoB,
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+      docB.dispatchEvent(
+        new CustomEvent('canal-remoto-listo', {
+          detail: { channel: canalB, miNombre: 'B' },
+        })
+      );
+
+      // Partida normal: A juega 1, B lo recibe.
+      sesionA.enviarMovimiento(1);
+      expect(onRemotoB).toHaveBeenCalledWith(1);
+
+      // Se corta: A juega 2, se pierde en el cable.
+      perdiendo = true;
+      sesionA.enviarMovimiento(2);
+      expect(onRemotoB).toHaveBeenCalledTimes(1); // B no recibió el "2"
+
+      // Reconexión: ambos pasan por <reconexión> -> conectado. Relay vuelve.
+      estA!('reconectando');
+      estB!('reconectando-rival');
+      perdiendo = false;
+      estA!('conectado');
+      estB!('conectado');
+      vi.advanceTimersByTime(1); // flush de los setTimeout(iniciarSync, 0)
+
+      // B recuperó el movimiento perdido.
+      expect(onRemotoB).toHaveBeenCalledWith(2);
+      // Nadie mostró el aviso de desincronización.
+      expect(banA.hidden).toBe(true);
+      expect(banB.hidden).toBe(true);
+
+      // Convergencia de logs: B ya tiene 2 movimientos en su registro, así que
+      // un sync-hola que refleja el seq real de A (2) no provoca ningún
+      // sync-moves de vuelta.
+      enviarB.mockClear();
+      recB!({ tipo: 'sync-hola', epoca: 0, seq: 2 });
+      expect(enviarB).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+
+      sesionA.destruir();
+      sesionB.destruir();
+      vi.stubGlobal('document', new MockDocument() as unknown as Document);
+    });
   });
 });
