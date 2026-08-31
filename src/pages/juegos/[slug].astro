@@ -18,6 +18,7 @@ import HexBoard from '../../games/hex/Board.astro';
 import SimBoard from '../../games/sim/Board.astro';
 import DomineeringBoard from '../../games/domineering/Board.astro';
 import EstampidaBoard from '../../games/estampida/Board.astro';
+import TriggleBoard from '../../games/triggle/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
@@ -33,6 +34,7 @@ const BOARDS = {
   sim: SimBoard,
   domineering: DomineeringBoard,
   estampida: EstampidaBoard,
+  triggle: TriggleBoard,
 } as const;
 
 export async function getStaticPaths() {

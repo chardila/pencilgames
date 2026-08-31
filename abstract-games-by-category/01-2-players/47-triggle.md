@@ -7,7 +7,7 @@
 Conquistar la mayor cantidad de triángulos unitarios en el tablero.
 
 ## Setup
-Una rejilla de puntos en disposición triangular isométrica (por ejemplo, un triángulo de lado 6 o 7 puntos, o un hexágono regular de puntos).
+Una rejilla de puntos en disposición triangular isométrica. **La implementación usa un hexágono regular de 37 puntos (radio 3, filas de 4-5-6-7-6-5-4)**: en un tablero triangular las líneas de 4 puntos no caben cerca de las esquinas y ~la mitad de los triángulos quedarían imposibles de conquistar; en el hexágono toda fila/diagonal tiene ≥4 puntos y los 54 triángulos son reclamables.
 
 ## Turn
 1. En su turno, el jugador traza una línea recta continua que conecte **exactamente 4 puntos consecutivos** en cualquiera de las 3 direcciones de la cuadrícula:

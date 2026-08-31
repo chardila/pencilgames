@@ -1,0 +1,387 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+import {
+  puntosValidos,
+  aristasValidas,
+  verticesDeTriangulos,
+  otroExtremo,
+} from './engine';
+
+const SIZE = 52;
+const CX = 200;
+const CY = 200;
+const SIN60 = Math.sqrt(3) / 2;
+
+function px(q: number, r: number): { x: number; y: number } {
+  return { x: CX + SIZE * (q + r / 2), y: CY + SIZE * (r * SIN60) };
+}
+
+const puntos = puntosValidos().map(p => ({ ...p, ...px(p.q, p.r) }));
+
+const aristas = aristasValidas().map(a => {
+  const p1 = px(a.q, a.r);
+  const otro = otroExtremo(a);
+  const p2 = px(otro.q, otro.r);
+  return { ...a, x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+});
+
+const triangulos = verticesDeTriangulos().map((vs, i) => {
+  const centro = vs.reduce((acc, v) => ({ q: acc.q + v.q / 3, r: acc.r + v.r / 3 }), {
+    q: 0,
+    r: 0,
+  });
+  const c = px(centro.q, centro.r);
+  return {
+    indice: i,
+    puntos: vs.map(v => { const p = px(v.q, v.r); return `${p.x},${p.y}`; }).join(' '),
+    cx: c.x,
+    cy: c.y,
+  };
+});
+---
+
+<TableroJuego class="tablero-triggle">
+  <div id="tablero" class="tablero-triggle__container">
+    <svg
+      id="svg-triggle"
+      viewBox="0 0 400 400"
+      class="tablero-triggle__svg"
+      role="application"
+      aria-label="Tablero de Triggle: hexágono de 37 puntos en malla triangular"
+    >
+      <g class="capa-triangulos">
+        {triangulos.map(t => (
+          <g class="triangulo" data-indice={t.indice}>
+            <polygon class="triangulo__area" points={t.puntos} />
+            <text
+              class="triangulo__simbolo"
+              x={t.cx}
+              y={t.cy}
+              text-anchor="middle"
+              dominant-baseline="central"
+            />
+          </g>
+        ))}
+      </g>
+
+      <g class="capa-aristas">
+        {aristas.map(a => (
+          <line
+            class="arista"
+            x1={a.x1}
+            y1={a.y1}
+            x2={a.x2}
+            y2={a.y2}
+            data-dir={a.dir}
+            data-q={a.q}
+            data-r={a.r}
+          />
+        ))}
+      </g>
+
+      <g class="capa-puntos">
+        {puntos.map(p => (
+          <g
+            class="punto"
+            data-q={p.q}
+            data-r={p.r}
+            tabindex="0"
+            role="button"
+            aria-label={`Punto columna ${p.q}, fila ${p.r}`}
+          >
+            <circle class="punto__halo" cx={p.x} cy={p.y} r="20" />
+            <circle class="punto__circulo" cx={p.x} cy={p.y} r="6" />
+          </g>
+        ))}
+      </g>
+    </svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-triggle__container {
+    width: min(94vw, 32rem);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  .tablero-triggle__svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .triangulo__area {
+    fill: transparent;
+    stroke: none;
+    transition: fill 0.2s ease;
+    pointer-events: none;
+  }
+
+  .triangulo[data-jugador='1'] .triangulo__area {
+    fill: color-mix(in srgb, var(--color-player-1) 24%, transparent);
+  }
+
+  .triangulo[data-jugador='2'] .triangulo__area {
+    fill: color-mix(in srgb, var(--color-player-2) 24%, transparent);
+  }
+
+  .triangulo__simbolo {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    pointer-events: none;
+    fill: var(--color-text, #222);
+  }
+
+  .triangulo[data-jugador='1'] .triangulo__simbolo {
+    fill: var(--color-player-1);
+  }
+
+  .triangulo[data-jugador='2'] .triangulo__simbolo {
+    fill: var(--color-player-2);
+  }
+
+  .arista {
+    stroke: rgba(0, 0, 0, 0.12);
+    stroke-width: 2px;
+    stroke-linecap: round;
+    transition: stroke 0.2s ease, stroke-width 0.2s ease;
+    pointer-events: none;
+  }
+
+  .arista[data-jugador='1'] {
+    stroke: var(--color-player-1);
+    stroke-width: 6px;
+  }
+
+  .arista[data-jugador='2'] {
+    stroke: var(--color-player-2);
+    stroke-width: 6px;
+  }
+
+  .punto {
+    cursor: pointer;
+    outline: none;
+  }
+
+  .punto[data-deshabilitado='true'] {
+    cursor: default;
+  }
+
+  .punto__halo {
+    fill: transparent;
+    transition: fill 0.2s ease;
+  }
+
+  .punto.seleccionado .punto__halo {
+    fill: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    animation: triggle-pulso 1.5s infinite ease-in-out;
+  }
+
+  .punto.destino .punto__halo {
+    fill: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  }
+
+  .punto__circulo {
+    fill: var(--color-surface, #fff);
+    stroke: var(--color-text, #222);
+    stroke-width: 2px;
+    transition: stroke 0.2s ease, r 0.15s ease;
+  }
+
+  .punto.seleccionado .punto__circulo {
+    stroke: var(--color-accent);
+    stroke-width: 3px;
+    r: 8;
+  }
+
+  .punto.destino .punto__circulo {
+    stroke: var(--color-accent);
+  }
+
+  .punto:focus-visible .punto__circulo {
+    stroke: var(--color-accent);
+    stroke-width: 3px;
+  }
+
+  @keyframes triggle-pulso {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 0.35; }
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esMove,
+    esJugadaValida,
+    moveEntrePuntos,
+    movimientosValidos,
+    puntosDe,
+    playMove,
+    contarTriangulos,
+    type TriggleState,
+    type Move,
+    type Punto,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const SIMBOLOS = { 1: '●', 2: '▲' } as const;
+
+  const svg = document.getElementById('svg-triggle') as unknown as SVGSVGElement;
+  const aristasEl = Array.from(svg.querySelectorAll<SVGLineElement>('.arista'));
+  const puntosEl = Array.from(svg.querySelectorAll<SVGGElement>('.punto'));
+  const triangulosEl = Array.from(svg.querySelectorAll<SVGGElement>('.triangulo'));
+
+  let state: TriggleState = createInitialState();
+  let seleccion: Punto | null = null;
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esMove,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      seleccion = null;
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      seleccion = null;
+      puntosEl.forEach(el => (el.dataset.deshabilitado = 'true'));
+      render();
+    },
+  });
+
+  function claveP(p: { q: number; r: number }): string {
+    return `${p.q},${p.r}`;
+  }
+
+  function destinosValidos(): Set<string> {
+    const destinos = new Set<string>();
+    if (seleccion === null) return destinos;
+    const sel = claveP(seleccion);
+    for (const m of movimientosValidos(state)) {
+      const pts = puntosDe(m);
+      if (claveP(pts[0]) === sel) destinos.add(claveP(pts[3]));
+      else if (claveP(pts[3]) === sel) destinos.add(claveP(pts[0]));
+    }
+    return destinos;
+  }
+
+  function render(): void {
+    const enJuego = state.status === 'playing';
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer) && enJuego;
+    const destinos = destinosValidos();
+
+    for (const el of aristasEl) {
+      const clave = `${el.dataset.dir}:${el.dataset.q},${el.dataset.r}`;
+      const jugador = state.edges[clave];
+      if (jugador) el.dataset.jugador = String(jugador);
+      else delete el.dataset.jugador;
+    }
+
+    for (const el of triangulosEl) {
+      const dueno = state.triangleOwners[Number(el.dataset.indice)];
+      const texto = el.querySelector<SVGTextElement>('.triangulo__simbolo')!;
+      if (dueno) {
+        el.dataset.jugador = String(dueno);
+        texto.textContent = SIMBOLOS[dueno];
+      } else {
+        delete el.dataset.jugador;
+        texto.textContent = '';
+      }
+    }
+
+    for (const el of puntosEl) {
+      const clave = `${el.dataset.q},${el.dataset.r}`;
+      el.classList.toggle('seleccionado', seleccion !== null && claveP(seleccion) === clave);
+      el.classList.toggle('destino', destinos.has(clave));
+      el.dataset.deshabilitado = String(!esMiTurno);
+    }
+
+    if (!enJuego) {
+      const c = contarTriangulos(state);
+      if (state.winner === null) {
+        sesion.mostrarFinDeJuego({
+          titulo: '🤝 ¡Empate!',
+          detalle: `${c[1]} triángulos cada uno`,
+        });
+      } else {
+        const perdedor = state.winner === 1 ? 2 : 1;
+        sesion.mostrarFinDeJuego({
+          titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner]} (${SIMBOLOS[state.winner]})!`,
+          detalle: `${c[state.winner]} triángulos a ${c[perdedor]}`,
+        });
+      }
+      return;
+    }
+
+    sesion.mostrarTurno({
+      jugador: state.currentPlayer,
+      simbolos: { 1: SIMBOLOS[1], 2: SIMBOLOS[2] },
+      puntajes: contarTriangulos(state),
+      detalle: seleccion === null ? 'Toca el primer punto de tu línea' : 'Toca el otro extremo (4 puntos)',
+    });
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    if (state.status !== 'playing') return;
+    // El guard de turno solo aplica a la entrada local; los movimientos
+    // remotos llegan cuando currentPlayer es el asiento del rival.
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+    const prev = state;
+    state = playMove(state, move);
+    if (state === prev) return;
+    seleccion = null;
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  function manejarClickPunto(p: Punto): void {
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+
+    if (seleccion === null) {
+      seleccion = p;
+      render();
+      return;
+    }
+    if (claveP(seleccion) === claveP(p)) {
+      seleccion = null;
+      render();
+      return;
+    }
+    const move = moveEntrePuntos(seleccion, p);
+    if (move && esJugadaValida(state, move)) {
+      jugar(move);
+    } else {
+      seleccion = p; // reselecciona
+      render();
+    }
+  }
+
+  for (const el of puntosEl) {
+    const p: Punto = { q: Number(el.dataset.q), r: Number(el.dataset.r) };
+    el.addEventListener('click', () => manejarClickPunto(p));
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        manejarClickPunto(p);
+      }
+    });
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && seleccion !== null) {
+      seleccion = null;
+      render();
+    }
+  });
+
+  render();
+</script>
