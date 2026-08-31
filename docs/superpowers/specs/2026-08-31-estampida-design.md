@@ -121,6 +121,18 @@ export interface EstampidaState {
 - Al pasar a `finished`: `winner` = jugador con más casillas según `contar`;
   `null` si empatan.
 
+### Nota sobre la condición de fin
+
+Analíticamente, mientras queden casillas vacías **siempre** hay al menos un
+movimiento legal para el jugador que puede mover: cualquier casilla vacía
+adyacente a una ficha genera una copia en la dirección ficha→vacía. En una
+retícula conexa, si coexisten fichas y vacías, esa adyacencia existe. Por eso
+el único estado terminal alcanzable en juego normal es **tablero lleno**. La
+comprobación de "ninguno de los dos puede mover" se mantiene en el motor como
+defensa (y hace total la función), pero no se construye desde juego legal.
+Sí es alcanzable el caso **un solo jugador atascado**: si el rival amuralla
+tus 5 fichas, sigue jugando solo hasta llenar el tablero (regla de salto).
+
 ### Riesgo conocido
 
 Envolvimiento de borde en `izquierda` / `derecha`: una copia no puede saltar de
