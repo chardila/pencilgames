@@ -790,5 +790,76 @@ describe('gameSession', () => {
       ).toHaveLength(2);
       h.sesion.destruir();
     });
+
+    it('cuando el peer está atrás en la misma época, le reenvía la cola de movimientos', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(10);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 20 });
+      h.sesion.enviarMovimiento(30);
+      h.mockEnviar.mockClear();
+
+      // El peer dice que solo tiene 1 movimiento; yo tengo 3.
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 1 });
+
+      expect(h.mockEnviar).toHaveBeenCalledWith({
+        tipo: 'sync-moves',
+        epoca: 0,
+        desde: 1,
+        movimientos: [20, 30],
+      });
+      h.sesion.destruir();
+    });
+
+    it('cuando el peer está al día, no reenvía nada', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(10);
+      h.mockEnviar.mockClear();
+
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 1 });
+
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('cuando el peer está adelante, espera su sync-moves (re-arma el timeout)', () => {
+      const h = montarSesionConectada();
+      h.cambiarEstado('reconectando');
+      h.cambiarEstado('conectado');
+      vi.advanceTimersByTime(1); // primer sync-hola
+      h.mockEnviar.mockClear();
+
+      // El peer tiene más movimientos que yo.
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 5 });
+      // No responde con sync-moves...
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-moves' })
+      );
+      // ...pero el timeout re-armado dispara un reintento de sync-hola.
+      vi.advanceTimersByTime(3000);
+      expect(h.mockEnviar).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-hola' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('cuando el peer está atrás en época, le manda el registro completo de la época actual', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'reiniciar' }); // epoca -> 1, registro -> []
+      h.sesion.enviarMovimiento(2);
+      h.mockEnviar.mockClear();
+
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 1 });
+
+      expect(h.mockEnviar).toHaveBeenCalledWith({
+        tipo: 'sync-moves',
+        epoca: 1,
+        desde: 0,
+        movimientos: [2],
+      });
+      h.sesion.destruir();
+    });
   });
 });

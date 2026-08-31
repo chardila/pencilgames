@@ -110,6 +110,39 @@ export function iniciarSesionJuego<TMovimiento>(
     timeoutSync = setTimeout(alExpirarSync, 3000);
   }
 
+  function manejarSyncHola(msg: { epoca: number; seq: number }): void {
+    cancelarSync();
+    if (!canal) return;
+
+    if (msg.epoca === epoca) {
+      if (msg.seq < registro.length) {
+        canal.enviar({
+          tipo: 'sync-moves',
+          epoca,
+          desde: msg.seq,
+          movimientos: registro.slice(msg.seq),
+        });
+      } else if (msg.seq > registro.length) {
+        // Estoy atrás: espero su sync-moves. Re-armo el timeout para que
+        // un sync-moves perdido dispare igual el reintento/silencio.
+        timeoutSync = setTimeout(alExpirarSync, 3000);
+      }
+      // msg.seq === registro.length: en sync, nada que hacer.
+    } else if (msg.epoca > epoca) {
+      // Me perdí uno o más reinicios; el peer me manda un sync-moves
+      // completo. Re-armo el timeout por si se pierde.
+      timeoutSync = setTimeout(alExpirarSync, 3000);
+    } else {
+      // msg.epoca < epoca: el peer está atrás en reinicios.
+      canal.enviar({
+        tipo: 'sync-moves',
+        epoca,
+        desde: 0,
+        movimientos: [...registro],
+      });
+    }
+  }
+
   function alExpirarSync(): void {
     timeoutSync = null;
     if (!reintentoSyncHecho) {
@@ -145,6 +178,8 @@ export function iniciarSesionJuego<TMovimiento>(
       epoca++; // NUEVO
       registro = []; // NUEVO
       config.onAplicarReinicio();
+    } else if (mensaje.tipo === 'sync-hola') {
+      manejarSyncHola(mensaje);
     }
   }
 
