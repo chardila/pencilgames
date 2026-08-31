@@ -4,7 +4,7 @@ export type MensajeJuego =
   | { tipo: 'nombre'; nombre: string }
   | { tipo: 'movimiento'; payload: unknown }
   | { tipo: 'reiniciar' }
-  | { tipo: 'sync-hola'; epoca: number; seq: number }
+  | { tipo: 'sync-hola'; epoca: number; seq: number; hash?: number }
   | { tipo: 'sync-moves'; epoca: number; desde: number; movimientos: unknown[] };
 
 export interface MoveChannel {

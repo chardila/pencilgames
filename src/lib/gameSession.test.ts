@@ -762,11 +762,14 @@ describe('gameSession', () => {
       h.cambiarEstado('conectado');
       vi.advanceTimersByTime(1);
 
-      expect(h.mockEnviar).toHaveBeenCalledWith({
-        tipo: 'sync-hola',
-        epoca: 0,
-        seq: 2,
-      });
+      expect(h.mockEnviar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tipo: 'sync-hola',
+          epoca: 0,
+          seq: 2,
+          hash: expect.any(Number),
+        })
+      );
       h.sesion.destruir();
     });
 
@@ -949,6 +952,50 @@ describe('gameSession', () => {
       const banner = document.getElementById('banner-ganador')!;
       expect(banner.hidden).toBe(false);
       expect(banner.textContent).toContain('La partida se desincronizó');
+      h.sesion.destruir();
+    });
+
+    it('muestra el aviso si el sync-hola trae mismo seq pero hash de registro distinto', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 }); // registro [1, 2]
+
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 2, hash: 123456 });
+
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(false);
+      expect(banner.textContent).toContain('La partida se desincronizó');
+      h.sesion.destruir();
+    });
+
+    it('no muestra el aviso si el sync-hola de un peer sin hash coincide en seq', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 });
+
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 2 });
+
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(true);
+      h.sesion.destruir();
+    });
+
+    it('no muestra el aviso si el hash del sync-hola coincide con el registro local', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 });
+
+      h.cambiarEstado('reconectando');
+      h.cambiarEstado('conectado');
+      vi.advanceTimersByTime(1);
+      const hola = h.mockEnviar.mock.calls
+        .map(c => c[0])
+        .find(m => m.tipo === 'sync-hola')!;
+
+      h.enviarRemoto({ tipo: 'sync-hola', epoca: 0, seq: 2, hash: hola.hash });
+
+      const banner = document.getElementById('banner-ganador')!;
+      expect(banner.hidden).toBe(true);
       h.sesion.destruir();
     });
 

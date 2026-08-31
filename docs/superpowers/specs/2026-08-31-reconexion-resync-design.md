@@ -214,7 +214,9 @@ if (msg.epoca === epoca) {
     // sync-moves perdido dispare igual el reintento/silencio.
     timeoutSync = setTimeout(alExpirarSync, 3000);
   }
-  // msg.seq === registro.length: en sync, nada que hacer.
+  // msg.seq === registro.length: mismo largo. El issue #28 añadió un
+  // checksum FNV-1a del registro a `sync-hola`; si el hash difiere aquí
+  // (mismo epoca/seq, contenido distinto) → mostrarDesync().
 } else if (msg.epoca > epoca) {
   // Me perdí uno o más reinicios. No mando nada; el peer me manda un
   // sync-moves completo para su época. Re-armo el timeout por si se pierde.
