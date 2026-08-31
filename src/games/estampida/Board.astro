@@ -129,12 +129,14 @@ const FLECHAS = [
   );
 
   let state: EstampidaState = createInitialState();
+  let rivalSaltado = false;
 
   const sesion = iniciarSesionJuego<Move>({
     validarMovimiento: esJugadaValida,
     onMovimientoRemoto: move => jugar(move, false),
     onAplicarReinicio: () => {
       state = createInitialState();
+      rivalSaltado = false;
       render();
     },
     onRender: render,
@@ -191,6 +193,8 @@ const FLECHAS = [
       jugador: state.currentPlayer,
       simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
       puntajes,
+      repiteTurno: rivalSaltado,
+      motivoRepeticion: '⛔ Tu rival no puede avanzar: repites turno',
       detalle: enSetup
         ? `Coloca tus fichas (${state.colocadas[state.currentPlayer]}/${FICHAS_POR_JUGADOR})`
         : 'Elige una dirección',
@@ -201,6 +205,12 @@ const FLECHAS = [
     const prev = state;
     state = playMove(state, move);
     if (state === prev) return; // rechazado → no renderiza ni emite
+    // Una estampida normal siempre cambia de turno o termina la partida; mismo
+    // jugador y sigue en juego ⟹ el rival no podía avanzar y se le saltó.
+    rivalSaltado =
+      prev.fase === 'playing' &&
+      state.fase === 'playing' &&
+      prev.currentPlayer === state.currentPlayer;
     render();
     if (emitirRemoto) sesion.enviarMovimiento(move);
   }

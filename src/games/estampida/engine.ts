@@ -192,5 +192,6 @@ export function playMove(state: EstampidaState, move: Move): EstampidaState {
   for (const t of objetivos) board[t] = state.currentPlayer;
 
   const rival: Player = state.currentPlayer === 1 ? 2 : 1;
-  return cerrarTurno(board, state.colocadas, objetivos, move.dir, rival);
+  // Copia de `colocadas` para que cada estado tenga el suyo independiente.
+  return cerrarTurno(board, { ...state.colocadas }, objetivos, move.dir, rival);
 }
