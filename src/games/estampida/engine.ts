@@ -184,6 +184,13 @@ export function playMove(state: EstampidaState, move: Move): EstampidaState {
     };
   }
 
-  // state.fase === 'playing' — se completa en la Task 3.
-  return state;
+  // state.fase === 'playing'
+  if (move.tipo !== 'estampida') return state;
+
+  const objetivos = celdasQueCopian(state.board, state.currentPlayer, move.dir);
+  const board = [...state.board];
+  for (const t of objetivos) board[t] = state.currentPlayer;
+
+  const rival: Player = state.currentPlayer === 1 ? 2 : 1;
+  return cerrarTurno(board, state.colocadas, objetivos, move.dir, rival);
 }

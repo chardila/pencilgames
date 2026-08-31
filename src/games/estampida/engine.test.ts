@@ -11,6 +11,7 @@ import {
   type Cell,
   type Direccion,
   type EstampidaState,
+  type Player,
 } from './engine';
 
 // Helpers compartidos por todas las tasks.
@@ -218,5 +219,156 @@ describe('playMove — fase setup', () => {
     expect(s.fase).toBe('setup');
     expect(s.currentPlayer).toBe(2);
     expect(s.colocadas).toEqual({ 1: 5, 2: 4 });
+  });
+});
+
+// Construye un estado en fase 'playing' con el tablero dado.
+function estadoJuego(board: Cell[], currentPlayer: Player): EstampidaState {
+  return {
+    board,
+    fase: 'playing',
+    currentPlayer,
+    colocadas: { 1: FICHAS_POR_JUGADOR, 2: FICHAS_POR_JUGADOR },
+    winner: null,
+    ultimasCopias: [],
+    ultimaDireccion: null,
+  };
+}
+
+describe('playMove — fase playing (estampida)', () => {
+  it('duplica cada ficha con vecina vacía en la dirección elegida y pasa el turno', () => {
+    const board = tableroVacio();
+    board[idx(3, 3)] = 1;
+    board[idx(5, 1)] = 1;
+    board[idx(0, 0)] = 2; // el rival tiene movimiento (abajo/derecha)
+    const s = playMove(estadoJuego(board, 1), { tipo: 'estampida', dir: 'derecha' });
+    expect(s.board[idx(3, 4)]).toBe(1);
+    expect(s.board[idx(5, 2)]).toBe(1);
+    expect(s.currentPlayer).toBe(2);
+    expect(s.fase).toBe('playing');
+    expect(s.ultimasCopias.sort((a, b) => a - b)).toEqual([idx(3, 4), idx(5, 2)]);
+    expect(s.ultimaDireccion).toBe('derecha');
+  });
+
+  it('sin encadenar: una casilla llenada este turno no genera más copias', () => {
+    const board = tableroVacio();
+    board[idx(0, 0)] = 1;
+    board[idx(4, 4)] = 2;
+    const s = playMove(estadoJuego(board, 1), { tipo: 'estampida', dir: 'derecha' });
+    expect(s.board[idx(0, 1)]).toBe(1);
+    expect(s.board[idx(0, 2)]).toBeNull();
+    expect(s.ultimasCopias).toEqual([idx(0, 1)]);
+  });
+
+  it('rechaza una colocación durante la fase playing (misma referencia)', () => {
+    const board = tableroVacio();
+    board[idx(0, 0)] = 1;
+    const s = estadoJuego(board, 1);
+    expect(playMove(s, { tipo: 'colocar', celda: 5 })).toBe(s);
+  });
+
+  it('una dirección sin copias no cambia el tablero pero cede el turno', () => {
+    const board = tableroVacio();
+    board[idx(0, 0)] = 1; // columna 0: 'izquierda' no copia nada
+    board[idx(7, 7)] = 2; // el rival puede mover (arriba/izquierda)
+    const s = playMove(estadoJuego(board, 1), { tipo: 'estampida', dir: 'izquierda' });
+    expect(s.ultimasCopias).toEqual([]);
+    expect(s.board[idx(0, 0)]).toBe(1);
+    expect(contar(s.board)).toEqual({ 1: 1, 2: 1 });
+    expect(s.currentPlayer).toBe(2);
+    expect(s.fase).toBe('playing');
+  });
+
+  it('salta al rival que no tiene ningún movimiento posible', () => {
+    const board = tableroVacio();
+    // Jugador 2 amurallado: su única ficha tiene las 4 vecinas ocupadas por J1.
+    board[idx(3, 3)] = 2;
+    board[idx(2, 3)] = 1;
+    board[idx(4, 3)] = 1;
+    board[idx(3, 2)] = 1;
+    board[idx(3, 4)] = 1;
+    // Jugador 1 además tiene una ficha libre para mover.
+    board[idx(7, 0)] = 1;
+    const s = playMove(estadoJuego(board, 1), { tipo: 'estampida', dir: 'arriba' });
+    expect(s.board[idx(6, 0)]).toBe(1); // copió
+    expect(s.currentPlayer).toBe(1);    // el rival (2) está atascado → se le salta
+    expect(s.fase).toBe('playing');
+  });
+
+  it('termina con tablero lleno y gana quien tiene más casillas', () => {
+    // Tablero lleno de 1 salvo dos casillas que J1 va a rellenar de golpe.
+    const board = tableroVacio().map(() => 1 as Cell);
+    board[idx(0, 1)] = null;
+    board[idx(0, 3)] = null;
+    board[idx(0, 0)] = 1; // ficha fuente para (0,1)
+    board[idx(0, 2)] = 1; // ficha fuente para (0,3)
+    board[idx(7, 7)] = 2; // una sola casilla de J2
+    const s = playMove(estadoJuego(board, 1), { tipo: 'estampida', dir: 'derecha' });
+    expect(s.board.every(c => c !== null)).toBe(true);
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBe(1);
+  });
+
+  it('termina en empate cuando ambos tienen la misma cantidad de casillas', () => {
+    // Tablero ajedrezado (32–32); vaciamos una casilla de J1 y su vecina de
+    // arriba —también de J1— la rellena estampidando 'arriba' → vuelve a 32–32.
+    const board = tableroVacio();
+    for (let i = 0; i < 64; i++) board[i] = i % 2 === 0 ? 1 : 2; // par → J1
+    board[idx(0, 2)] = null;            // idx 2 (par) era de J1 → J1 baja a 31
+    // idx(1,2) = 10 (par) es de J1: su copia 'arriba' cae en idx(0,2).
+    const s = playMove(estadoJuego(board, 1), { tipo: 'estampida', dir: 'arriba' });
+    expect(s.board.every(c => c !== null)).toBe(true);
+    expect(s.fase).toBe('finished');
+    expect(contar(s.board)).toEqual({ 1: 32, 2: 32 });
+    expect(s.winner).toBeNull();
+  });
+
+  it('no permite más jugadas tras terminar (misma referencia)', () => {
+    const board = tableroVacio().map(() => 1 as Cell);
+    board[idx(0, 1)] = null;
+    board[idx(0, 0)] = 1;
+    const ganado = playMove(estadoJuego(board, 1), { tipo: 'estampida', dir: 'derecha' });
+    expect(ganado.fase).toBe('finished');
+    expect(playMove(ganado, { tipo: 'estampida', dir: 'abajo' })).toBe(ganado);
+  });
+});
+
+describe('fuzzing — partidas aleatorias completas', () => {
+  it('500 partidas: siempre termina con tablero lleno y ganador coherente', () => {
+    for (let partida = 0; partida < 500; partida++) {
+      let s = createInitialState();
+
+      while (s.fase === 'setup') {
+        const vacias: number[] = [];
+        s.board.forEach((c, i) => {
+          if (c === null) vacias.push(i);
+        });
+        const celda = vacias[Math.floor(Math.random() * vacias.length)];
+        s = playMove(s, { tipo: 'colocar', celda });
+      }
+
+      let iteraciones = 0;
+      while (s.fase === 'playing') {
+        expect(iteraciones++).toBeLessThan(200);
+        const vivas = (
+          ['arriba', 'abajo', 'izquierda', 'derecha'] as Direccion[]
+        ).filter(d => celdasQueCopian(s.board, s.currentPlayer, d).length > 0);
+        // Mientras queden casillas vacías, el jugador en turno nunca está atascado.
+        expect(vivas.length).toBeGreaterThan(0);
+        const dir = vivas[Math.floor(Math.random() * vivas.length)];
+        const antes = contar(s.board);
+        s = playMove(s, { tipo: 'estampida', dir });
+        const despues = contar(s.board);
+        expect(despues[1]).toBeGreaterThanOrEqual(antes[1]);
+        expect(despues[2]).toBeGreaterThanOrEqual(antes[2]);
+      }
+
+      expect(s.fase).toBe('finished');
+      expect(s.board.every(c => c !== null)).toBe(true);
+      const fin = contar(s.board);
+      expect(fin[1] + fin[2]).toBe(64);
+      if (fin[1] === fin[2]) expect(s.winner).toBeNull();
+      else expect(s.winner).toBe(fin[1] > fin[2] ? 1 : 2);
+    }
   });
 });
