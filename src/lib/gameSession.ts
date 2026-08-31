@@ -64,6 +64,9 @@ export function iniciarSesionJuego<TMovimiento>(
   let ultimoTurnoOpciones: MostrarTurnoOptions | null = null;
   let epoca = 0;
   let registro: TMovimiento[] = [];
+  let estadoPrevio: EstadoConexion = 'conectado';
+  let timeoutSync: ReturnType<typeof setTimeout> | null = null;
+  let reintentoSyncHecho = false;
 
   function alActualizarNombresLocales(evento: Event): void {
     const customEvent = evento as CustomEvent<PlayerNames>;
@@ -91,6 +94,28 @@ export function iniciarSesionJuego<TMovimiento>(
     canal.alCambiarEstado(manejarCambioEstado);
 
     config.onRender();
+  }
+
+  function cancelarSync(): void {
+    if (timeoutSync !== null) {
+      clearTimeout(timeoutSync);
+      timeoutSync = null;
+    }
+  }
+
+  function iniciarSync(): void {
+    if (!canal) return;
+    canal.enviar({ tipo: 'sync-hola', epoca, seq: registro.length });
+    cancelarSync();
+    timeoutSync = setTimeout(alExpirarSync, 3000);
+  }
+
+  function alExpirarSync(): void {
+    timeoutSync = null;
+    if (!reintentoSyncHecho) {
+      reintentoSyncHecho = true;
+      iniciarSync();
+    }
   }
 
   function manejarMensaje(mensaje: MensajeJuego): void {
@@ -124,7 +149,10 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function manejarCambioEstado(estado: EstadoConexion): void {
+    const veniaDeReconexion =
+      estadoPrevio === 'reconectando' || estadoPrevio === 'reconectando-rival';
     estadoConexion = estado;
+    estadoPrevio = estado;
     if (estado === 'reconectando' || estado === 'reconectando-rival') {
       // Durante la reconexión `esMiTurno()` pasa a devolver false para
       // ambos jugadores. Hay que re-renderizar el tablero para que cada
@@ -153,6 +181,13 @@ export function iniciarSesionJuego<TMovimiento>(
       }
     } else if (estado === 'conectado') {
       config.onRender();
+      if (veniaDeReconexion) {
+        // canalWebRTC hace flush de mensajesPendientesEnvio justo después de
+        // disparar este callback; enviar sync-hola en el próximo tick deja
+        // que cualquier flush síncrono gane la carrera por el cable.
+        reintentoSyncHecho = false;
+        setTimeout(iniciarSync, 0);
+      }
     } else if (estado === 'desconectado') {
       liberarWakeLock();
       const ind = getIndicadorTurno();
@@ -245,6 +280,7 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function destruir(): void {
+    cancelarSync();
     liberarWakeLock();
     limpiarVisibilidad?.();
     limpiarVisibilidad = null;

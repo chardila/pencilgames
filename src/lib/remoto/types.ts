@@ -3,7 +3,9 @@ export type EstadoConexion = 'conectando' | 'conectado' | 'reconectando' | 'reco
 export type MensajeJuego =
   | { tipo: 'nombre'; nombre: string }
   | { tipo: 'movimiento'; payload: unknown }
-  | { tipo: 'reiniciar' };
+  | { tipo: 'reiniciar' }
+  | { tipo: 'sync-hola'; epoca: number; seq: number }
+  | { tipo: 'sync-moves'; epoca: number; desde: number; movimientos: unknown[] };
 
 export interface MoveChannel {
   readonly asiento: 1 | 2;

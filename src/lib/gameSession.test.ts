@@ -695,4 +695,100 @@ describe('gameSession', () => {
 
     sesion.destruir();
   });
+
+  describe('resincronización tras reconexión', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function montarSesionConectada(asiento: 1 | 2 = 1) {
+      let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
+      let receptorEstado: ((estado: string) => void) | null = null;
+      const mockEnviar = vi.fn();
+      const mockCanal: MoveChannel = {
+        asiento,
+        estado: 'conectado',
+        enviar: mockEnviar,
+        alRecibir: vi.fn(cb => {
+          receptorMensajes = cb;
+        }),
+        alCambiarEstado: vi.fn(cb => {
+          receptorEstado = cb;
+        }),
+        cerrar: vi.fn(),
+      };
+      const onMovimientoRemoto = vi.fn();
+      const onAplicarReinicio = vi.fn();
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto,
+        onAplicarReinicio,
+        onRender: vi.fn(),
+      });
+      document.dispatchEvent(
+        new CustomEvent('canal-remoto-listo', {
+          detail: { channel: mockCanal, miNombre: 'Yo' },
+        })
+      );
+      return {
+        sesion,
+        mockEnviar,
+        onMovimientoRemoto,
+        onAplicarReinicio,
+        enviarRemoto: (msg: MensajeJuego) => receptorMensajes!(msg),
+        cambiarEstado: (e: string) => receptorEstado!(e),
+      };
+    }
+
+    it('no emite sync-hola en la primera conexión', () => {
+      const h = montarSesionConectada();
+      vi.advanceTimersByTime(1);
+      expect(h.mockEnviar).not.toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'sync-hola' })
+      );
+      h.sesion.destruir();
+    });
+
+    it('emite sync-hola con {epoca, seq} al volver a conectado tras una reconexión', () => {
+      const h = montarSesionConectada();
+      h.sesion.enviarMovimiento(1);
+      h.enviarRemoto({ tipo: 'movimiento', payload: 2 });
+      h.mockEnviar.mockClear();
+
+      h.cambiarEstado('reconectando');
+      h.cambiarEstado('conectado');
+      vi.advanceTimersByTime(1);
+
+      expect(h.mockEnviar).toHaveBeenCalledWith({
+        tipo: 'sync-hola',
+        epoca: 0,
+        seq: 2,
+      });
+      h.sesion.destruir();
+    });
+
+    it('reintenta sync-hola una sola vez si no hay respuesta, y después se rinde', () => {
+      const h = montarSesionConectada();
+      h.cambiarEstado('reconectando-rival');
+      h.cambiarEstado('conectado');
+      vi.advanceTimersByTime(1); // primer sync-hola
+      expect(
+        h.mockEnviar.mock.calls.filter(c => c[0].tipo === 'sync-hola')
+      ).toHaveLength(1);
+
+      vi.advanceTimersByTime(3000); // expira -> reintento
+      expect(
+        h.mockEnviar.mock.calls.filter(c => c[0].tipo === 'sync-hola')
+      ).toHaveLength(2);
+
+      vi.advanceTimersByTime(3000); // expira de nuevo -> se rinde
+      expect(
+        h.mockEnviar.mock.calls.filter(c => c[0].tipo === 'sync-hola')
+      ).toHaveLength(2);
+      h.sesion.destruir();
+    });
+  });
 });
