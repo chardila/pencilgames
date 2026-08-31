@@ -103,3 +103,87 @@ export function contar(board: Cell[]): Record<Player, number> {
   }
   return { 1: unos, 2: doses };
 }
+
+/**
+ * Decide el estado tras aplicar una jugada (o al arrancar la fase 'playing').
+ * `candidatoTurno` es a quién le tocaría normalmente. Reglas:
+ * - tablero lleno (o, defensivamente, ninguno puede mover) → 'finished' con
+ *   `winner` por conteo de casillas (`null` si empatan);
+ * - si `candidatoTurno` no puede mover pero el otro sí → se le salta;
+ * - en otro caso → 'playing' con `currentPlayer = candidatoTurno`.
+ */
+function cerrarTurno(
+  board: Cell[],
+  colocadas: Record<Player, number>,
+  ultimasCopias: number[],
+  ultimaDireccion: Direccion | null,
+  candidatoTurno: Player,
+): EstampidaState {
+  const otro: Player = candidatoTurno === 1 ? 2 : 1;
+  const lleno = board.every(c => c !== null);
+  const candidatoPuede = hayMovimientoPosible(board, candidatoTurno);
+  const otroPuede = hayMovimientoPosible(board, otro);
+
+  if (lleno || (!candidatoPuede && !otroPuede)) {
+    const c = contar(board);
+    const winner: Player | null = c[1] === c[2] ? null : c[1] > c[2] ? 1 : 2;
+    return {
+      board,
+      fase: 'finished',
+      currentPlayer: candidatoTurno,
+      colocadas,
+      winner,
+      ultimasCopias,
+      ultimaDireccion,
+    };
+  }
+
+  return {
+    board,
+    fase: 'playing',
+    currentPlayer: candidatoPuede ? candidatoTurno : otro,
+    colocadas,
+    winner: null,
+    ultimasCopias,
+    ultimaDireccion,
+  };
+}
+
+export function playMove(state: EstampidaState, move: Move): EstampidaState {
+  if (state.fase === 'finished') return state;
+  if (!esJugadaValida(move)) return state;
+
+  if (state.fase === 'setup') {
+    if (move.tipo !== 'colocar') return state;
+    if (state.board[move.celda] !== null) return state;
+
+    const board = [...state.board];
+    board[move.celda] = state.currentPlayer;
+    const colocadas: Record<Player, number> = {
+      1: state.colocadas[1] + (state.currentPlayer === 1 ? 1 : 0),
+      2: state.colocadas[2] + (state.currentPlayer === 2 ? 1 : 0),
+    };
+
+    const completo =
+      colocadas[1] >= FICHAS_POR_JUGADOR && colocadas[2] >= FICHAS_POR_JUGADOR;
+
+    if (completo) {
+      // Arranca 'playing'; el Jugador 1 mueve primero (regla de salto en
+      // cerrarTurno cubre el caso degenerado de que ya no pudiera).
+      return cerrarTurno(board, colocadas, [move.celda], null, 1);
+    }
+
+    return {
+      board,
+      fase: 'setup',
+      currentPlayer: state.currentPlayer === 1 ? 2 : 1,
+      colocadas,
+      winner: null,
+      ultimasCopias: [move.celda],
+      ultimaDireccion: null,
+    };
+  }
+
+  // state.fase === 'playing' — se completa en la Task 3.
+  return state;
+}

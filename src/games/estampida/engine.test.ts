@@ -5,10 +5,12 @@ import {
   celdasQueCopian,
   hayMovimientoPosible,
   contar,
+  playMove,
   TAMANO,
   FICHAS_POR_JUGADOR,
   type Cell,
   type Direccion,
+  type EstampidaState,
 } from './engine';
 
 // Helpers compartidos por todas las tasks.
@@ -142,5 +144,79 @@ describe('contar', () => {
 
   it('tablero vacío → { 1: 0, 2: 0 }', () => {
     expect(contar(tableroVacio())).toEqual({ 1: 0, 2: 0 });
+  });
+});
+
+// Coloca 5 fichas de cada jugador (alternando J1, J2) en las casillas dadas
+// y devuelve el estado resultante (fase 'playing').
+function correrSetup(celdas1: number[], celdas2: number[]): EstampidaState {
+  let s = createInitialState();
+  for (let k = 0; k < FICHAS_POR_JUGADOR; k++) {
+    s = playMove(s, { tipo: 'colocar', celda: celdas1[k] });
+    s = playMove(s, { tipo: 'colocar', celda: celdas2[k] });
+  }
+  return s;
+}
+
+describe('playMove — fase setup', () => {
+  it('coloca la ficha del jugador en turno, incrementa su contador y alterna', () => {
+    const s = playMove(createInitialState(), { tipo: 'colocar', celda: idx(2, 3) });
+    expect(s.board[idx(2, 3)]).toBe(1);
+    expect(s.colocadas).toEqual({ 1: 1, 2: 0 });
+    expect(s.currentPlayer).toBe(2);
+    expect(s.fase).toBe('setup');
+    expect(s.ultimasCopias).toEqual([idx(2, 3)]);
+    expect(s.ultimaDireccion).toBeNull();
+  });
+
+  it('rechaza colocar sobre una casilla ocupada (misma referencia)', () => {
+    const s1 = playMove(createInitialState(), { tipo: 'colocar', celda: 10 });
+    expect(playMove(s1, { tipo: 'colocar', celda: 10 })).toBe(s1);
+  });
+
+  it('rechaza una estampida durante el setup (misma referencia)', () => {
+    const s = createInitialState();
+    expect(playMove(s, { tipo: 'estampida', dir: 'arriba' })).toBe(s);
+  });
+
+  it('rechaza payload inválido (misma referencia)', () => {
+    const s = createInitialState();
+    expect(playMove(s, { tipo: 'colocar', celda: 99 } as never)).toBe(s);
+    expect(playMove(s, 5 as never)).toBe(s);
+  });
+
+  it('no muta el estado de entrada', () => {
+    const s = createInitialState();
+    const boardRef = s.board;
+    playMove(s, { tipo: 'colocar', celda: 0 });
+    expect(boardRef.every(c => c === null)).toBe(true);
+    expect(s.colocadas).toEqual({ 1: 0, 2: 0 });
+  });
+
+  it('al completar 5+5 pasa a fase playing con el turno del jugador 1', () => {
+    const s = correrSetup(
+      [idx(0, 0), idx(0, 1), idx(0, 2), idx(0, 3), idx(0, 4)],
+      [idx(7, 0), idx(7, 1), idx(7, 2), idx(7, 3), idx(7, 4)],
+    );
+    expect(s.fase).toBe('playing');
+    expect(s.currentPlayer).toBe(1);
+    expect(s.colocadas).toEqual({ 1: 5, 2: 5 });
+    expect(contar(s.board)).toEqual({ 1: 5, 2: 5 });
+    // la última colocación (5.ª de J2) queda resaltada
+    expect(s.ultimasCopias).toEqual([idx(7, 4)]);
+  });
+
+  it('la 9.ª colocación (J1) todavía es fase setup', () => {
+    let s = createInitialState();
+    const c1 = [idx(0, 0), idx(0, 1), idx(0, 2), idx(0, 3), idx(0, 4)];
+    const c2 = [idx(7, 0), idx(7, 1), idx(7, 2), idx(7, 3)];
+    for (let k = 0; k < 4; k++) {
+      s = playMove(s, { tipo: 'colocar', celda: c1[k] });
+      s = playMove(s, { tipo: 'colocar', celda: c2[k] });
+    }
+    s = playMove(s, { tipo: 'colocar', celda: c1[4] }); // 9.ª ficha, J1
+    expect(s.fase).toBe('setup');
+    expect(s.currentPlayer).toBe(2);
+    expect(s.colocadas).toEqual({ 1: 5, 2: 4 });
   });
 });
