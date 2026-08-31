@@ -66,7 +66,10 @@ export function iniciarSesionJuego<TMovimiento>(
   let registro: TMovimiento[] = [];
   let estadoPrevio: EstadoConexion = 'conectado';
   let timeoutSync: ReturnType<typeof setTimeout> | null = null;
+  let timeoutInicioSync: ReturnType<typeof setTimeout> | null = null;
   let reintentoSyncHecho = false;
+  let desincronizado = false;
+  const TIMEOUT_SYNC_MS = 3000;
 
   function alActualizarNombresLocales(evento: Event): void {
     const customEvent = evento as CustomEvent<PlayerNames>;
@@ -103,14 +106,23 @@ export function iniciarSesionJuego<TMovimiento>(
     }
   }
 
+  function rearmarSync(): void {
+    cancelarSync();
+    timeoutSync = setTimeout(alExpirarSync, TIMEOUT_SYNC_MS);
+  }
+
   function iniciarSync(): void {
+    if (timeoutInicioSync !== null) {
+      clearTimeout(timeoutInicioSync);
+      timeoutInicioSync = null;
+    }
     if (!canal) return;
     canal.enviar({ tipo: 'sync-hola', epoca, seq: registro.length });
-    cancelarSync();
-    timeoutSync = setTimeout(alExpirarSync, 3000);
+    rearmarSync();
   }
 
   function manejarSyncHola(msg: { epoca: number; seq: number }): void {
+    if (typeof msg.epoca !== 'number' || typeof msg.seq !== 'number') return;
     cancelarSync();
     if (!canal) return;
 
@@ -125,13 +137,13 @@ export function iniciarSesionJuego<TMovimiento>(
       } else if (msg.seq > registro.length) {
         // Estoy atrás: espero su sync-moves. Re-armo el timeout para que
         // un sync-moves perdido dispare igual el reintento/silencio.
-        timeoutSync = setTimeout(alExpirarSync, 3000);
+        rearmarSync();
       }
       // msg.seq === registro.length: en sync, nada que hacer.
     } else if (msg.epoca > epoca) {
       // Me perdí uno o más reinicios; el peer me manda un sync-moves
       // completo. Re-armo el timeout por si se pierde.
-      timeoutSync = setTimeout(alExpirarSync, 3000);
+      rearmarSync();
     } else {
       // msg.epoca < epoca: el peer está atrás en reinicios.
       canal.enviar({
@@ -150,6 +162,7 @@ export function iniciarSesionJuego<TMovimiento>(
   function mostrarDesync(): void {
     const ban = getBannerGanador();
     if (!ban) return;
+    desincronizado = true;
     showWinnerBanner(ban, {
       titulo: '⚠️ La partida se desincronizó',
       detalle: 'Reinicien para volver a empezar con el mismo rival.',
@@ -173,11 +186,19 @@ export function iniciarSesionJuego<TMovimiento>(
     desde: number;
     movimientos: unknown[];
   }): void {
+    if (
+      typeof msg.epoca !== 'number' ||
+      typeof msg.desde !== 'number' ||
+      !Array.isArray(msg.movimientos)
+    ) {
+      return;
+    }
     cancelarSync();
 
     if (msg.epoca > epoca) {
       epoca = msg.epoca;
       registro = [];
+      desincronizado = false;
       config.onAplicarReinicio();
       aplicarLote(msg.movimientos);
       return;
@@ -242,6 +263,7 @@ export function iniciarSesionJuego<TMovimiento>(
     } else if (mensaje.tipo === 'reiniciar') {
       epoca++;
       registro = [];
+      desincronizado = false;
       config.onAplicarReinicio();
     } else if (mensaje.tipo === 'sync-hola') {
       manejarSyncHola(mensaje);
@@ -288,7 +310,7 @@ export function iniciarSesionJuego<TMovimiento>(
         // disparar este callback; enviar sync-hola en el próximo tick deja
         // que cualquier flush síncrono gane la carrera por el cable.
         reintentoSyncHecho = false;
-        setTimeout(iniciarSync, 0);
+        timeoutInicioSync = setTimeout(iniciarSync, 0);
       }
     } else if (estado === 'desconectado') {
       liberarWakeLock();
@@ -324,6 +346,7 @@ export function iniciarSesionJuego<TMovimiento>(
   function reiniciar(): void {
     epoca++;
     registro = [];
+    desincronizado = false;
     config.onAplicarReinicio();
     canal?.enviar({ tipo: 'reiniciar' });
   }
@@ -364,7 +387,7 @@ export function iniciarSesionJuego<TMovimiento>(
       estadoReconexion,
     });
 
-    if (ban) hideWinnerBanner(ban);
+    if (ban && !desincronizado) hideWinnerBanner(ban);
   }
 
   function mostrarFinDeJuego(
@@ -383,6 +406,10 @@ export function iniciarSesionJuego<TMovimiento>(
 
   function destruir(): void {
     cancelarSync();
+    if (timeoutInicioSync !== null) {
+      clearTimeout(timeoutInicioSync);
+      timeoutInicioSync = null;
+    }
     liberarWakeLock();
     limpiarVisibilidad?.();
     limpiarVisibilidad = null;
