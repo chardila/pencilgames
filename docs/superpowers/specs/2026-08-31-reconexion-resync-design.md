@@ -1,7 +1,7 @@
 # Pencilgames — Resincronización de estado tras reconexión en modo remoto — Diseño
 
 **Fecha**: 2026-08-31
-**Estado**: Pendiente de revisión del usuario
+**Estado**: Implementado
 **Issue**: [#27](https://github.com/chardila/pencilgames/issues/27)
 
 ---

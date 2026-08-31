@@ -214,7 +214,12 @@ export function iniciarSesionJuego<TMovimiento>(
   function manejarMensaje(mensaje: MensajeJuego): void {
     if (mensaje.tipo === 'movimiento') {
       if (config.validarMovimiento(mensaje.payload)) {
-        registro.push(mensaje.payload); // NUEVO
+        // El registro asume que onMovimientoRemoto SIEMPRE aplica el
+        // movimiento (playMove puro, sin descarte silencioso). La PR #23
+        // arregló los dos juegos (sim, hex) donde el guard de turno dentro
+        // de jugar() descartaba movimientos remotos. Si un juego futuro
+        // reintroduce ese patrón, el replay de reconexión se rompe.
+        registro.push(mensaje.payload);
         config.onMovimientoRemoto(mensaje.payload);
       } else {
         console.warn(
@@ -235,8 +240,8 @@ export function iniciarSesionJuego<TMovimiento>(
         config.onRender();
       }
     } else if (mensaje.tipo === 'reiniciar') {
-      epoca++; // NUEVO
-      registro = []; // NUEVO
+      epoca++;
+      registro = [];
       config.onAplicarReinicio();
     } else if (mensaje.tipo === 'sync-hola') {
       manejarSyncHola(mensaje);
