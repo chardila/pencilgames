@@ -12,6 +12,7 @@ const FILAS_INICIALES = [1, 3, 5, 7];
           <button
             type="button"
             class="estrella"
+            role="gridcell"
             data-fila={fila}
             data-pos={pos}
             aria-label={`Fila ${fila + 1}, estrella ${pos + 1} de ${cantidad}`}
@@ -22,7 +23,7 @@ const FILAS_INICIALES = [1, 3, 5, 7];
   </div>
 
   <div id="barra-confirmar" class="barra-confirmar" hidden>
-    <span id="barra-texto" class="barra-confirmar__texto"></span>
+    <span id="barra-texto" class="barra-confirmar__texto" aria-live="polite"></span>
     <button type="button" id="nim-confirmar" class="barra-confirmar__btn barra-confirmar__btn--ok">Confirmar</button>
     <button type="button" id="nim-cancelar" class="barra-confirmar__btn">Cancelar</button>
   </div>
@@ -116,7 +117,7 @@ const FILAS_INICIALES = [1, 3, 5, 7];
 
   .barra-confirmar__btn--ok {
     background: var(--color-accent);
-    color: #fff;
+    color: var(--color-text);
   }
 </style>
 
@@ -181,7 +182,7 @@ const FILAS_INICIALES = [1, 3, 5, 7];
         !!seleccion && seleccion.fila === fila && pos >= seleccion.dejar && !quitada;
 
       e.classList.toggle('estrella--quitada', quitada);
-      e.classList.toggle('estrella--ultima', esUltima && quitada);
+      e.classList.toggle('estrella--ultima', esUltima);
       e.classList.toggle('estrella--seleccionada', enSeleccion);
       e.disabled = quitada || state.status !== 'playing' || !esMiTurno;
     });
@@ -206,7 +207,9 @@ const FILAS_INICIALES = [1, 3, 5, 7];
   }
 
   function jugar(move: NimMove, emitirRemoto = true): void {
-    state = playMove(state, move);
+    const nuevo = playMove(state, move);
+    if (nuevo === state) return;
+    state = nuevo;
     seleccion = null;
     limpiarPreview();
     render();
@@ -228,9 +231,9 @@ const FILAS_INICIALES = [1, 3, 5, 7];
     });
 
     estrella.addEventListener('pointerenter', () => {
+      limpiarPreview();
       if (estrella.disabled) return;
       const { fila, pos } = filaPos(estrella);
-      limpiarPreview();
       estrellas.forEach(e => {
         const fp = filaPos(e);
         if (fp.fila === fila && fp.pos >= pos && fp.pos < state.montones[fila]) {

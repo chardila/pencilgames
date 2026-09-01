@@ -51,7 +51,9 @@ remoto por WebRTC P2P, ficha de contenido en Astro
 - **Segundo toque en la misma estrella**, o botón **Confirmar**: ejecuta la
   jugada.
 - **Toque en otra estrella** (misma u otra fila): mueve la selección.
-- **Cancelar**, o toque fuera del tablero: limpia la selección.
+- **Cancelar**: limpia la selección. `pointerleave` del tablero sólo limpia el
+  resaltado de hover (`--preview`), no la selección; ésta se limpia con Cancelar
+  o al confirmar/ejecutar la jugada.
 - **Escritorio**: `pointerenter` muestra el mismo resaltado en tono tenue
   (`--preview`) sin necesidad de seleccionar; el flujo de confirmar sigue vigente.
 

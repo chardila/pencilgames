@@ -5,7 +5,6 @@ import {
   playMove,
   FILAS_INICIALES,
   TOTAL_FICHAS,
-  type NimState,
 } from './engine';
 
 describe('createInitialState', () => {
