@@ -67,5 +67,50 @@ export function regionesLegales(state: ColState, player: Player): number[] {
   return res;
 }
 
-// playMove se añade en la Task 3.
+export function playMove(state: ColState, move: ColMove): ColState {
+  if (state.status !== 'playing') return state;
+  if (!esJugadaValida(move)) return state;
+
+  if (move.tipo === 'mapa') {
+    if (state.fase !== 'seleccion') return state;
+    const mapa = MAPAS[move.mapaId];
+    if (!mapa) return state;
+    return {
+      ...state,
+      mapaId: move.mapaId,
+      fase: 'jugando',
+      colores: Array(mapa.regiones.length).fill(0) as RegionColor[],
+      lastMove: null,
+    };
+  }
+
+  // move.tipo === 'color'
+  if (state.fase !== 'jugando' || state.mapaId === null) return state;
+  const mapa = MAPAS[state.mapaId];
+  if (move.region >= mapa.regiones.length) return state;
+  if (!regionesLegales(state, state.currentPlayer).includes(move.region)) {
+    return state;
+  }
+
+  const colores = [...state.colores];
+  colores[move.region] = state.currentPlayer;
+  const siguiente: ColState = {
+    ...state,
+    colores,
+    lastMove: move.region,
+  };
+
+  const rival = otro(state.currentPlayer);
+  if (regionesLegales(siguiente, rival).length === 0) {
+    return {
+      ...siguiente,
+      status: 'won',
+      winner: state.currentPlayer,
+      fase: 'terminado',
+    };
+  }
+
+  return { ...siguiente, currentPlayer: rival };
+}
+
 export { otro };
