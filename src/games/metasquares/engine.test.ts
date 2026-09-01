@@ -195,6 +195,17 @@ describe('metasquares engine - fin de partida', () => {
     expect(despues).toBe(ganado);
   });
 
+  // Esta prueba y la de "draw" de abajo son la ÚNICA cobertura de la rama de
+  // tablero lleno de playMove: el fuzz de 500 partidas nunca llena el tablero
+  // (toda partida aleatoria termina al alcanzar OBJETIVO=5).
+  //
+  // Notas sobre el fixture sintético:
+  //  (i) `scores` se fija a mano, desacoplado de `claimed.length`, porque este
+  //      es un estado casi-lleno que el juego normal no alcanza con facilidad.
+  //  (ii) `claimed` se pre-rellena con los cuadrados del tablero YA colocado
+  //      (`post`, con la celda 48 puesta) para que la jugada final banque CERO
+  //      cuadrados nuevos; así el marcador del otro jugador no cruza OBJETIVO
+  //      y no roba la rama de victoria por objetivo.
   it('tablero lleno bajo objetivo: gana la mayoría (rama sintética)', () => {
     const board: (Player | null)[] = [];
     for (let i = 0; i < 49; i++) board.push(i === 48 ? null : ((i % 2) + 1) as Player);
@@ -215,6 +226,13 @@ describe('metasquares engine - fin de partida', () => {
     expect(playMove(s, { celda: 48 }).status).toEqual({ kind: 'won', winner: 1 });
   });
 
+  // Segundo (y último) test que cubre la rama de tablero lleno. Mismo criterio
+  // que el anterior:
+  //  (i) `scores` se fija a mano (3-3), desacoplado de `claimed.length`, porque
+  //      es un estado casi-lleno inalcanzable por juego normal con facilidad.
+  //  (ii) `claimed` se pre-rellena desde el tablero ya colocado (`post`) para
+  //      que la jugada final banque CERO cuadrados nuevos y el marcador siga
+  //      empatado, entrando así en la rama `draw`.
   it('tablero lleno con marcador empatado: draw (rama sintética)', () => {
     const board: (Player | null)[] = [];
     for (let i = 0; i < 49; i++) board.push(i === 48 ? null : ((i % 2) + 1) as Player);
@@ -237,6 +255,14 @@ describe('metasquares engine - fin de partida', () => {
 });
 
 describe('metasquares engine - fuzz', () => {
+  // Qué valida este fuzz (y qué NO):
+  //  (a) ninguna de las 500 partidas lanza excepción;
+  //  (b) el invariante por jugada `scores[p] === claimed.filter(c => c.player === p).length`
+  //      se mantiene en cada ply;
+  //  (c) toda partida termina (status deja de ser 'playing').
+  // NO ejercita la rama de tablero lleno ni la de `draw`: en la práctica las
+  // partidas aleatorias terminan al alcanzar OBJETIVO=5, no por llenar el
+  // tablero. Esa rama solo la cubren los dos tests sintéticos de arriba.
   it('500 partidas aleatorias: sin excepciones e invariantes se mantienen', () => {
     let rng = 123456789;
     const rand = () => {

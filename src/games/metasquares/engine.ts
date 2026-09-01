@@ -56,7 +56,7 @@ function enumerarCuadrados(): Square[] {
             continue;
           }
           const celdas = pts.map(([px, py]) => py * TAMANO + px);
-          const ordenadas = [...celdas].sort((a, b) => a - b) as [
+          const ordenadas = celdas.sort((a, b) => a - b) as [
             Cell,
             Cell,
             Cell,
@@ -135,7 +135,7 @@ export function playMove(
   for (const sq of TODOS_LOS_CUADRADOS) {
     if (yaAnotados.has(claveEsquinas(sq.corners))) continue;
     if (sq.corners.every(c => board[c] === jugador)) {
-      nuevos.push({ player: jugador, corners: sq.corners });
+      nuevos.push({ player: jugador, corners: [...sq.corners] });
     }
   }
 

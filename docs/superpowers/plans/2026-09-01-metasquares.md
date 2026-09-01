@@ -840,7 +840,7 @@ git commit -m "feat(metasquares): Board.astro, contenido y registro del juego"
 - `gameSession`/`types`/`worker` intactos → ninguna tarea los toca. ✅
 - Contenido + registro + GAME-INDEX → Task 3. ✅
 
-**2. Placeholder scan:** El test "tablero lleno sin objetivo" de Task 2 es un stub deliberado (`expect(true).toBe(true)`) porque construir ese estado a mano no es práctico; la rama se cubre en el fuzz test, que sí la ejerce y valida. Aceptable y documentado. La nota sobre ajustar índices de secuencias es una instrucción real, no un placeholder.
+**2. Placeholder scan:** El stub "tablero lleno sin objetivo" de Task 2 (`expect(true).toBe(true)`) se reemplazó durante la implementación por dos tests sintéticos directos de `playMove` que cubren la rama de victoria por mayoría y la de `draw` con tablero lleno. El fuzz test valida ausencia de excepciones, el invariante por jugada `scores`/`claimed` y la terminación de cada partida, pero empíricamente las partidas aleatorias terminan al alcanzar el objetivo de 5 puntos, no por llenar el tablero. La nota sobre ajustar índices de secuencias es una instrucción real, no un placeholder.
 
 **3. Type consistency:** `MetaSquaresState`, `Move = { celda: Cell }`, `status: { kind }`, `scores: Record<Player, number>`, `claimed: ClaimedSquare[]` usados igual en Tasks 1-3. `esJugadaValida` es el type guard pasado a `validarMovimiento` (igual que Estampida). `contarOcupadas` definida en Task 2, consumida en Task 3. `createInitialState` / `playMove` — nombres del repo. ✅
 
