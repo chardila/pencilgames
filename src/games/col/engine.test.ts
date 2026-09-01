@@ -64,6 +64,12 @@ describe('regionesLegales', () => {
 
   it('en fase seleccion o terminado devuelve []', () => {
     expect(regionesLegales(createInitialState(), 1)).toEqual([]);
+    expect(
+      regionesLegales(
+        { ...createInitialState(), fase: 'terminado', mapaId: 0 },
+        1
+      )
+    ).toEqual([]);
   });
 
   it('con el tablero vacío, todas las regiones son legales para ambos', () => {

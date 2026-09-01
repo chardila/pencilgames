@@ -24,7 +24,7 @@ import { MAPAS } from './maps';
   <p id="col-espera" class="col-espera" hidden></p>
 
   <div id="col-tablero" class="col-tablero" hidden>
-    <svg id="col-svg" role="grid" aria-label="Mapa de Col">
+    <svg id="col-svg" aria-label="Mapa de Col">
       <defs>
         <pattern id="col-trama-1" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="8" height="8" fill="var(--color-player-1)" opacity="0.25" />
@@ -190,7 +190,6 @@ import { MAPAS } from './maps';
       const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       p.setAttribute('d', r.path);
       p.setAttribute('class', 'col-region');
-      p.dataset.region = String(r.id);
       p.addEventListener('click', () => {
         jugar({ tipo: 'color', region: r.id });
       });
@@ -206,9 +205,11 @@ import { MAPAS } from './maps';
       selectorEl.hidden = !meTocaElegir;
       esperaEl.hidden = meTocaElegir;
       if (!meTocaElegir) {
-        esperaEl.textContent = `Esperando a que ${
-          sesion.nombres[state.jugadorInicial]
-        } elija el mapa…`;
+        const soyElQueElige =
+          sesion.miAsiento !== null && sesion.miAsiento === state.jugadorInicial;
+        esperaEl.textContent = soyElQueElige
+          ? 'Reconectando…'
+          : `Esperando a que ${sesion.nombres[state.jugadorInicial]} elija el mapa…`;
       }
       return;
     }

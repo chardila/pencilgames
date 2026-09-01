@@ -65,6 +65,41 @@ describe('MAPAS', () => {
         expect(esConexo(mapa)).toBe(true);
       });
 
+      it('las adyacencias declaradas coinciden con la geometría de los rectángulos', () => {
+        // path exacto: `M{x1} {y1} H{x2} V{y2} H{x1} Z`
+        const rects = mapa.regiones.map(r => {
+          const m = r.path.match(
+            /^M(-?[\d.]+) (-?[\d.]+) H(-?[\d.]+) V(-?[\d.]+) H(-?[\d.]+) Z$/
+          );
+          if (!m) throw new Error(`path inesperado: ${r.path}`);
+          const [x1, y1, x2, y2] = [m[1], m[2], m[3], m[4]].map(Number);
+          return { x1, y1, x2, y2 };
+        });
+
+        const solapa = (a1: number, a2: number, b1: number, b2: number) =>
+          Math.min(a2, b2) - Math.max(a1, b1) > 0;
+
+        const geom: string[] = [];
+        for (let i = 0; i < rects.length; i++) {
+          for (let j = i + 1; j < rects.length; j++) {
+            const a = rects[i];
+            const b = rects[j];
+            const bordeVertical =
+              (a.x2 === b.x1 || b.x2 === a.x1) &&
+              solapa(a.y1, a.y2, b.y1, b.y2);
+            const bordeHorizontal =
+              (a.y2 === b.y1 || b.y2 === a.y1) &&
+              solapa(a.x1, a.x2, b.x1, b.x2);
+            if (bordeVertical || bordeHorizontal) geom.push(`${i}-${j}`);
+          }
+        }
+
+        const declaradas = mapa.adyacencias
+          .map(([a, b]) => `${Math.min(a, b)}-${Math.max(a, b)}`)
+          .sort();
+        expect(geom.sort()).toEqual(declaradas);
+      });
+
       it('sonAdyacentes es simétrico', () => {
         for (const [a, b] of mapa.adyacencias) {
           expect(sonAdyacentes(mapa, a, b)).toBe(true);
