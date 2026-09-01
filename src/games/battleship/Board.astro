@@ -9,8 +9,15 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
 <TableroJuego class="tablero-battleship">
   <div id="interstitial" class="interstitial">
-    <p id="interstitial-texto" class="interstitial__texto"></p>
+    <p id="interstitial-texto" class="interstitial__texto">Jugador 1 (●): coloca tu flota</p>
     <button type="button" id="empezar" class="boton-primario">Empezar</button>
+  </div>
+
+  <div id="handoff" class="interstitial" hidden>
+    <p id="handoff-texto" class="interstitial__texto"></p>
+    <button type="button" id="handoff-continuar" class="boton-primario">
+      Pasar el dispositivo
+    </button>
   </div>
 
   <p id="espera" class="mensaje-espera" hidden>
@@ -94,7 +101,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
   .etiquetas {
     display: grid;
     font-size: 0.75rem;
-    color: var(--color-text-muted, #666);
+    color: #666;
   }
 
   .etiquetas span {
@@ -145,7 +152,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
   }
 
   .casilla[data-estado='agua'] {
-    color: var(--color-text-muted, #888);
+    color: #666;
   }
 
   .casilla[data-estado='tocado'],
@@ -197,7 +204,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
   .boton-primario {
     background: var(--color-accent);
-    color: #fff;
+    color: var(--color-text);
   }
 </style>
 
@@ -228,6 +235,11 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
   const interstitial = document.getElementById('interstitial')!;
   const interstitialTexto = document.getElementById('interstitial-texto')!;
+  const handoff = document.getElementById('handoff')!;
+  const handoffTexto = document.getElementById('handoff-texto')!;
+  const handoffContinuarBtn = document.getElementById(
+    'handoff-continuar',
+  ) as HTMLButtonElement;
   const empezarBtn = document.getElementById('empezar') as HTMLButtonElement;
   const espera = document.getElementById('espera')!;
   const zonaTablero = document.getElementById('zona-tablero')!;
@@ -245,6 +257,14 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
   let flotaPrevia: number[][] = generarFlotaAleatoria();
   // Baja tras pulsar "Empezar"; el nuevo colocador la sube de nuevo.
   let listoParaColocar = false;
+  // Pass-and-play (miAsiento === null): tras un disparo que no acaba la partida,
+  // el tirador ve su propio tablero con la marca fresca antes de pasar el móvil.
+  // Nunca se fija en modo remoto.
+  let handoffPendiente: {
+    tirador: Player;
+    celda: number;
+    resultado: 'agua' | 'tocado' | 'hundido';
+  } | null = null;
 
   const sesion = iniciarSesionJuego<Move>({
     validarMovimiento: esJugadaValida,
@@ -253,12 +273,15 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       state = createInitialState();
       flotaPrevia = generarFlotaAleatoria();
       listoParaColocar = false;
+      handoffPendiente = null;
       render();
     },
     onRender: render,
     onDesconectar: () => {
       casillasEl.forEach(c => (c.disabled = true));
-      [empezarBtn, barajarBtn, confirmarBtn].forEach(b => (b.disabled = true));
+      [empezarBtn, barajarBtn, confirmarBtn, handoffContinuarBtn].forEach(
+        b => (b.disabled = true),
+      );
     },
   });
 
@@ -280,29 +303,57 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       // envía "Confirmar flota".
       flotaPrevia = generarFlotaAleatoria();
     }
+    // Handoff pass-and-play: el tirador ve su disparo antes de pasar el móvil.
+    // Solo local; si el disparo acabó la partida, el banner de victoria basta.
+    if (
+      sesion.miAsiento === null &&
+      prev.fase === 'disparos' &&
+      move.tipo === 'disparo' &&
+      state.fase !== 'finished'
+    ) {
+      handoffPendiente = {
+        tirador: prev.currentPlayer,
+        celda: move.celda,
+        resultado: state.ultimoDisparo!.resultado,
+      };
+    }
     render();
     if (emitirRemoto) sesion.enviarMovimiento(move);
   }
 
   function render(): void {
     const asiento = sesion.miAsiento; // Player | null
-    const vista: Player = asiento ?? state.currentPlayer; // perspectiva a mostrar
+    const enHandoff = handoffPendiente !== null;
+    // En handoff mostramos el tablero del propio tirador (sus disparos), con la
+    // marca recién puesta, mientras el overlay pide pasar el dispositivo.
+    const vista: Player = enHandoff
+      ? handoffPendiente!.tirador
+      : (asiento ?? state.currentPlayer); // perspectiva a mostrar
     const esMiTurno = sesion.esMiTurno(state.currentPlayer);
     const enColocacion = state.fase === 'colocacion';
     const enDisparos = state.fase === 'disparos';
     // La cuadrícula de tiros y el resumen siguen visibles al terminar la
     // partida (como en todos los juegos del repo el tablero final no se borra).
     const mostrarTiros = enDisparos || state.fase === 'finished';
-    const enInterstitial = enColocacion && esMiTurno && !listoParaColocar;
+    const enInterstitial = !enHandoff && enColocacion && esMiTurno && !listoParaColocar;
     const mostrarPreview = enColocacion && esMiTurno && listoParaColocar;
 
     interstitial.hidden = !enInterstitial;
     if (enInterstitial) {
       interstitialTexto.textContent = `Jugador ${state.currentPlayer} (${FICHAS[state.currentPlayer]}): coloca tu flota`;
     }
-    espera.hidden = !(enColocacion && !esMiTurno);
+    handoff.hidden = !enHandoff;
+    if (enHandoff) {
+      const h = handoffPendiente!;
+      handoffTexto.textContent = `Jugador ${h.tirador} (${FICHAS[h.tirador]}) disparó a ${coord(h.celda)} — ${textoResultado(h.resultado)}`;
+    }
+    espera.hidden = enHandoff || !(enColocacion && !esMiTurno);
     zonaTablero.hidden = enInterstitial || (enColocacion && !esMiTurno);
     controlesColocacion.hidden = !mostrarPreview;
+    tablero.setAttribute(
+      'aria-label',
+      mostrarPreview ? 'Tu flota, 8 por 8' : 'Aguas del rival, 8 por 8',
+    );
 
     const celdasPreview = new Set<number>(mostrarPreview ? flotaPrevia.flat() : []);
 
@@ -311,7 +362,8 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
         const r = state.disparos[vista][i];
         casilla.textContent = glifoEstado(r);
         casilla.dataset.estado = r ?? '';
-        casilla.disabled = r !== null || !esMiTurno || state.fase === 'finished';
+        casilla.disabled =
+          enHandoff || r !== null || !esMiTurno || state.fase === 'finished';
       } else if (mostrarPreview) {
         casilla.textContent = '';
         casilla.dataset.estado = celdasPreview.has(i) ? 'barco' : '';
@@ -353,6 +405,11 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
   empezarBtn.addEventListener('click', () => {
     listoParaColocar = true;
+    render();
+  });
+
+  handoffContinuarBtn.addEventListener('click', () => {
+    handoffPendiente = null;
     render();
   });
 

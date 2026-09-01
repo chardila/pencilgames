@@ -386,10 +386,21 @@ describe('fuzzing — partidas aleatorias completas', () => {
         const cola = pendientes[yo];
         const pos = Math.floor(Math.random() * cola.length);
         const celda = cola.splice(pos, 1)[0];
-        const aFloteAntes = barcosAFlote(s, yo === 1 ? 2 : 1);
-        s = playMove(s, { tipo: 'disparo', celda });
         const rival: Player = yo === 1 ? 2 : 1;
+        const aFloteAntes = barcosAFlote(s, rival);
+        // Las flotas no cambian en fase disparos: leer s.flotas[rival] tras la
+        // jugada sigue siendo la colocación previa al disparo.
+        s = playMove(s, { tipo: 'disparo', celda });
         expect(barcosAFlote(s, rival)).toBeLessThanOrEqual(aFloteAntes);
+
+        const enFlotaRival = s.flotas[rival]!.flat().includes(celda);
+        if (enFlotaRival) {
+          expect(['tocado', 'hundido']).toContain(s.ultimoDisparo!.resultado);
+        } else {
+          expect(s.ultimoDisparo!.resultado).toBe('agua');
+        }
+        // El turno alterna siempre que la partida siga en disparos.
+        if (s.fase === 'disparos') expect(s.currentPlayer).not.toBe(yo);
       }
 
       expect(s.fase).toBe('finished');
