@@ -17,3 +17,6 @@ dist/
 
 # Instrucciones locales de RTK, específicas de la máquina
 CLAUDE.md
+
+# SDD scratch (superpowers subagent-driven-development)
+.superpowers/
