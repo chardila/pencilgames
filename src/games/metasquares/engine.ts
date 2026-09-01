@@ -101,3 +101,70 @@ export function movimientosLegales(state: MetaSquaresState): Cell[] {
   for (let i = 0; i < TOTAL; i++) if (state.board[i] === null) celdas.push(i);
   return celdas;
 }
+
+function claveEsquinas(corners: readonly number[]): string {
+  return corners.join(',');
+}
+
+export function contarOcupadas(state: MetaSquaresState): Record<Player, number> {
+  let a = 0;
+  let b = 0;
+  for (const c of state.board) {
+    if (c === 1) a++;
+    else if (c === 2) b++;
+  }
+  return { 1: a, 2: b };
+}
+
+export function playMove(
+  state: MetaSquaresState,
+  move: Move,
+): MetaSquaresState {
+  if (state.status.kind !== 'playing') return state;
+  if (!esJugadaValida(move)) return state;
+  if (state.board[move.celda] !== null) return state;
+
+  const jugador = state.currentPlayer;
+  const board = [...state.board];
+  board[move.celda] = jugador;
+
+  const yaAnotados = new Set(
+    state.claimed.map(c => claveEsquinas(c.corners)),
+  );
+  const nuevos: ClaimedSquare[] = [];
+  for (const sq of TODOS_LOS_CUADRADOS) {
+    if (yaAnotados.has(claveEsquinas(sq.corners))) continue;
+    if (sq.corners.every(c => board[c] === jugador)) {
+      nuevos.push({ player: jugador, corners: sq.corners });
+    }
+  }
+
+  const scores: Record<Player, number> = {
+    1: state.scores[1] + (jugador === 1 ? nuevos.length : 0),
+    2: state.scores[2] + (jugador === 2 ? nuevos.length : 0),
+  };
+  const claimed = [...state.claimed, ...nuevos];
+
+  let status: Status;
+  let currentPlayer: Player = jugador === 1 ? 2 : 1;
+
+  if (scores[jugador] >= OBJETIVO) {
+    status = { kind: 'won', winner: jugador };
+    currentPlayer = jugador;
+  } else if (board.every(c => c !== null)) {
+    if (scores[1] > scores[2]) status = { kind: 'won', winner: 1 };
+    else if (scores[2] > scores[1]) status = { kind: 'won', winner: 2 };
+    else status = { kind: 'draw' };
+  } else {
+    status = { kind: 'playing' };
+  }
+
+  return {
+    board,
+    currentPlayer,
+    scores,
+    claimed,
+    lastMove: move.celda,
+    status,
+  };
+}
