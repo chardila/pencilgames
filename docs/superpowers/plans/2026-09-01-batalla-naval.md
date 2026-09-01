@@ -543,7 +543,7 @@ export function playMove(state: BattleshipState, move: Move): BattleshipState {
   if (state.fase === 'colocacion') {
     if (move.tipo !== 'flota') return state;
     // esJugadaValida ya validó la colocación; normalizamos cada barco.
-    const barcos = move.barcos.map(b => [...b].sort((a, b) => a - b));
+    const barcos = move.barcos.map(barco => [...barco].sort((a, b) => a - b));
     const yo = state.currentPlayer;
     const flotas: Record<Player, number[][] | null> = {
       1: yo === 1 ? barcos : state.flotas[1],
@@ -1116,6 +1116,11 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       prev.currentPlayer !== state.currentPlayer
     ) {
       listoParaColocar = false;
+      // CRÍTICO para el secreto: sin esto, el nuevo colocador vería (y podría
+      // confirmar) la flota que el anterior acaba de fijar. Inocuo en remoto —
+      // el preview local nunca entró al estado; el payload sigue siendo lo que
+      // envía "Confirmar flota".
+      flotaPrevia = generarFlotaAleatoria();
     }
     render();
     if (emitirRemoto) sesion.enviarMovimiento(move);
@@ -1127,6 +1132,9 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
     const esMiTurno = sesion.esMiTurno(state.currentPlayer);
     const enColocacion = state.fase === 'colocacion';
     const enDisparos = state.fase === 'disparos';
+    // La cuadrícula de tiros y el resumen siguen visibles al terminar la
+    // partida (como en todos los juegos del repo el tablero final no se borra).
+    const mostrarTiros = enDisparos || state.fase === 'finished';
     const enInterstitial = enColocacion && esMiTurno && !listoParaColocar;
     const mostrarPreview = enColocacion && esMiTurno && listoParaColocar;
 
@@ -1141,11 +1149,11 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
     const celdasPreview = new Set<number>(mostrarPreview ? flotaPrevia.flat() : []);
 
     casillasEl.forEach((casilla, i) => {
-      if (enDisparos) {
+      if (mostrarTiros) {
         const r = state.disparos[vista][i];
         casilla.textContent = glifoEstado(r);
         casilla.dataset.estado = r ?? '';
-        casilla.disabled = r !== null || !esMiTurno;
+        casilla.disabled = r !== null || !esMiTurno || state.fase === 'finished';
       } else if (mostrarPreview) {
         casilla.textContent = '';
         casilla.dataset.estado = celdasPreview.has(i) ? 'barco' : '';
@@ -1157,9 +1165,9 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       }
     });
 
-    resumenFlota.hidden = !enDisparos;
-    mensajeDisparo.hidden = !enDisparos;
-    if (enDisparos) {
+    resumenFlota.hidden = !mostrarTiros;
+    mensajeDisparo.hidden = !mostrarTiros;
+    if (mostrarTiros) {
       resumenFlota.textContent = `Tu flota: ${barcosAFlote(state, vista)} de ${TOTAL_BARCOS} a flote`;
       const ud = state.ultimoDisparo;
       mensajeDisparo.textContent =
@@ -1247,10 +1255,10 @@ Expected: build limpio; la ruta `/juegos/battleship` aparece en la salida.
 Run: `npm run dev`, abrir `http://localhost:4321/juegos/battleship`, cerrar el modal de instrucciones, elegir modo local. Con DevTools a ~375 px de ancho, verificar:
 - El `grid-wrap` (etiquetas A–H / 1–8 + tablero 8×8) cabe sin scroll horizontal en escritorio y en móvil.
 - **Colocación J1:** aparece el interstitial "Jugador 1 (●): coloca tu flota" con "Empezar". Al tocar "Empezar" se ve el tablero con 12 celdas sombreadas (la flota) y los botones "Barajar" / "Confirmar flota". "Barajar" cambia la disposición. "Confirmar flota" pasa al interstitial "Jugador 2 (▲)…".
-- **Colocación J2:** igual; al confirmar, el tablero se limpia y el indicador de turno pasa a "Elige dónde disparar", turno del Jugador 1.
+- **Colocación J2:** al tocar "Empezar", la flota que ve J2 es **distinta** de la que J1 acababa de confirmar (compara mentalmente las 12 celdas sombreadas antes y después del cambio de jugador — nunca deben coincidir). Al confirmar, el tablero se limpia y el indicador de turno pasa a "Elige dónde disparar", turno del Jugador 1.
 - **Disparos:** tocar una casilla la marca `·` (agua) o `✳` (tocado); al derribar el último trozo de un barco sus celdas pasan a `✖` con anillo. El turno alterna en cada disparo. Bajo el tablero: "Tu flota: N de 4 a flote" y, tras el primer disparo del rival, "Te dispararon en X — …". Una casilla ya disparada no responde.
 - El marcador del indicador de turno muestra los barcos a flote de cada jugador (`4` / `4` al empezar).
-- Al hundir el último barco rival: banner "🎉 ¡Ganó …!" con "Hundió toda la flota rival".
+- Al hundir el último barco rival: banner "🎉 ¡Ganó …!" con "Hundió toda la flota rival". La cuadrícula de tiros y el "N de 4 a flote" **siguen visibles** detrás del banner (no se borran); ninguna casilla responde al toque.
 - "Jugar de nuevo" vuelve al interstitial de J1.
 - Consola sin errores.
 Detener el dev server.
@@ -1304,6 +1312,8 @@ Tras la Task 4, con `npm test`, `npx astro check` y `npm run build` en verde:
 - `mostrarTurno` con `simbolos` + `puntajes` (barcos a flote) + `detalle`; `mostrarFinDeJuego` con `titulo`/`detalle` → Task 4 Step 3.
 - Interstitial "esperando" para el lado que no coloca en remoto (`esMiTurno` false en `colocacion`) → Task 4 Step 3 (`espera.hidden`).
 - "Jugar de nuevo" reinicia a `colocacion` + interstitial J1 → Task 4 (`onAplicarReinicio`) + Step 7.
+- Al cambiar el colocador se regenera `flotaPrevia` (si no, el 2.º colocador vería/confirmaría la flota del 1.º — rompe el secreto) → Task 4 Step 3, bloque de `jugar()` + assertion en Step 7.
+- El tablero final no se borra al ganar (`mostrarTiros = disparos || finished`) → Task 4 Step 3 + Step 7.
 - Contenido, registro estático en `[slug].astro`, backlog `GAME-INDEX.md` fila 37 ✅ (ficha no se toca) → Task 4 Steps 1, 4, 5.
 - Fuera de alcance (10×10, flota de 5, "cañonero", "tocado repite", >2 jugadores, colocación manual, mini-grid de flota propia, pantalla intermedia entre disparos, anti-trampa cripto, `<TableroJuego>` compartido) → sin tasks; anotado en el spec y en Integración final.
 
