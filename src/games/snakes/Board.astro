@@ -45,6 +45,8 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   :global(.snakes-grupo[data-destino='true'] .snakes-punto) {
     fill: var(--color-accent);
+    stroke: var(--color-accent);
+    stroke-width: 3;
     animation: snakes-pulso 1s ease-in-out infinite;
   }
 
@@ -98,6 +100,8 @@ import TableroJuego from '../../components/TableroJuego.astro';
     :global(.snakes-grupo[data-destino='true'] .snakes-punto) {
       animation: none;
       r: 9px;
+      stroke: var(--color-accent);
+      stroke-width: 3;
     }
   }
 </style>
@@ -108,7 +112,9 @@ import TableroJuego from '../../components/TableroJuego.astro';
     esJugadaValida,
     vecinosLibres,
     playMove,
+    usados,
     TAMANO,
+    TOTAL,
     type SnakesState,
     type Player,
   } from './engine';
@@ -118,7 +124,6 @@ import TableroJuego from '../../components/TableroJuego.astro';
   const FICHAS = { 1: '●', 2: '▲' } as const;
   const PASO = 60;
   const MARGEN = 40;
-  const TOTAL = TAMANO * TAMANO;
 
   const svg = document.getElementById('snakes-svg') as unknown as SVGSVGElement;
 
@@ -141,6 +146,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     onDesconectar: () => {
       svg.querySelectorAll<SVGGElement>('.snakes-grupo').forEach(g => {
         g.dataset.destino = 'false';
+        g.setAttribute('aria-disabled', 'true');
         (g.querySelector('.snakes-hit') as SVGRectElement).style.pointerEvents = 'none';
       });
     },
@@ -255,6 +261,15 @@ import TableroJuego from '../../components/TableroJuego.astro';
         ? vecinosLibres(state, jugadorDelTurno)
         : [];
 
+    const ocupados = usados(state);
+    const duenos = new Map<number, Player>();
+    const cabezas = new Map<number, Player>();
+    for (const j of [1, 2] as Player[]) {
+      const camino = state.caminos[j];
+      camino.forEach(idx => duenos.set(idx, j));
+      cabezas.set(camino[camino.length - 1], j);
+    }
+
     svg.querySelectorAll<SVGGElement>('.snakes-grupo').forEach(g => {
       const i = Number(g.dataset.indice);
       const activo = destinos.includes(i);
@@ -265,6 +280,22 @@ import TableroJuego from '../../components/TableroJuego.astro';
         'aria-disabled',
         activo ? 'false' : 'true',
       );
+
+      const fila = Math.floor(i / TAMANO);
+      const col = i % TAMANO;
+      let label = `Fila ${fila + 1}, columna ${col + 1}`;
+      const cabezaDe = cabezas.get(i);
+      const duenoDe = duenos.get(i);
+      if (cabezaDe !== undefined) {
+        label += ` (cabeza de Jugador ${cabezaDe} ${FICHAS[cabezaDe]})`;
+      } else if (duenoDe !== undefined) {
+        label += ` (Jugador ${duenoDe} ${FICHAS[duenoDe]})`;
+      }
+      g.setAttribute('aria-label', label);
+
+      const punto = g.querySelector('.snakes-punto') as SVGCircleElement;
+      if (ocupados.has(i)) punto.setAttribute('fill-opacity', '0');
+      else punto.removeAttribute('fill-opacity');
     });
 
     if (state.status === 'playing') {

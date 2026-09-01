@@ -9,7 +9,7 @@ export interface SnakesState {
 }
 
 export const TAMANO = 7;
-const TOTAL = TAMANO * TAMANO;
+export const TOTAL = TAMANO * TAMANO;
 
 export const SALIDA_J1 = 8; // (fila 1, col 1)
 export const SALIDA_J2 = 40; // (fila 5, col 5)
