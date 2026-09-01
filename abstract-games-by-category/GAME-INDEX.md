@@ -39,7 +39,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [41-obstruction.md](01-2-players/41-obstruction.md) | ✅ |
 | 01-2-players | [42-snakes.md](01-2-players/42-snakes.md) | |
 | 01-2-players | [43-virus-war.md](01-2-players/43-virus-war.md) | |
-| 01-2-players | [44-metasquares.md](01-2-players/44-metasquares.md) | |
+| 01-2-players | [44-metasquares.md](01-2-players/44-metasquares.md) | ✅ |
 | 01-2-players | [47-triggle.md](01-2-players/47-triggle.md) | ✅ |
 | 02-solo | [10-join-five.md](02-solo/10-join-five.md) | |
 | 02-solo | [30-icosian-game.md](02-solo/30-icosian-game.md) | |
