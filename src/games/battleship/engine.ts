@@ -131,3 +131,27 @@ export function barcosAFlote(state: BattleshipState, player: Player): number {
   const tirosDelRival = state.disparos[rival]; // disparos del rival sobre `player`
   return flota.filter(barco => barco.some(c => tirosDelRival[c] === null)).length;
 }
+
+export function playMove(state: BattleshipState, move: Move): BattleshipState {
+  if (state.fase === 'finished') return state;
+  if (!esJugadaValida(move)) return state;
+
+  if (state.fase === 'colocacion') {
+    if (move.tipo !== 'flota') return state;
+    // esJugadaValida ya validó la colocación; normalizamos cada barco.
+    const barcos = move.barcos.map(barco => [...barco].sort((a, b) => a - b));
+    const yo = state.currentPlayer;
+    const flotas: Record<Player, number[][] | null> = {
+      1: yo === 1 ? barcos : state.flotas[1],
+      2: yo === 2 ? barcos : state.flotas[2],
+    };
+
+    if (flotas[1] !== null && flotas[2] !== null) {
+      return { ...state, flotas, fase: 'disparos', currentPlayer: 1 };
+    }
+    return { ...state, flotas, currentPlayer: yo === 1 ? 2 : 1 };
+  }
+
+  // state.fase === 'disparos' — se completa en la Task 3.
+  return state;
+}

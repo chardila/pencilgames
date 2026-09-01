@@ -5,6 +5,7 @@ import {
   esJugadaValida,
   generarFlotaAleatoria,
   barcosAFlote,
+  playMove,
   TAMANO,
   FLOTA,
   type BattleshipState,
@@ -216,5 +217,59 @@ describe('barcosAFlote', () => {
     for (const c of horiz(0, 0, 4)) s.disparos[1][c] = 'hundido'; // J1 hunde el de 4 de J2
     expect(barcosAFlote(s, 2)).toBe(3);
     expect(barcosAFlote(s, 1)).toBe(4);
+  });
+});
+
+// Aplica la colocación de ambas flotas y devuelve el estado (fase 'disparos').
+function colocarAmbas(flota1: number[][], flota2: number[][]): BattleshipState {
+  let s = createInitialState();
+  s = playMove(s, { tipo: 'flota', barcos: flota1 });
+  s = playMove(s, { tipo: 'flota', barcos: flota2 });
+  return s;
+}
+
+describe('playMove — fase colocacion', () => {
+  it('fija la flota del jugador en turno y alterna a J2, sigue en colocacion', () => {
+    const s = playMove(createInitialState(), { tipo: 'flota', barcos: FLOTA_OK() });
+    expect(s.flotas[1]).not.toBeNull();
+    expect(s.flotas[2]).toBeNull();
+    expect(s.currentPlayer).toBe(2);
+    expect(s.fase).toBe('colocacion');
+  });
+
+  it('normaliza cada barco a orden ascendente de índices', () => {
+    const desordenada = [
+      [idx(0, 3), idx(0, 0), idx(0, 2), idx(0, 1)], // barco de 4, al revés
+      horiz(2, 0, 3),
+      horiz(4, 0, 3),
+      horiz(6, 0, 2),
+    ];
+    const s = playMove(createInitialState(), { tipo: 'flota', barcos: desordenada });
+    expect(s.flotas[1]![0]).toEqual([idx(0, 0), idx(0, 1), idx(0, 2), idx(0, 3)]);
+  });
+
+  it('al quedar ambas flotas puestas pasa a disparos con turno de J1', () => {
+    const s = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    expect(s.fase).toBe('disparos');
+    expect(s.currentPlayer).toBe(1);
+    expect(s.flotas[1]).not.toBeNull();
+    expect(s.flotas[2]).not.toBeNull();
+  });
+
+  it('rechaza un disparo durante la colocacion (misma referencia)', () => {
+    const s = createInitialState();
+    expect(playMove(s, { tipo: 'disparo', celda: 0 })).toBe(s);
+  });
+
+  it('rechaza una flota inválida (misma referencia)', () => {
+    const s = createInitialState();
+    expect(playMove(s, { tipo: 'flota', barcos: [1, 2, 3, 4] } as never)).toBe(s);
+    expect(playMove(s, { tipo: 'flota', barcos: [horiz(0, 0, 4), horiz(0, 2, 3), horiz(4, 0, 3), horiz(6, 0, 2)] })).toBe(s);
+  });
+
+  it('no muta el estado de entrada', () => {
+    const s = createInitialState();
+    playMove(s, { tipo: 'flota', barcos: FLOTA_OK() });
+    expect(s.flotas).toEqual({ 1: null, 2: null });
   });
 });
