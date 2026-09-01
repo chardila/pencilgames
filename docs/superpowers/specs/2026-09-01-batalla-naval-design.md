@@ -14,9 +14,10 @@ Battleship es un juego de lápiz y papel de origen (previo a la edición de
 Milton Bradley), así que encaja en el sitio. Es el primer juego del sitio con
 **información oculta**: los 14 juegos previos son de información perfecta.
 
-No existía ficha de backlog; se crea en esta rama
-(`abstract-games-by-category/01-2-players/48-batalla-naval.md`), igual que hizo
-Triggle con el doc #47.
+Ya existe ficha de backlog:
+`abstract-games-by-category/01-2-players/37-battleship.md` (fuente de verdad de
+las reglas). El slug del sitio es `battleship`; el título visible es "Batalla
+naval". Esta rama solo marca esa fila con ✅ en `GAME-INDEX.md`.
 
 ## Decisiones tomadas en el brainstorming
 
@@ -284,11 +285,10 @@ o sobre el tablero. Overlay = posición absoluta sobre el área del tablero con
 - `src/content/juegos/battleship.md`: frontmatter `title: "Batalla naval"`,
   `description`, `icono`, `minJugadores: 2`, `maxJugadores: 2`; cuerpo con
   reglas numeradas en español, framing positivo.
-- **Ficha de backlog nueva**
-  `abstract-games-by-category/01-2-players/48-batalla-naval.md` con las reglas
-  adaptadas (8×8, flota 4/3/3/2, colocación aleatoria, turno alterno, barcos
-  pueden tocarse) + entrada en `abstract-games-by-category/GAME-INDEX.md`.
-  Igual que hizo Triggle con el doc #47.
+- **Backlog:** marcar la fila `37-battleship.md` con ✅ en
+  `abstract-games-by-category/GAME-INDEX.md`. La ficha ya existe y no se toca
+  (documenta la versión clásica 10×10/5 barcos; esta implementación es la
+  "variante simplificada 8×8" que la propia ficha menciona).
 
 ## Modo remoto
 
