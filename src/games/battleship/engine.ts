@@ -152,6 +152,45 @@ export function playMove(state: BattleshipState, move: Move): BattleshipState {
     return { ...state, flotas, currentPlayer: yo === 1 ? 2 : 1 };
   }
 
-  // state.fase === 'disparos' — se completa en la Task 3.
-  return state;
+  // state.fase === 'disparos'
+  if (move.tipo !== 'disparo') return state;
+
+  const yo = state.currentPlayer;
+  const rival: Player = yo === 1 ? 2 : 1;
+  if (state.disparos[yo][move.celda] !== null) return state; // ya disparada
+
+  const flotaRival = state.flotas[rival]!; // no null en fase disparos
+  const barcoImpactado = flotaRival.find(barco => barco.includes(move.celda));
+
+  const misDisparos = [...state.disparos[yo]];
+  let resultado: Resultado;
+  if (barcoImpactado === undefined) {
+    misDisparos[move.celda] = 'agua';
+    resultado = 'agua';
+  } else {
+    misDisparos[move.celda] = 'tocado';
+    const hundido = barcoImpactado.every(
+      c => misDisparos[c] === 'tocado' || misDisparos[c] === 'hundido',
+    );
+    if (hundido) {
+      for (const c of barcoImpactado) misDisparos[c] = 'hundido';
+      resultado = 'hundido';
+    } else {
+      resultado = 'tocado';
+    }
+  }
+
+  const disparos: Record<Player, (Resultado | null)[]> = {
+    1: yo === 1 ? misDisparos : state.disparos[1],
+    2: yo === 2 ? misDisparos : state.disparos[2],
+  };
+  const ultimoDisparo = { por: yo, celda: move.celda, resultado };
+
+  const flotaRivalHundida = flotaRival.every(barco =>
+    barco.every(c => misDisparos[c] === 'hundido'),
+  );
+  if (flotaRivalHundida) {
+    return { ...state, disparos, ultimoDisparo, fase: 'finished', winner: yo };
+  }
+  return { ...state, disparos, ultimoDisparo, currentPlayer: rival };
 }

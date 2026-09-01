@@ -273,3 +273,127 @@ describe('playMove — fase colocacion', () => {
     expect(s.flotas).toEqual({ 1: null, 2: null });
   });
 });
+
+describe('playMove — fase disparos', () => {
+  it('disparo a agua: marca agua, guarda ultimoDisparo y pasa el turno', () => {
+    // J2 tiene FLOTA_OK (filas 0,2,4,6 desde la col 0). La fila 1 es todo agua.
+    const s0 = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    const s = playMove(s0, { tipo: 'disparo', celda: idx(1, 0) });
+    expect(s.disparos[1][idx(1, 0)]).toBe('agua');
+    expect(s.ultimoDisparo).toEqual({ por: 1, celda: idx(1, 0), resultado: 'agua' });
+    expect(s.currentPlayer).toBe(2);
+    expect(s.fase).toBe('disparos');
+  });
+
+  it('disparo que toca sin hundir: marca tocado', () => {
+    const s0 = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    const s = playMove(s0, { tipo: 'disparo', celda: idx(0, 0) }); // 1.ª celda del barco de 4
+    expect(s.disparos[1][idx(0, 0)]).toBe('tocado');
+    expect(s.ultimoDisparo!.resultado).toBe('tocado');
+  });
+
+  it('al caer la última celda de un barco lo marca hundido en todas sus celdas', () => {
+    let s = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    // El barco de 2 de J2 está en idx(6,0), idx(6,1). J1 dispara a ambos (J2 tira a agua en medio).
+    s = playMove(s, { tipo: 'disparo', celda: idx(6, 0) }); // J1 tocado
+    s = playMove(s, { tipo: 'disparo', celda: idx(1, 7) }); // J2 agua
+    s = playMove(s, { tipo: 'disparo', celda: idx(6, 1) }); // J1 hunde
+    expect(s.disparos[1][idx(6, 0)]).toBe('hundido');
+    expect(s.disparos[1][idx(6, 1)]).toBe('hundido');
+    expect(s.ultimoDisparo).toEqual({ por: 1, celda: idx(6, 1), resultado: 'hundido' });
+    expect(s.fase).toBe('disparos'); // aún quedan 3 barcos
+  });
+
+  it('rechaza disparar dos veces a la misma celda (misma referencia)', () => {
+    const s0 = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    const s1 = playMove(s0, { tipo: 'disparo', celda: idx(1, 0) }); // J1 dispara
+    const s2 = playMove(s1, { tipo: 'disparo', celda: idx(2, 2) }); // J2 dispara
+    expect(playMove(s2, { tipo: 'disparo', celda: idx(1, 0) })).toBe(s2); // J1 repite celda
+  });
+
+  it('rechaza una colocacion durante la fase disparos (misma referencia)', () => {
+    const s0 = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    expect(playMove(s0, { tipo: 'flota', barcos: FLOTA_OK() })).toBe(s0);
+  });
+
+  it('el turno alterna aunque el disparo sea un acierto', () => {
+    const s0 = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    const s = playMove(s0, { tipo: 'disparo', celda: idx(0, 0) }); // tocado
+    expect(s.currentPlayer).toBe(2);
+  });
+
+  it('hundir el último barco rival termina la partida y fija el ganador', () => {
+    // J1 hunde toda la flota de J2 (12 celdas de FLOTA_OK) intercalando disparos de J2 a agua.
+    let s = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    const celdasRival = FLOTA_OK().flat(); // 12 celdas de la flota de J2
+    const aguaJ2 = [idx(1, 0), idx(1, 1), idx(1, 2), idx(1, 3), idx(1, 4), idx(1, 5), idx(1, 6), idx(1, 7), idx(3, 0), idx(3, 1), idx(3, 2)];
+    for (let k = 0; k < celdasRival.length; k++) {
+      s = playMove(s, { tipo: 'disparo', celda: celdasRival[k] }); // J1
+      if (s.fase === 'finished') break;
+      s = playMove(s, { tipo: 'disparo', celda: aguaJ2[k] }); // J2
+    }
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBe(1);
+    expect(barcosAFlote(s, 2)).toBe(0);
+  });
+
+  it('no permite más disparos tras terminar (misma referencia)', () => {
+    let s = colocarAmbas(FLOTA_OK(), FLOTA_OK());
+    const celdasRival = FLOTA_OK().flat();
+    const aguaJ2 = [idx(1, 0), idx(1, 1), idx(1, 2), idx(1, 3), idx(1, 4), idx(1, 5), idx(1, 6), idx(1, 7), idx(3, 0), idx(3, 1), idx(3, 2)];
+    for (let k = 0; k < celdasRival.length; k++) {
+      s = playMove(s, { tipo: 'disparo', celda: celdasRival[k] });
+      if (s.fase === 'finished') break;
+      s = playMove(s, { tipo: 'disparo', celda: aguaJ2[k] });
+    }
+    expect(playMove(s, { tipo: 'disparo', celda: idx(7, 7) })).toBe(s);
+  });
+
+  it('determinismo remoto: dos instancias con la misma secuencia de Move convergen', () => {
+    const f1 = generarFlotaAleatoria();
+    const f2 = generarFlotaAleatoria();
+    const jugadas: Move[] = [
+      { tipo: 'flota', barcos: f1 },
+      { tipo: 'flota', barcos: f2 },
+      { tipo: 'disparo', celda: 0 },
+      { tipo: 'disparo', celda: 63 },
+      { tipo: 'disparo', celda: 12 },
+      { tipo: 'disparo', celda: 40 },
+    ];
+    const correr = () => jugadas.reduce((s, m) => playMove(s, m), createInitialState());
+    expect(correr()).toEqual(correr());
+  });
+});
+
+describe('fuzzing — partidas aleatorias completas', () => {
+  it('300 partidas: siempre termina en finished con un ganador y 0 barcos rivales a flote', () => {
+    for (let partida = 0; partida < 300; partida++) {
+      let s = createInitialState();
+      s = playMove(s, { tipo: 'flota', barcos: generarFlotaAleatoria() });
+      s = playMove(s, { tipo: 'flota', barcos: generarFlotaAleatoria() });
+      expect(s.fase).toBe('disparos');
+
+      const pendientes: Record<Player, number[]> = {
+        1: Array.from({ length: 64 }, (_, i) => i),
+        2: Array.from({ length: 64 }, (_, i) => i),
+      };
+
+      let iteraciones = 0;
+      while (s.fase === 'disparos') {
+        expect(iteraciones++).toBeLessThan(200);
+        const yo = s.currentPlayer;
+        const cola = pendientes[yo];
+        const pos = Math.floor(Math.random() * cola.length);
+        const celda = cola.splice(pos, 1)[0];
+        const aFloteAntes = barcosAFlote(s, yo === 1 ? 2 : 1);
+        s = playMove(s, { tipo: 'disparo', celda });
+        const rival: Player = yo === 1 ? 2 : 1;
+        expect(barcosAFlote(s, rival)).toBeLessThanOrEqual(aFloteAntes);
+      }
+
+      expect(s.fase).toBe('finished');
+      expect(s.winner === 1 || s.winner === 2).toBe(true);
+      expect(barcosAFlote(s, s.winner === 1 ? 2 : 1)).toBe(0);
+    }
+  });
+});
