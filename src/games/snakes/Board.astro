@@ -1,0 +1,301 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+---
+
+<TableroJuego class="tablero-snakes">
+  <div class="snakes-wrapper">
+    <svg
+      id="snakes-svg"
+      class="snakes-svg"
+      role="grid"
+      aria-label="Tablero de Serpientes, 7 por 7"
+    ></svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-snakes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .snakes-wrapper {
+    width: min(92vw, 30rem);
+    margin: 0 auto;
+    touch-action: manipulation;
+  }
+
+  .snakes-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+  }
+
+  :global(.snakes-punto) {
+    fill: #c9c9c9;
+  }
+
+  :global(.snakes-hit) {
+    fill: transparent;
+    outline: none;
+  }
+
+  :global(.snakes-grupo[data-destino='true'] .snakes-punto) {
+    fill: var(--color-accent);
+    animation: snakes-pulso 1s ease-in-out infinite;
+  }
+
+  :global(.snakes-grupo[data-destino='true']) {
+    cursor: pointer;
+  }
+
+  :global(.snakes-grupo:focus-visible .snakes-punto) {
+    stroke: var(--color-accent);
+    stroke-width: 3;
+  }
+
+  @keyframes snakes-pulso {
+    0%, 100% { r: 6px; opacity: 1; }
+    50% { r: 10px; opacity: 0.65; }
+  }
+
+  :global(.snakes-serpiente) {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  :global(.snakes-serpiente[data-jugador='1']),
+  :global(.snakes-cabeza[data-jugador='1'] circle) {
+    stroke: var(--color-player-1);
+  }
+
+  :global(.snakes-serpiente[data-jugador='2']),
+  :global(.snakes-cabeza[data-jugador='2'] circle) {
+    stroke: var(--color-player-2);
+  }
+
+  :global(.snakes-cabeza circle) {
+    fill: var(--color-surface);
+    stroke-width: 4;
+  }
+
+  :global(.snakes-cabeza text) {
+    text-anchor: middle;
+    dominant-baseline: central;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  :global(.snakes-cabeza[data-jugador='1'] text) { fill: var(--color-player-1); }
+  :global(.snakes-cabeza[data-jugador='2'] text) { fill: var(--color-player-2); }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.snakes-grupo[data-destino='true'] .snakes-punto) {
+      animation: none;
+      r: 9px;
+    }
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    vecinosLibres,
+    playMove,
+    TAMANO,
+    type SnakesState,
+    type Player,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const FICHAS = { 1: '●', 2: '▲' } as const;
+  const PASO = 60;
+  const MARGEN = 40;
+  const TOTAL = TAMANO * TAMANO;
+
+  const svg = document.getElementById('snakes-svg') as unknown as SVGSVGElement;
+
+  let state: SnakesState = createInitialState();
+
+  function coord(i: number): { x: number; y: number } {
+    const fila = Math.floor(i / TAMANO);
+    const col = i % TAMANO;
+    return { x: MARGEN + col * PASO, y: MARGEN + fila * PASO };
+  }
+
+  const sesion = iniciarSesionJuego<number>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: indice => jugar(indice, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      svg.querySelectorAll<SVGGElement>('.snakes-grupo').forEach(g => {
+        g.dataset.destino = 'false';
+        (g.querySelector('.snakes-hit') as SVGRectElement).style.pointerEvents = 'none';
+      });
+    },
+  });
+
+  function construirTablero(): void {
+    svg.innerHTML = '';
+    const lado = MARGEN * 2 + (TAMANO - 1) * PASO;
+    svg.setAttribute('viewBox', `0 0 ${lado} ${lado}`);
+
+    // Capa de serpientes (debajo de los puntos y cabezas).
+    for (const j of [1, 2] as Player[]) {
+      const poly = document.createElementNS(SVG_NS, 'polyline');
+      poly.setAttribute('class', 'snakes-serpiente');
+      poly.setAttribute('data-jugador', String(j));
+      poly.setAttribute('points', '');
+      svg.appendChild(poly);
+    }
+
+    // Capa de puntos + hit-targets.
+    for (let i = 0; i < TOTAL; i++) {
+      const { x, y } = coord(i);
+      const fila = Math.floor(i / TAMANO);
+      const col = i % TAMANO;
+
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('class', 'snakes-grupo');
+      g.setAttribute('data-indice', String(i));
+      g.setAttribute('data-destino', 'false');
+      g.setAttribute('tabindex', '0');
+      g.setAttribute('role', 'gridcell');
+      g.setAttribute('aria-label', `Fila ${fila + 1}, columna ${col + 1}`);
+
+      const hit = document.createElementNS(SVG_NS, 'rect');
+      hit.setAttribute('class', 'snakes-hit');
+      hit.setAttribute('x', String(x - PASO / 2));
+      hit.setAttribute('y', String(y - PASO / 2));
+      hit.setAttribute('width', String(PASO));
+      hit.setAttribute('height', String(PASO));
+      hit.style.pointerEvents = 'none';
+
+      const punto = document.createElementNS(SVG_NS, 'circle');
+      punto.setAttribute('class', 'snakes-punto');
+      punto.setAttribute('cx', String(x));
+      punto.setAttribute('cy', String(y));
+      punto.setAttribute('r', '6');
+
+      g.appendChild(hit);
+      g.appendChild(punto);
+
+      g.addEventListener('click', () => {
+        if (g.dataset.destino === 'true') jugar(i);
+      });
+      g.addEventListener('keydown', (e: KeyboardEvent) => {
+        if ((e.key === 'Enter' || e.key === ' ') && g.dataset.destino === 'true') {
+          e.preventDefault();
+          jugar(i);
+        }
+      });
+
+      svg.appendChild(g);
+    }
+
+    // Capa de cabezas (encima de todo).
+    for (const j of [1, 2] as Player[]) {
+      const gc = document.createElementNS(SVG_NS, 'g');
+      gc.setAttribute('class', 'snakes-cabeza');
+      gc.setAttribute('data-jugador', String(j));
+
+      const c = document.createElementNS(SVG_NS, 'circle');
+      c.setAttribute('r', '14');
+      const t = document.createElementNS(SVG_NS, 'text');
+      t.textContent = FICHAS[j];
+
+      gc.appendChild(c);
+      gc.appendChild(t);
+      svg.appendChild(gc);
+    }
+  }
+
+  function render(): void {
+    const jugadorDelTurno = state.currentPlayer;
+    const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+
+    // Serpientes.
+    for (const j of [1, 2] as Player[]) {
+      const poly = svg.querySelector<SVGPolylineElement>(
+        `.snakes-serpiente[data-jugador='${j}']`,
+      )!;
+      const pts = state.caminos[j]
+        .map(i => {
+          const { x, y } = coord(i);
+          return `${x},${y}`;
+        })
+        .join(' ');
+      poly.setAttribute('points', pts);
+
+      const cab = svg.querySelector<SVGGElement>(
+        `.snakes-cabeza[data-jugador='${j}']`,
+      )!;
+      const cabezaIdx = state.caminos[j][state.caminos[j].length - 1];
+      const { x, y } = coord(cabezaIdx);
+      cab.querySelector('circle')!.setAttribute('cx', String(x));
+      cab.querySelector('circle')!.setAttribute('cy', String(y));
+      cab.querySelector('text')!.setAttribute('x', String(x));
+      cab.querySelector('text')!.setAttribute('y', String(y));
+    }
+
+    // Destinos legales.
+    const destinos =
+      state.status === 'playing' && esMiTurno
+        ? vecinosLibres(state, jugadorDelTurno)
+        : [];
+
+    svg.querySelectorAll<SVGGElement>('.snakes-grupo').forEach(g => {
+      const i = Number(g.dataset.indice);
+      const activo = destinos.includes(i);
+      g.dataset.destino = activo ? 'true' : 'false';
+      (g.querySelector('.snakes-hit') as SVGRectElement).style.pointerEvents =
+        activo ? 'auto' : 'none';
+      g.setAttribute(
+        'aria-disabled',
+        activo ? 'false' : 'true',
+      );
+    });
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: jugadorDelTurno,
+        simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
+      });
+    } else {
+      const perdedor = state.winner === 1 ? 2 : 1;
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]} (${FICHAS[state.winner!]})!`,
+        detalle: `${sesion.nombres[perdedor]} se quedó sin espacio para avanzar`,
+      });
+    }
+  }
+
+  function jugar(indice: number, emitirRemoto = true): void {
+    if (state.status !== 'playing') return;
+    // Guard de turno solo para la entrada local; los movimientos remotos
+    // llegan cuando currentPlayer es el asiento del rival.
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+
+    const antes = state;
+    state = playMove(state, indice);
+    if (state === antes) return; // jugada ilegal: no re-render ni emisión
+    render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(indice);
+    }
+  }
+
+  construirTablero();
+  render();
+</script>
