@@ -16,7 +16,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [11-bridg-it.md](01-2-players/11-bridg-it.md) | |
 | 01-2-players | [12-chomp.md](01-2-players/12-chomp.md) | ✅ |
 | 01-2-players | [13-notakto.md](01-2-players/13-notakto.md) | ✅ |
-| 01-2-players | [14-nim.md](01-2-players/14-nim.md) | |
+| 01-2-players | [14-nim.md](01-2-players/14-nim.md) | ✅ |
 | 01-2-players | [15-domineering.md](01-2-players/15-domineering.md) | ✅ |
 | 01-2-players | [16-sos.md](01-2-players/16-sos.md) | ✅ |
 | 01-2-players | [17-order-and-chaos.md](01-2-players/17-order-and-chaos.md) | |

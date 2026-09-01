@@ -22,6 +22,7 @@ import TriggleBoard from '../../games/triggle/Board.astro';
 import BattleshipBoard from '../../games/battleship/Board.astro';
 import MetaSquaresBoard from '../../games/metasquares/Board.astro';
 import SnakesBoard from '../../games/snakes/Board.astro';
+import NimBoard from '../../games/nim/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
@@ -41,6 +42,7 @@ const BOARDS = {
   battleship: BattleshipBoard,
   metasquares: MetaSquaresBoard,
   snakes: SnakesBoard,
+  nim: NimBoard,
 } as const;
 
 export async function getStaticPaths() {
