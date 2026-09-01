@@ -1,0 +1,376 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const TAMANO = 8;
+const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
+const letras = Array.from({ length: TAMANO }, (_, i) => String.fromCharCode(65 + i));
+const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
+---
+
+<TableroJuego class="tablero-battleship">
+  <div id="interstitial" class="interstitial">
+    <p id="interstitial-texto" class="interstitial__texto"></p>
+    <button type="button" id="empezar" class="boton-primario">Empezar</button>
+  </div>
+
+  <p id="espera" class="mensaje-espera" hidden>
+    Esperando a que el rival coloque su flota…
+  </p>
+
+  <div id="zona-tablero" class="zona-tablero">
+    <div class="grid-wrap">
+      <div class="etiquetas etiquetas--col">
+        {letras.map(l => <span>{l}</span>)}
+      </div>
+      <div class="etiquetas etiquetas--fila">
+        {numeros.map(n => <span>{n}</span>)}
+      </div>
+      <div
+        id="tablero"
+        class="tablero"
+        role="grid"
+        aria-label="Aguas del rival, 8 por 8"
+      >
+        {casillas.map(i => (
+          <button
+            type="button"
+            class="casilla"
+            data-indice={i}
+            aria-label={`Casilla ${letras[i % TAMANO]}${Math.floor(i / TAMANO) + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+
+    <div id="controles-colocacion" class="controles-colocacion" hidden>
+      <button type="button" id="barajar" class="boton-secundario">Barajar</button>
+      <button type="button" id="confirmar" class="boton-primario">Confirmar flota</button>
+    </div>
+
+    <p id="resumen-flota" class="resumen-flota" hidden></p>
+    <p id="mensaje-disparo" class="mensaje-disparo" hidden></p>
+  </div>
+</TableroJuego>
+
+<style>
+  .interstitial {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+
+  .interstitial[hidden] {
+    display: none;
+  }
+
+  .interstitial__texto {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .mensaje-espera {
+    text-align: center;
+    font-style: italic;
+    padding: 2rem 1rem;
+  }
+
+  .zona-tablero[hidden] {
+    display: none;
+  }
+
+  .grid-wrap {
+    display: grid;
+    grid-template-columns: 1.4rem 1fr;
+    grid-template-rows: 1.4rem 1fr;
+    width: min(92vw, 30rem);
+    margin: 0 auto;
+    gap: 0.2rem;
+  }
+
+  .etiquetas {
+    display: grid;
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #666);
+  }
+
+  .etiquetas span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .etiquetas--col {
+    grid-column: 2;
+    grid-row: 1;
+    grid-template-columns: repeat(8, 1fr);
+  }
+
+  .etiquetas--fila {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-rows: repeat(8, 1fr);
+  }
+
+  .tablero {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    aspect-ratio: 1;
+    gap: 0.2rem;
+    touch-action: manipulation;
+  }
+
+  .casilla {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(0.9rem, 5vw, 1.6rem);
+    font-weight: 700;
+    line-height: 1;
+    background: var(--color-surface);
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    padding: 0;
+  }
+
+  .casilla[data-estado='barco'] {
+    background: var(--color-player-1);
+    color: transparent;
+  }
+
+  .casilla[data-estado='agua'] {
+    color: var(--color-text-muted, #888);
+  }
+
+  .casilla[data-estado='tocado'],
+  .casilla[data-estado='hundido'] {
+    color: var(--color-player-2);
+  }
+
+  .casilla[data-estado='hundido'] {
+    box-shadow: inset 0 0 0 3px var(--color-accent);
+  }
+
+  .controles-colocacion {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 1rem auto 0;
+  }
+
+  .controles-colocacion[hidden] {
+    display: none;
+  }
+
+  .resumen-flota,
+  .mensaje-disparo {
+    text-align: center;
+    margin: 0.75rem auto 0;
+  }
+
+  .resumen-flota[hidden],
+  .mensaje-disparo[hidden] {
+    display: none;
+  }
+
+  .boton-primario,
+  .boton-secundario {
+    min-width: var(--tap-target-min);
+    min-height: var(--tap-target-min);
+    padding: 0.5rem 1.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 8px;
+    border: 2px solid var(--color-accent);
+  }
+
+  .boton-secundario {
+    background: var(--color-surface);
+    color: inherit;
+  }
+
+  .boton-primario {
+    background: var(--color-accent);
+    color: #fff;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    generarFlotaAleatoria,
+    barcosAFlote,
+    playMove,
+    FLOTA,
+    type BattleshipState,
+    type Move,
+    type Player,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const FICHAS = { 1: '●', 2: '▲' } as const;
+  const TOTAL_BARCOS = FLOTA.length;
+  const TAMANO = 8;
+
+  const coord = (i: number) =>
+    `${String.fromCharCode(65 + (i % TAMANO))}${Math.floor(i / TAMANO) + 1}`;
+  const textoResultado = (r: 'agua' | 'tocado' | 'hundido') =>
+    r === 'agua' ? 'agua' : r === 'tocado' ? 'tocado' : '¡hundido!';
+  const glifoEstado = (r: 'agua' | 'tocado' | 'hundido' | null) =>
+    r === 'agua' ? '·' : r === 'tocado' ? '✳' : r === 'hundido' ? '✖' : '';
+
+  const interstitial = document.getElementById('interstitial')!;
+  const interstitialTexto = document.getElementById('interstitial-texto')!;
+  const empezarBtn = document.getElementById('empezar') as HTMLButtonElement;
+  const espera = document.getElementById('espera')!;
+  const zonaTablero = document.getElementById('zona-tablero')!;
+  const controlesColocacion = document.getElementById('controles-colocacion')!;
+  const barajarBtn = document.getElementById('barajar') as HTMLButtonElement;
+  const confirmarBtn = document.getElementById('confirmar') as HTMLButtonElement;
+  const resumenFlota = document.getElementById('resumen-flota')!;
+  const mensajeDisparo = document.getElementById('mensaje-disparo')!;
+  const tablero = document.getElementById('tablero')!;
+  const casillasEl = Array.from(
+    tablero.querySelectorAll<HTMLButtonElement>('.casilla'),
+  );
+
+  let state: BattleshipState = createInitialState();
+  let flotaPrevia: number[][] = generarFlotaAleatoria();
+  // Baja tras pulsar "Empezar"; el nuevo colocador la sube de nuevo.
+  let listoParaColocar = false;
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      flotaPrevia = generarFlotaAleatoria();
+      listoParaColocar = false;
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      casillasEl.forEach(c => (c.disabled = true));
+      [empezarBtn, barajarBtn, confirmarBtn].forEach(b => (b.disabled = true));
+    },
+  });
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    const prev = state;
+    state = playMove(state, move);
+    if (state === prev) return; // rechazado → no renderiza ni emite
+    // Si durante la colocación cambió el jugador que coloca, el nuevo debe
+    // pasar por el interstitial "Empezar".
+    if (
+      prev.fase === 'colocacion' &&
+      state.fase === 'colocacion' &&
+      prev.currentPlayer !== state.currentPlayer
+    ) {
+      listoParaColocar = false;
+      // CRÍTICO para el secreto: sin esto, el nuevo colocador vería (y podría
+      // confirmar) la flota que el anterior acaba de fijar. Inocuo en remoto —
+      // el preview local nunca entró al estado; el payload sigue siendo lo que
+      // envía "Confirmar flota".
+      flotaPrevia = generarFlotaAleatoria();
+    }
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  function render(): void {
+    const asiento = sesion.miAsiento; // Player | null
+    const vista: Player = asiento ?? state.currentPlayer; // perspectiva a mostrar
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer);
+    const enColocacion = state.fase === 'colocacion';
+    const enDisparos = state.fase === 'disparos';
+    // La cuadrícula de tiros y el resumen siguen visibles al terminar la
+    // partida (como en todos los juegos del repo el tablero final no se borra).
+    const mostrarTiros = enDisparos || state.fase === 'finished';
+    const enInterstitial = enColocacion && esMiTurno && !listoParaColocar;
+    const mostrarPreview = enColocacion && esMiTurno && listoParaColocar;
+
+    interstitial.hidden = !enInterstitial;
+    if (enInterstitial) {
+      interstitialTexto.textContent = `Jugador ${state.currentPlayer} (${FICHAS[state.currentPlayer]}): coloca tu flota`;
+    }
+    espera.hidden = !(enColocacion && !esMiTurno);
+    zonaTablero.hidden = enInterstitial || (enColocacion && !esMiTurno);
+    controlesColocacion.hidden = !mostrarPreview;
+
+    const celdasPreview = new Set<number>(mostrarPreview ? flotaPrevia.flat() : []);
+
+    casillasEl.forEach((casilla, i) => {
+      if (mostrarTiros) {
+        const r = state.disparos[vista][i];
+        casilla.textContent = glifoEstado(r);
+        casilla.dataset.estado = r ?? '';
+        casilla.disabled = r !== null || !esMiTurno || state.fase === 'finished';
+      } else if (mostrarPreview) {
+        casilla.textContent = '';
+        casilla.dataset.estado = celdasPreview.has(i) ? 'barco' : '';
+        casilla.disabled = true;
+      } else {
+        casilla.textContent = '';
+        casilla.dataset.estado = '';
+        casilla.disabled = true;
+      }
+    });
+
+    resumenFlota.hidden = !mostrarTiros;
+    mensajeDisparo.hidden = !mostrarTiros;
+    if (mostrarTiros) {
+      resumenFlota.textContent = `Tu flota: ${barcosAFlote(state, vista)} de ${TOTAL_BARCOS} a flote`;
+      const ud = state.ultimoDisparo;
+      mensajeDisparo.textContent =
+        ud && ud.por !== vista
+          ? `Te dispararon en ${coord(ud.celda)} — ${textoResultado(ud.resultado)}`
+          : '';
+    }
+
+    if (state.fase === 'finished') {
+      const g = state.winner as Player;
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[g]} (${FICHAS[g]})!`,
+        detalle: 'Hundió toda la flota rival',
+      });
+      return;
+    }
+
+    sesion.mostrarTurno({
+      jugador: state.currentPlayer,
+      simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
+      puntajes: { 1: barcosAFlote(state, 1), 2: barcosAFlote(state, 2) },
+      detalle: enColocacion ? 'Coloca tu flota' : 'Elige dónde disparar',
+    });
+  }
+
+  empezarBtn.addEventListener('click', () => {
+    listoParaColocar = true;
+    render();
+  });
+
+  barajarBtn.addEventListener('click', () => {
+    flotaPrevia = generarFlotaAleatoria();
+    render();
+  });
+
+  confirmarBtn.addEventListener('click', () => {
+    jugar({ tipo: 'flota', barcos: flotaPrevia });
+  });
+
+  casillasEl.forEach(casilla => {
+    casilla.addEventListener('click', () => {
+      if (state.fase !== 'disparos') return;
+      jugar({ tipo: 'disparo', celda: Number(casilla.dataset.indice) });
+    });
+  });
+
+  render();
+</script>

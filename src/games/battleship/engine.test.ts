@@ -10,6 +10,7 @@ import {
   FLOTA,
   type BattleshipState,
   type Player,
+  type Move,
 } from './engine';
 
 // Helpers compartidos por todas las tasks.
