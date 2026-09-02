@@ -1,0 +1,276 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+import { MAPAS } from './maps';
+---
+
+<TableroJuego class="tablero-col">
+  <div id="col-selector" class="col-selector">
+    <p class="col-selector__titulo">Elige un mapa</p>
+    <div class="col-selector__mapas">
+      {MAPAS.map(mapa => (
+        <button type="button" class="col-selector__mapa" data-mapa={mapa.id}>
+          <svg viewBox={mapa.viewBox} aria-hidden="true">
+            {mapa.regiones.map(r => <path d={r.path} />)}
+          </svg>
+          <span>{mapa.nombre}</span>
+        </button>
+      ))}
+    </div>
+    <button type="button" id="col-aleatorio" class="col-selector__aleatorio">
+      🎲 Mapa al azar
+    </button>
+  </div>
+
+  <p id="col-espera" class="col-espera" hidden></p>
+
+  <div id="col-tablero" class="col-tablero" hidden>
+    <svg id="col-svg" aria-label="Mapa de Col">
+      <defs>
+        <pattern id="col-trama-1" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="8" height="8" fill="var(--color-player-1)" opacity="0.25" />
+          <line x1="0" y1="0" x2="0" y2="8" stroke="var(--color-player-1)" stroke-width="3" />
+        </pattern>
+        <pattern id="col-trama-2" width="8" height="8" patternUnits="userSpaceOnUse">
+          <rect width="8" height="8" fill="var(--color-player-2)" opacity="0.25" />
+          <circle cx="4" cy="4" r="1.6" fill="var(--color-player-2)" />
+        </pattern>
+      </defs>
+    </svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .col-selector__mapas {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .col-selector__mapa {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem;
+    border: 2px solid var(--color-accent);
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .col-selector__mapa svg {
+    width: 7.5rem;
+    height: auto;
+  }
+
+  .col-selector__mapa path {
+    fill: var(--color-surface);
+    stroke: var(--color-text);
+    stroke-width: 1.5;
+  }
+
+  .col-selector__titulo {
+    text-align: center;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+  }
+
+  .col-selector__aleatorio {
+    display: block;
+    margin: 0.75rem auto 0;
+    min-height: var(--tap-target-min);
+    padding: 0 1.25rem;
+    border-radius: 8px;
+    border: 2px solid var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-text);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .col-selector[hidden],
+  .col-tablero[hidden],
+  .col-espera[hidden] {
+    display: none;
+  }
+
+  .col-espera {
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .col-tablero {
+    width: min(92vw, 34rem);
+  }
+
+  #col-svg {
+    width: 100%;
+    height: auto;
+    touch-action: manipulation;
+  }
+
+  :global(.col-region) {
+    fill: var(--color-surface);
+    stroke: var(--color-text);
+    stroke-width: 1.5;
+    transition: fill 0.15s ease;
+  }
+
+  :global(.col-region--j1) { fill: url(#col-trama-1); }
+  :global(.col-region--j2) { fill: url(#col-trama-2); }
+
+  :global(.col-region--legal) {
+    cursor: pointer;
+    stroke-width: 3;
+    stroke: var(--color-accent);
+  }
+
+  :global(.col-region--legal:hover) {
+    fill: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface));
+  }
+
+  :global(.col-region--ultima) {
+    stroke: var(--color-accent);
+    stroke-dasharray: 4 3;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    regionesLegales,
+    type ColState,
+    type ColMove,
+    type Player,
+  } from './engine';
+  import { MAPAS } from './maps';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const selectorEl = document.getElementById('col-selector')!;
+  const esperaEl = document.getElementById('col-espera')!;
+  const tableroEl = document.getElementById('col-tablero')!;
+  const svg = document.getElementById('col-svg') as unknown as SVGSVGElement;
+  const btnAleatorio = document.getElementById('col-aleatorio') as HTMLButtonElement;
+  const botonesMapa = Array.from(
+    selectorEl.querySelectorAll<HTMLButtonElement>('.col-selector__mapa')
+  );
+
+  let state: ColState = createInitialState(1);
+  let jugadorInicialSiguiente: Player = 1;
+  let pathsPorId: SVGElement[] = [];
+
+  const sesion = iniciarSesionJuego<ColMove>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState(jugadorInicialSiguiente);
+      pathsPorId.forEach(p => p.remove());
+      pathsPorId = [];
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      botonesMapa.forEach(b => (b.disabled = true));
+      btnAleatorio.disabled = true;
+      pathsPorId.forEach(p => (p.style.pointerEvents = 'none'));
+    },
+  });
+
+  function construirSvgDelMapa(mapaId: number): void {
+    const mapa = MAPAS[mapaId];
+    svg.setAttribute('viewBox', mapa.viewBox);
+    // conservar <defs>, borrar paths previos
+    pathsPorId.forEach(p => p.remove());
+    pathsPorId = mapa.regiones.map(r => {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('d', r.path);
+      p.setAttribute('class', 'col-region');
+      p.addEventListener('click', () => {
+        jugar({ tipo: 'color', region: r.id });
+      });
+      svg.appendChild(p);
+      return p;
+    });
+  }
+
+  function render(): void {
+    if (state.fase === 'seleccion') {
+      tableroEl.hidden = true;
+      const meTocaElegir = sesion.esMiTurno(state.currentPlayer);
+      selectorEl.hidden = !meTocaElegir;
+      esperaEl.hidden = meTocaElegir;
+      if (!meTocaElegir) {
+        const soyElQueElige =
+          sesion.miAsiento !== null && sesion.miAsiento === state.jugadorInicial;
+        esperaEl.textContent = soyElQueElige
+          ? 'Reconectando…'
+          : `Esperando a que ${sesion.nombres[state.jugadorInicial]} elija el mapa…`;
+      }
+      return;
+    }
+
+    selectorEl.hidden = true;
+    esperaEl.hidden = true;
+    tableroEl.hidden = false;
+
+    if (state.mapaId !== null && pathsPorId.length !== MAPAS[state.mapaId].regiones.length) {
+      construirSvgDelMapa(state.mapaId);
+    }
+
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer);
+    const legales =
+      state.fase === 'jugando'
+        ? new Set(regionesLegales(state, state.currentPlayer))
+        : new Set<number>();
+
+    pathsPorId.forEach((p, id) => {
+      const color = state.colores[id];
+      p.classList.toggle('col-region--j1', color === 1);
+      p.classList.toggle('col-region--j2', color === 2);
+      const legal = esMiTurno && legales.has(id);
+      p.classList.toggle('col-region--legal', legal);
+      p.classList.toggle('col-region--ultima', state.lastMove === id);
+      p.style.pointerEvents = legal ? 'auto' : 'none';
+    });
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: state.currentPlayer,
+        simbolos: { 1: '●', 2: '▲' },
+      });
+    } else if (state.status === 'won') {
+      const simbolo = state.winner === 1 ? '●' : '▲';
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]} (${simbolo})! 🖍️`,
+      });
+    }
+  }
+
+  function jugar(move: ColMove, emitirRemoto = true): void {
+    const nuevo = playMove(state, move);
+    if (nuevo === state) return;
+    state = nuevo;
+    if (nuevo.status === 'won' && nuevo.winner) {
+      jugadorInicialSiguiente = nuevo.winner === 1 ? 2 : 1;
+    }
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  botonesMapa.forEach(boton => {
+    boton.addEventListener('click', () => {
+      jugar({ tipo: 'mapa', mapaId: Number(boton.dataset.mapa) });
+    });
+  });
+
+  btnAleatorio.addEventListener('click', () => {
+    jugar({ tipo: 'mapa', mapaId: Math.floor(Math.random() * MAPAS.length) });
+  });
+
+  render();
+</script>
