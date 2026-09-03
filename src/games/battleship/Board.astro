@@ -133,6 +133,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
   }
 
   .casilla {
+    position: relative;
     aspect-ratio: 1;
     display: flex;
     align-items: center;
@@ -146,9 +147,35 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
     padding: 0;
   }
 
+  /*
+   * Vista previa de colocación: cada barco se dibuja como una pastilla con
+   * contorno propio. Las variables --et/--er/--eb/--el las fija el script a 1
+   * (lado que es borde del barco) o 0 (lado que continúa hacia otra celda del
+   * mismo barco). En los lados-borde el relleno se mete 3px y lleva borde
+   * grueso; en los lados que continúan, el relleno sangra 0.2rem (el gap de la
+   * grilla) para fundirse con la celda contigua sin costura. Entre dos barcos
+   * que se tocan quedan dos contornos separados por el canal del gap.
+   */
   .casilla[data-estado='barco'] {
-    background: var(--color-player-1);
+    background: var(--color-surface);
     color: transparent;
+  }
+
+  .casilla[data-estado='barco']::after {
+    content: '';
+    position: absolute;
+    top: calc(var(--et, 1) * 3px - (1 - var(--et, 1)) * 0.2rem);
+    right: calc(var(--er, 1) * 3px - (1 - var(--er, 1)) * 0.2rem);
+    bottom: calc(var(--eb, 1) * 3px - (1 - var(--eb, 1)) * 0.2rem);
+    left: calc(var(--el, 1) * 3px - (1 - var(--el, 1)) * 0.2rem);
+    background: var(--color-player-1);
+    border: solid var(--color-accent);
+    border-width: calc(var(--et, 1) * 2.5px) calc(var(--er, 1) * 2.5px)
+      calc(var(--eb, 1) * 2.5px) calc(var(--el, 1) * 2.5px);
+    border-top-left-radius: calc(min(var(--et, 1), var(--el, 1)) * 6px);
+    border-top-right-radius: calc(min(var(--et, 1), var(--er, 1)) * 6px);
+    border-bottom-right-radius: calc(min(var(--eb, 1), var(--er, 1)) * 6px);
+    border-bottom-left-radius: calc(min(var(--eb, 1), var(--el, 1)) * 6px);
   }
 
   .casilla[data-estado='agua'] {
@@ -355,7 +382,24 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       mostrarPreview ? 'Tu flota, 8 por 8' : 'Aguas del rival, 8 por 8',
     );
 
-    const celdasPreview = new Set<number>(mostrarPreview ? flotaPrevia.flat() : []);
+    // Por celda de la vista previa: [arriba, derecha, abajo, izquierda], cada
+    // lado 1 si es borde del barco (no continúa hacia otra celda del mismo
+    // barco) o 0 si continúa. Alimenta las variables CSS --et/--er/--eb/--el.
+    const bordesPreview = new Map<number, [number, number, number, number]>();
+    if (mostrarPreview) {
+      for (const barco of flotaPrevia) {
+        const celdas = new Set(barco);
+        for (const i of barco) {
+          const col = i % TAMANO;
+          bordesPreview.set(i, [
+            celdas.has(i - TAMANO) ? 0 : 1,
+            col < TAMANO - 1 && celdas.has(i + 1) ? 0 : 1,
+            celdas.has(i + TAMANO) ? 0 : 1,
+            col > 0 && celdas.has(i - 1) ? 0 : 1,
+          ]);
+        }
+      }
+    }
 
     casillasEl.forEach((casilla, i) => {
       if (mostrarTiros) {
@@ -366,7 +410,19 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
           enHandoff || r !== null || !esMiTurno || state.fase === 'finished';
       } else if (mostrarPreview) {
         casilla.textContent = '';
-        casilla.dataset.estado = celdasPreview.has(i) ? 'barco' : '';
+        const bordes = bordesPreview.get(i);
+        casilla.dataset.estado = bordes ? 'barco' : '';
+        for (const [k, prop] of (
+          [
+            [0, '--et'],
+            [1, '--er'],
+            [2, '--eb'],
+            [3, '--el'],
+          ] as const
+        )) {
+          if (bordes) casilla.style.setProperty(prop, String(bordes[k]));
+          else casilla.style.removeProperty(prop);
+        }
         casilla.disabled = true;
       } else {
         casilla.textContent = '';
