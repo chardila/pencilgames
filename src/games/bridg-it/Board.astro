@@ -1,0 +1,160 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
+---
+
+<TableroJuego class="tablero-bridgit-contenedor">
+  <div id="bridgit-tablero" class="bridgit-tablero">
+    {Array.from({ length: 6 }).map((_, r) => (
+      <Fragment>
+        {Array.from({ length: 6 }).map((_, c) => (
+          <span
+            class="punto punto-rojo"
+            style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 1};`}
+          />
+        ))}
+      </Fragment>
+    ))}
+    {Array.from({ length: 5 }).map((_, r) => (
+      <Fragment>
+        {Array.from({ length: 5 }).map((_, c) => (
+          <span
+            class="punto punto-azul"
+            style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 2};`}
+          />
+        ))}
+      </Fragment>
+    ))}
+    {Array.from({ length: 6 }).map((_, r) => (
+      <Fragment>
+        {Array.from({ length: 5 }).map((_, c) => (
+          <button
+            type="button"
+            class="slot slot--horizontal"
+            data-slot="a"
+            data-fila={r}
+            data-columna={c}
+            style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 2};`}
+            aria-label={`Casilla de conexión, fila ${r}, columna ${c + 1}`}
+          />
+        ))}
+      </Fragment>
+    ))}
+    {Array.from({ length: 5 }).map((_, r) => (
+      <Fragment>
+        {Array.from({ length: 6 }).map((_, c) => (
+          <button
+            type="button"
+            class="slot slot--vertical"
+            data-slot="b"
+            data-fila={r}
+            data-columna={c}
+            style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 1};`}
+            aria-label={`Casilla de conexión, fila ${r + 1}, columna ${c}`}
+          />
+        ))}
+      </Fragment>
+    ))}
+  </div>
+</TableroJuego>
+
+<style define:vars={{ nLineas: N_LINEAS }}>
+  .tablero-bridgit-contenedor {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .bridgit-tablero {
+    --celda: minmax(1.6rem, 2.6rem);
+    display: grid;
+    grid-template-columns: repeat(11, var(--celda));
+    grid-template-rows: repeat(11, var(--celda));
+    width: min(94vw, 32rem);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    padding: 0.5rem;
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    position: relative;
+  }
+
+  .punto {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    justify-self: center;
+    align-self: center;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .punto-rojo {
+    background: var(--color-player-1);
+  }
+
+  .punto-azul {
+    background: var(--color-player-2);
+  }
+
+  /* Bordes objetivo: fila 0/5 rojas resaltadas, columna 0/4 azules resaltadas */
+  .punto-rojo[style*='grid-row: 1;'],
+  .punto-rojo[style*='grid-row: 11;'] {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-player-1) 40%, transparent);
+  }
+
+  .slot {
+    border: none;
+    background: transparent;
+    padding: 0;
+    justify-self: center;
+    align-self: center;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .slot::before {
+    content: '';
+    display: block;
+    border-radius: 3px;
+    background: transparent;
+  }
+
+  .slot--horizontal {
+    width: 100%;
+    height: 12px;
+  }
+
+  .slot--horizontal::before {
+    width: 100%;
+    height: 6px;
+  }
+
+  .slot--vertical {
+    width: 12px;
+    height: 100%;
+  }
+
+  .slot--vertical::before {
+    width: 6px;
+    height: 100%;
+    margin: 0 auto;
+  }
+
+  .slot:not(:disabled):hover::before {
+    background: rgba(0, 0, 0, 0.12);
+  }
+
+  .slot[data-jugador='1']::before {
+    background: var(--color-player-1) !important;
+  }
+
+  .slot[data-jugador='2']::before {
+    background: var(--color-player-2) !important;
+  }
+
+  .slot:disabled {
+    cursor: default;
+  }
+</style>
