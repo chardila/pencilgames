@@ -93,6 +93,18 @@ describe('getSlotAStatus / getSlotBStatus', () => {
     state.blueV[1][2] = true; // corresponde a slot A en r=2,c=2 (r-1=1)
     expect(getSlotAStatus(state, 2, 2)).toEqual({ drawn: true, owner: 2 });
   });
+
+  it('reporta el dueño rojo cuando redV está marcada (slot B)', () => {
+    const state = createInitialState();
+    state.redV[2][2] = true;
+    expect(getSlotBStatus(state, 2, 2)).toEqual({ drawn: true, owner: 1 });
+  });
+
+  it('reporta el dueño azul cuando blueH está marcada (slot B)', () => {
+    const state = createInitialState();
+    state.blueH[0][0] = true; // corresponde a slot B en r=0,c=1 (c-1=0)
+    expect(getSlotBStatus(state, 0, 1)).toEqual({ drawn: true, owner: 2 });
+  });
 });
 
 describe('puedeJugar', () => {
@@ -136,6 +148,24 @@ describe('puedeJugar', () => {
     expect(puedeJugar(state, { type: 'h', row: 0, col: 5 })).toBe(false); // redH col máx es 4
     state.currentPlayer = 2;
     expect(puedeJugar(state, { type: 'h', row: 0, col: 4 })).toBe(false); // blueH col máx es 3
+  });
+
+  it('permite jugar redH en la fila 5 (borde inferior rojo, sin arista cruzada)', () => {
+    const state = createInitialState();
+    // redH(5,0): slot A en r=5, blueV correspondiente sería r-1=4, fuera de rango.
+    expect(puedeJugar(state, { type: 'h', row: 5, col: 0 })).toBe(true);
+  });
+
+  it('permite jugar redV en la columna 0 (borde izquierdo, sin arista cruzada)', () => {
+    const state = createInitialState();
+    // redV(0,0): slot B en c=0, blueH correspondiente sería c-1=-1, fuera de rango.
+    expect(puedeJugar(state, { type: 'v', row: 0, col: 0 })).toBe(true);
+  });
+
+  it('permite jugar redV en la columna 5 (borde derecho, sin arista cruzada)', () => {
+    const state = createInitialState();
+    // redV(0,5): slot B en c=5, blueH correspondiente sería c-1=4, fuera de rango (blueH col máx 3).
+    expect(puedeJugar(state, { type: 'v', row: 0, col: 5 })).toBe(true);
   });
 });
 
@@ -248,6 +278,37 @@ describe('partidas aleatorias', () => {
       }
       expect(state.status).toBe('won');
       expect(state.winner === 1 || state.winner === 2).toBe(true);
+
+      // El camino ganador debe estar formado enteramente por aristas propias
+      // realmente trazadas, y sus extremos deben tocar los bordes correctos.
+      const ganador = state.winner!;
+      const camino = state.winningPath!;
+      expect(camino).not.toBeNull();
+      expect(camino.length).toBeGreaterThan(0);
+      const matrizH = ganador === 1 ? state.redH : state.blueH;
+      const matrizV = ganador === 1 ? state.redV : state.blueV;
+      for (let i = 0; i < camino.length - 1; i++) {
+        const p1 = camino[i];
+        const p2 = camino[i + 1];
+        if (p1.r === p2.r) {
+          const col = Math.min(p1.c, p2.c);
+          expect(matrizH[p1.r]?.[col]).toBe(true);
+        } else if (p1.c === p2.c) {
+          const fila = Math.min(p1.r, p2.r);
+          expect(matrizV[fila]?.[p1.c]).toBe(true);
+        } else {
+          throw new Error('Puntos consecutivos del camino no son adyacentes');
+        }
+      }
+      const primero = camino[0];
+      const ultimo = camino[camino.length - 1];
+      if (ganador === 1) {
+        expect(primero.r).toBe(0);
+        expect(ultimo.r).toBe(5);
+      } else {
+        expect(primero.c).toBe(0);
+        expect(ultimo.c).toBe(4);
+      }
     }
   });
 });

@@ -1,7 +1,5 @@
 ---
 import TableroJuego from '../../components/TableroJuego.astro';
-
-const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
 ---
 
 <TableroJuego class="tablero-bridgit-contenedor">
@@ -10,7 +8,7 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
       <Fragment>
         {Array.from({ length: 6 }).map((_, c) => (
           <span
-            class="punto punto-rojo"
+            class={`punto punto-rojo${r === 0 || r === 5 ? ' punto-rojo--borde' : ''}`}
             style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 1};`}
           />
         ))}
@@ -20,7 +18,7 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
       <Fragment>
         {Array.from({ length: 5 }).map((_, c) => (
           <span
-            class="punto punto-azul"
+            class={`punto punto-azul${c === 0 || c === 4 ? ' punto-azul--borde' : ''}`}
             style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 2};`}
           />
         ))}
@@ -36,7 +34,7 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
             data-fila={r}
             data-columna={c}
             style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 2};`}
-            aria-label={`Casilla de conexión, fila ${r}, columna ${c + 1}`}
+            aria-label={`Casilla de conexión entre puntos, fila ${r}, columna ${c + 1}`}
           />
         ))}
       </Fragment>
@@ -51,7 +49,7 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
             data-fila={r}
             data-columna={c}
             style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 1};`}
-            aria-label={`Casilla de conexión, fila ${r + 1}, columna ${c}`}
+            aria-label={`Casilla de conexión entre puntos, fila ${r + 1}, columna ${c}`}
           />
         ))}
       </Fragment>
@@ -59,7 +57,7 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
   </div>
 </TableroJuego>
 
-<style define:vars={{ nLineas: N_LINEAS }}>
+<style>
   .tablero-bridgit-contenedor {
     display: flex;
     justify-content: center;
@@ -99,9 +97,12 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
   }
 
   /* Bordes objetivo: fila 0/5 rojas resaltadas, columna 0/4 azules resaltadas */
-  .punto-rojo[style*='grid-row: 1;'],
-  .punto-rojo[style*='grid-row: 11;'] {
+  .punto-rojo--borde {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-player-1) 40%, transparent);
+  }
+
+  .punto-azul--borde {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-player-2) 40%, transparent);
   }
 
   .slot {
@@ -118,17 +119,16 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
     content: '';
     display: block;
     border-radius: 3px;
-    background: transparent;
+    background: color-mix(in srgb, var(--color-text) 15%, transparent);
   }
 
+  /* El tamaño del propio botón (área clicable) depende del tipo de slot
+     (A u B), fijo por posición en la grilla. La orientación VISUAL de la
+     línea interna (::before) depende en cambio de a quién pertenece la
+     jugada que aloja ese slot, ver data-orientacion seteado en render(). */
   .slot--horizontal {
     width: 100%;
     height: 12px;
-  }
-
-  .slot--horizontal::before {
-    width: 100%;
-    height: 6px;
   }
 
   .slot--vertical {
@@ -136,14 +136,19 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
     height: 100%;
   }
 
-  .slot--vertical::before {
+  .slot[data-orientacion='h']::before {
+    width: 100%;
+    height: 6px;
+  }
+
+  .slot[data-orientacion='v']::before {
     width: 6px;
     height: 100%;
     margin: 0 auto;
   }
 
   .slot:not(:disabled):hover::before {
-    background: rgba(0, 0, 0, 0.12);
+    background: color-mix(in srgb, var(--color-text) 12%, transparent);
   }
 
   .slot[data-jugador='1']::before {
@@ -156,6 +161,11 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
 
   .slot:disabled {
     cursor: default;
+  }
+
+  .slot--ganador::before {
+    outline: 3px solid gold;
+    outline-offset: 1px;
   }
 </style>
 
@@ -205,9 +215,39 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
     }
   }
 
+  // Slots que forman parte del camino ganador (claves "a:r,c" / "b:r,c"),
+  // recalculado en cada render cuando la partida ya terminó.
+  function slotsDelCaminoGanador(): Set<string> {
+    const claves = new Set<string>();
+    if (state.status !== 'won' || !state.winningPath || !state.winner) return claves;
+    const ganador = state.winner;
+    const camino = state.winningPath;
+    for (let i = 0; i < camino.length - 1; i++) {
+      const p1 = camino[i];
+      const p2 = camino[i + 1];
+      if (ganador === 1) {
+        if (p1.r === p2.r) {
+          claves.add(`a:${p1.r},${Math.min(p1.c, p2.c)}`);
+        } else {
+          claves.add(`b:${Math.min(p1.r, p2.r)},${p1.c}`);
+        }
+      } else {
+        if (p1.r === p2.r) {
+          // blueH(r,c) conecta (r,c)-(r,c+1) y vive en el slot B (r, c+1).
+          claves.add(`b:${p1.r},${Math.min(p1.c, p2.c) + 1}`);
+        } else {
+          // blueV(r,c) conecta (r,c)-(r+1,c) y vive en el slot A (r+1, c).
+          claves.add(`a:${Math.min(p1.r, p2.r) + 1},${p1.c}`);
+        }
+      }
+    }
+    return claves;
+  }
+
   function render(): void {
     const jugadorDelTurno = state.currentPlayer;
     const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+    const claveCaminoGanador = slotsDelCaminoGanador();
 
     for (const slot of slots) {
       const tipo = slot.dataset.slot as 'a' | 'b';
@@ -221,6 +261,24 @@ const N_LINEAS = 11; // posiciones 0..10 en ambos ejes
       } else {
         delete slot.dataset.jugador;
       }
+
+      // Orientación visual real de la línea que aloja este slot: si ya está
+      // dibujada, según su dueño; si no, según el jugador en turno, para que
+      // el hover/preview muestre la orientación de SU jugada (slot A: rojo
+      // = horizontal, azul = vertical; slot B: rojo = vertical, azul =
+      // horizontal).
+      const jugadorParaOrientacion = estado.owner ?? jugadorDelTurno;
+      const orientacion =
+        tipo === 'a'
+          ? jugadorParaOrientacion === 1
+            ? 'h'
+            : 'v'
+          : jugadorParaOrientacion === 1
+            ? 'v'
+            : 'h';
+      slot.dataset.orientacion = orientacion;
+
+      slot.classList.toggle('slot--ganador', claveCaminoGanador.has(`${tipo}:${r},${c}`));
 
       const jugable =
         state.status === 'playing' &&
