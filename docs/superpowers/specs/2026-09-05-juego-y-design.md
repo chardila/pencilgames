@@ -54,10 +54,12 @@ Chequeo de grado (tests explícitos):
 | Celda | Grado esperado |
 |---|---|
 | Ápice `(0,0)` | 2 |
-| Esquina inferior izquierda `(N-1, 0)` | 4 |
-| Esquina inferior derecha `(N-1, N-1)` | 4 |
+| Esquina inferior izquierda `(N-1, 0)` | 2 |
+| Esquina inferior derecha `(N-1, N-1)` | 2 |
 | Punto medio de cualquier lado (no esquina) | 4 |
 | Celda interior | 6 |
+
+Las tres esquinas del triángulo tienen grado 2 (simetría rotacional de orden 3).
 
 `getNeighbors` debe ser recíproco: `b ∈ N(a) ⟺ a ∈ N(b)`.
 
