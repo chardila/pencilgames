@@ -23,3 +23,13 @@ Store horizontal and vertical edges separately or give every edge a canonical ID
 
 ## Important rule
 Completing a box grants another turn, including when the same move completes two boxes.
+
+## Historical Names
+- Also known as *Pipopipette* (Édouard Lucas, 1889) in France.
+- Known as *La Battaglia dei Quadrati* (The Battle of the Squares) or *The Hunt of the Fox* in Italy.
+
+## Variants (from Angiolino, 1995)
+- **Triangles**: Played on a triangular grid of dots. Connecting adjacent dots forms equilateral triangles. Completing a triangle claims it and grants an extra turn.
+- **Triad**: Played on a square grid with diagonals. Players can draw horizontal, vertical, or diagonal line segments. Completing right triangles claims them.
+- **Nazareno**: Isometric/hexagonal grid variant (popularized in Rome in the 1970s) where both triangles and rhombuses can be completed and captured.
+

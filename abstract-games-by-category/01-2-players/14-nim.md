@@ -30,3 +30,9 @@ type GameState = {
 
 ## AI
 Normal Nim has a perfect strategy based on the XOR (nim-sum) of pile sizes.
+
+## Additional Variants (Angiolino, 1995)
+- **Big Nim**: Played across multiple rounds. The winner of each round scores points equal to the remaining items or items taken in that game.
+- **Nimclock**: A single pile/track of 12 numbers arranged like a clock face. On each turn, a player may take 1, 2, or 3 consecutive remaining numbers on the clock dial.
+- **Fibonacci Nim** (Robert E. Gaskell, 1966): Starts with a single pile of $N$ counters (e.g. $N = 20$). On the first move, player 1 may take any number $k$ ($1 \le k < N$). On subsequent moves, the current player may take at most $2k$ counters, where $k$ is the number taken on the immediately preceding move. Winning strategy relates to the Zeckendorf theorem (Fibonacci base decomposition).
+
