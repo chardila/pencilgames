@@ -1,0 +1,19 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+---
+
+<TableroJuego class="tablero-y-contenedor">
+  <div class="y-tablero-wrapper">
+    <svg id="y-svg" class="y-svg" role="grid" aria-label="Tablero de Juego Y"></svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-y-contenedor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+  }
+</style>
