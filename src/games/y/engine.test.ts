@@ -239,3 +239,63 @@ describe('tocaLados', () => {
     expect(tocaLados([indexOf(0, 0)], 7)).toEqual({ izq: true, der: true, inf: false });
   });
 });
+
+// Verificación independiente: ¿algún componente conectado de `player`
+// toca los tres lados?
+function ganadorPorFloodFill(
+  board: (1 | 2 | null)[],
+  size: BoardSize
+): 1 | 2 | null {
+  for (const player of [1, 2] as const) {
+    const visitado = new Set<number>();
+    for (let inicio = 0; inicio < cellCount(size); inicio++) {
+      if (board[inicio] !== player || visitado.has(inicio)) continue;
+      const comp: number[] = [];
+      const cola = [inicio];
+      visitado.add(inicio);
+      while (cola.length > 0) {
+        const a = cola.shift()!;
+        comp.push(a);
+        for (const v of getNeighbors(a, size)) {
+          if (board[v] === player && !visitado.has(v)) {
+            visitado.add(v);
+            cola.push(v);
+          }
+        }
+      }
+      const { izq, der, inf } = tocaLados(comp, size);
+      if (izq && der && inf) return player;
+    }
+  }
+  return null;
+}
+
+function barajar<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+describe('propiedad: Y no tiene empates', () => {
+  for (const N of [7, 9, 11] as BoardSize[]) {
+    it(`N=${N}: toda partida aleatoria termina con exactamente un ganador`, () => {
+      const iteraciones = 5000;
+      for (let it = 0; it < iteraciones; it++) {
+        let s = createInitialState(N);
+        const orden = barajar([...Array(cellCount(N)).keys()]);
+        for (const celda of orden) {
+          if (s.status === 'won') break;
+          s = playMove(s, celda);
+        }
+        // Con el tablero lleno (o antes) siempre hay ganador.
+        expect(s.status).toBe('won');
+        expect(s.winner === 1 || s.winner === 2).toBe(true);
+        // El ganador del motor coincide con la verificación independiente.
+        expect(ganadorPorFloodFill(s.board, N)).toBe(s.winner);
+      }
+    });
+  }
+});
