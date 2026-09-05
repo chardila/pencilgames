@@ -215,7 +215,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     svg.innerHTML = '';
     const size = state.size;
 
-    const totalWidth = MARGIN * 2 + size * W;
+    const totalWidth = MARGIN * 2 + (size - 1) * W + 2 * R;
     const totalHeight = MARGIN * 2 + (size - 1) * (1.5 * R) + 2 * R;
     svg.setAttribute('viewBox', `0 0 ${totalWidth.toFixed(1)} ${totalHeight.toFixed(1)}`);
 
@@ -300,6 +300,9 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   function jugar(indice: number, emitirRemoto = true): void {
     if (state.board[indice] !== null || state.status !== 'playing') return;
+    // El guard de turno solo aplica a la entrada local. Los movimientos remotos
+    // llegan cuando `currentPlayer` es el asiento del rival, así que `esMiTurno`
+    // sería falso y los descartaría en silencio (boards desincronizados).
     if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
 
     state = playMove(state, indice);

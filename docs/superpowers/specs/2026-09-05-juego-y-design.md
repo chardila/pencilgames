@@ -11,7 +11,7 @@ color en cualquier celda vacía. Gana quien primero forme **una cadena conectada
 que toque los tres lados del triángulo**. No existen empates (teorema de Y: un
 tablero lleno siempre tiene exactamente un ganador).
 
-Será el 23.º juego de la colección. Categoría del backlog: `01-2-players`
+Será el 21.º juego de la colección. Categoría del backlog: `01-2-players`
 (`abstract-games-by-category/01-2-players/26-y.md`).
 
 ## Decisiones de producto
