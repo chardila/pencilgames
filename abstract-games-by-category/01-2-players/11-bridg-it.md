@@ -1,5 +1,8 @@
 # Bridg-It / Gale
 
+> ✅ **Implementado** — en vivo en https://games.cardila.com/juegos/bridg-it/
+> Retículas 5×6 roja y 6×5 azul entrelazadas (30 puntos cada una), 2 jugadores, bloqueo por cruce de aristas, sin empates.
+
 ## Players
 2
 
