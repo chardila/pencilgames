@@ -9,6 +9,7 @@ import {
   puedeJugar,
   findWinningPath,
   playMove,
+  type Edge,
 } from './engine';
 
 describe('createInitialState', () => {
@@ -223,5 +224,30 @@ describe('playMove', () => {
     state = playMove(state, { type: 'v', row: 4, col: 0 });
     expect(state.currentPlayer).toBe(antes);
     expect(puedeJugar(state, { type: 'h', row: 4, col: 1 })).toBe(false); // status ya no es 'playing'
+  });
+});
+
+function todasLasAristasPosibles(): Edge[] {
+  const aristas: Edge[] = [];
+  for (let r = 0; r <= 5; r++) for (let c = 0; c <= 4; c++) aristas.push({ type: 'h', row: r, col: c });
+  for (let r = 0; r <= 4; r++) for (let c = 0; c <= 5; c++) aristas.push({ type: 'v', row: r, col: c });
+  return aristas;
+}
+
+describe('partidas aleatorias', () => {
+  it('siempre terminan con exactamente un ganador, sin excepciones', () => {
+    const candidatas = todasLasAristasPosibles();
+    for (let partida = 0; partida < 2000; partida++) {
+      let state = createInitialState();
+      let intentosSinExito = 0;
+      while (state.status === 'playing' && intentosSinExito < 1000) {
+        const candidata = candidatas[Math.floor(Math.random() * candidatas.length)];
+        const antes = state;
+        state = playMove(state, candidata);
+        intentosSinExito = state === antes ? intentosSinExito + 1 : 0;
+      }
+      expect(state.status).toBe('won');
+      expect(state.winner === 1 || state.winner === 2).toBe(true);
+    }
   });
 });
