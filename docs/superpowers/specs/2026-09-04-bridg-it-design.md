@@ -5,8 +5,10 @@
 Vigésimo juego del sitio. Bridg-It (David Gale, 1958) es el "Shannon Switching Game"
 formulado como juego de conexión sobre dos retículas de puntos entrelazadas: cada
 jugador dibuja aristas entre sus propios puntos adyacentes intentando conectar sus
-dos bordes opuestos; cada arista posible de un color cruza exactamente una arista
-posible del otro color, y trazar una bloquea automáticamente a la cruzada. El
+dos bordes opuestos; cada arista posible de un color cruza como máximo una arista
+posible del otro color, y trazar una bloquea automáticamente a la cruzada (si
+existe — las aristas en el borde propio de cada color no tienen ninguna cruzada
+posible). El
 juego nunca empata: exactamente uno de los dos jugadores siempre puede completar
 su conexión (dualidad planar), igual que en Hex, que ya está implementado en este
 repositorio y sirve de referencia de patrón de motor/tablero.
@@ -120,7 +122,7 @@ Sigue el patrón de `src/games/hex/engine.ts`:
 - `findWinningPath(state, player): Array<{r,c}> | null` — BFS/unión desde todos
   los puntos del borde de inicio del jugador (fila 0 para rojo, columna 0 para
   azul) siguiendo únicamente aristas propias existentes, hasta alcanzar el
-  borde opuesto (fila 5 / columna 4). Devuelve la secuencia de puntos del
+  borde opuesto (fila 5 / columna 5). Devuelve la secuencia de puntos del
   camino encontrado, o `null`.
 
 No existe caso de tablero lleno/empate: no se implementa esa rama (documentar

@@ -153,30 +153,35 @@ describe('puedeJugar', () => {
     expect(puedeJugar(state, { type: 'v', row: 4, col: 4 })).toBe(false);
   });
 
-  it('permite jugar redH en la fila 0 (borde superior rojo, sin arista cruzada posible)', () => {
+  // Estas pruebas llenan TODAS las aristas azules (o rojas) antes de
+  // comprobar, en vez de partir de un tablero vacío: en un tablero vacío
+  // `puedeJugar` da `true` para cualquier posición en rango sin importar si
+  // el guard de borde de `aristaCruzada` funciona (`tieneArista` sobre una
+  // matriz rival vacía siempre es `false`), así que una prueba así no
+  // discrimina nada — pasaría igual aunque se borrara el guard de borde.
+  it('redH solo es jugable en las filas 0 y 5 cuando toda la retícula azul está ocupada', () => {
     const state = createInitialState();
-    // redH(0,0): br = -1, fuera de rango de blueV — no hay cruce posible.
-    expect(puedeJugar(state, { type: 'h', row: 0, col: 0 })).toBe(true);
+    state.blueV = state.blueV.map(fila => fila.map(() => true));
+    for (let c = 0; c <= 3; c++) {
+      expect(puedeJugar(state, { type: 'h', row: 0, col: c })).toBe(true);
+      expect(puedeJugar(state, { type: 'h', row: 5, col: c })).toBe(true);
+      for (let r = 1; r <= 4; r++) {
+        expect(puedeJugar(state, { type: 'h', row: r, col: c })).toBe(false);
+      }
+    }
   });
 
-  it('permite jugar redH en la fila 5 (borde inferior rojo, sin arista cruzada posible)', () => {
+  it('blueV solo es jugable en las columnas 0 y 5 cuando toda la retícula roja h está ocupada', () => {
     const state = createInitialState();
-    // redH(5,0): br = 4, fuera de rango de blueV (máx 3) — no hay cruce posible.
-    expect(puedeJugar(state, { type: 'h', row: 5, col: 0 })).toBe(true);
-  });
-
-  it('permite jugar blueV en la columna 0 (borde izquierdo azul, sin arista cruzada posible)', () => {
-    const state = createInitialState();
+    state.redH = state.redH.map(fila => fila.map(() => true));
     state.currentPlayer = 2;
-    // blueV(0,0): bc = -1, fuera de rango de redH — no hay cruce posible.
-    expect(puedeJugar(state, { type: 'v', row: 0, col: 0 })).toBe(true);
-  });
-
-  it('permite jugar blueV en la columna 5 (borde derecho azul, sin arista cruzada posible)', () => {
-    const state = createInitialState();
-    state.currentPlayer = 2;
-    // blueV(0,5): bc = 4, fuera de rango de redH (máx 3) — no hay cruce posible.
-    expect(puedeJugar(state, { type: 'v', row: 0, col: 5 })).toBe(true);
+    for (let r = 0; r <= 3; r++) {
+      expect(puedeJugar(state, { type: 'v', row: r, col: 0 })).toBe(true);
+      expect(puedeJugar(state, { type: 'v', row: r, col: 5 })).toBe(true);
+      for (let c = 1; c <= 4; c++) {
+        expect(puedeJugar(state, { type: 'v', row: r, col: c })).toBe(false);
+      }
+    }
   });
 
   it('rechaza coordenadas fuera de rango para el jugador activo', () => {

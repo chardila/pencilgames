@@ -40,7 +40,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
               data-fila={i}
               data-columna={j}
               style={`grid-row: ${2 * i + 1}; grid-column: ${2 * j + 1};`}
-              aria-label={`Casilla de conexión entre puntos, posición ${i},${j}`}
+              aria-label={`Casilla de conexión A, posición ${i},${j}`}
             />
           );
         })}
@@ -57,7 +57,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
             data-fila={i}
             data-columna={j}
             style={`grid-row: ${2 * i + 2}; grid-column: ${2 * j + 2};`}
-            aria-label={`Casilla de conexión entre puntos, posición ${i},${j}`}
+            aria-label={`Casilla de conexión B, posición ${i},${j}`}
           />
         ))}
       </Fragment>
