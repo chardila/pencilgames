@@ -129,6 +129,112 @@ export function puedeJugar(state: BridgItState, edge: Edge): boolean {
   return true;
 }
 
+function clonarEstado(state: BridgItState): BridgItState {
+  return {
+    redH: state.redH.map(fila => [...fila]),
+    redV: state.redV.map(fila => [...fila]),
+    blueH: state.blueH.map(fila => [...fila]),
+    blueV: state.blueV.map(fila => [...fila]),
+    currentPlayer: state.currentPlayer,
+    status: state.status,
+    winner: state.winner,
+    winningPath: state.winningPath,
+    lastMove: state.lastMove,
+  };
+}
+
+function vecinosRojo(state: BridgItState, r: number, c: number): Array<{ r: number; c: number }> {
+  const vecinos: Array<{ r: number; c: number }> = [];
+  if (c > 0 && state.redH[r][c - 1]) vecinos.push({ r, c: c - 1 });
+  if (c < 5 && state.redH[r][c]) vecinos.push({ r, c: c + 1 });
+  if (r > 0 && state.redV[r - 1][c]) vecinos.push({ r: r - 1, c });
+  if (r < 5 && state.redV[r][c]) vecinos.push({ r: r + 1, c });
+  return vecinos;
+}
+
+function vecinosAzul(state: BridgItState, r: number, c: number): Array<{ r: number; c: number }> {
+  const vecinos: Array<{ r: number; c: number }> = [];
+  if (c > 0 && state.blueH[r][c - 1]) vecinos.push({ r, c: c - 1 });
+  if (c < 4 && state.blueH[r][c]) vecinos.push({ r, c: c + 1 });
+  if (r > 0 && state.blueV[r - 1][c]) vecinos.push({ r: r - 1, c });
+  if (r < 4 && state.blueV[r][c]) vecinos.push({ r: r + 1, c });
+  return vecinos;
+}
+
+export function findWinningPath(
+  state: BridgItState,
+  player: Player
+): Array<{ r: number; c: number }> | null {
+  const size = player === 1 ? 6 : 5;
+  const vecinosDe = player === 1 ? vecinosRojo : vecinosAzul;
+  const clave = (r: number, c: number) => `${r},${c}`;
+
+  const inicio: Array<{ r: number; c: number }> =
+    player === 1
+      ? Array.from({ length: size }, (_, c) => ({ r: 0, c }))
+      : Array.from({ length: size }, (_, r) => ({ r, c: 0 }));
+
+  const visitado = new Set<string>(inicio.map(p => clave(p.r, p.c)));
+  const padre = new Map<string, { r: number; c: number } | null>();
+  for (const p of inicio) padre.set(clave(p.r, p.c), null);
+  const cola = [...inicio];
+
+  let meta: { r: number; c: number } | null = null;
+  while (cola.length > 0) {
+    const actual = cola.shift()!;
+    const llegoALaMeta = player === 1 ? actual.r === size - 1 : actual.c === size - 1;
+    if (llegoALaMeta) {
+      meta = actual;
+      break;
+    }
+    for (const vecino of vecinosDe(state, actual.r, actual.c)) {
+      const k = clave(vecino.r, vecino.c);
+      if (!visitado.has(k)) {
+        visitado.add(k);
+        padre.set(k, actual);
+        cola.push(vecino);
+      }
+    }
+  }
+
+  if (!meta) return null;
+
+  const camino: Array<{ r: number; c: number }> = [];
+  let actual: { r: number; c: number } | null = meta;
+  while (actual) {
+    camino.push(actual);
+    actual = padre.get(clave(actual.r, actual.c)) ?? null;
+  }
+  return camino.reverse();
+}
+
+export function playMove(state: BridgItState, edge: Edge): BridgItState {
+  if (!esJugadaValida(edge)) return state;
+  if (!puedeJugar(state, edge)) return state;
+
+  const player = state.currentPlayer;
+  const next = clonarEstado(state);
+  if (player === 1) {
+    if (edge.type === 'h') next.redH[edge.row][edge.col] = true;
+    else next.redV[edge.row][edge.col] = true;
+  } else {
+    if (edge.type === 'h') next.blueH[edge.row][edge.col] = true;
+    else next.blueV[edge.row][edge.col] = true;
+  }
+  next.lastMove = { player, edge };
+
+  const winningPath = findWinningPath(next, player);
+  if (winningPath) {
+    next.status = 'won';
+    next.winner = player;
+    next.winningPath = winningPath;
+    return next;
+  }
+
+  next.currentPlayer = player === 1 ? 2 : 1;
+  return next;
+}
+
 export function esJugadaValida(payload: unknown): payload is Edge {
   if (typeof payload !== 'object' || payload === null) return false;
   const candidato = payload as Record<string, unknown>;

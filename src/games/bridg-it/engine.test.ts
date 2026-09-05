@@ -7,6 +7,8 @@ import {
   getSlotAStatus,
   getSlotBStatus,
   puedeJugar,
+  findWinningPath,
+  playMove,
 } from './engine';
 
 describe('createInitialState', () => {
@@ -133,5 +135,93 @@ describe('puedeJugar', () => {
     expect(puedeJugar(state, { type: 'h', row: 0, col: 5 })).toBe(false); // redH col máx es 4
     state.currentPlayer = 2;
     expect(puedeJugar(state, { type: 'h', row: 0, col: 4 })).toBe(false); // blueH col máx es 3
+  });
+});
+
+describe('findWinningPath', () => {
+  it('retorna null si no hay conexión', () => {
+    const state = createInitialState();
+    expect(findWinningPath(state, 1)).toBeNull();
+  });
+
+  it('encuentra la conexión roja fila 0 a fila 5 por una columna recta', () => {
+    const state = createInitialState();
+    for (let r = 0; r < 5; r++) state.redV[r][0] = true; // columna 0 completa
+    const camino = findWinningPath(state, 1);
+    expect(camino).not.toBeNull();
+    expect(camino![0]).toEqual({ r: 0, c: 0 });
+    expect(camino![camino!.length - 1]).toEqual({ r: 5, c: 0 });
+  });
+
+  it('encuentra la conexión azul columna 0 a columna 4 por una fila recta', () => {
+    const state = createInitialState();
+    for (let c = 0; c < 4; c++) state.blueH[0][c] = true; // fila 0 completa
+    const camino = findWinningPath(state, 2);
+    expect(camino).not.toBeNull();
+    expect(camino![0]).toEqual({ r: 0, c: 0 });
+    expect(camino![camino!.length - 1]).toEqual({ r: 0, c: 4 });
+  });
+
+  it('no confunde la grilla roja con la azul', () => {
+    const state = createInitialState();
+    for (let c = 0; c < 4; c++) state.blueH[0][c] = true;
+    expect(findWinningPath(state, 1)).toBeNull();
+  });
+});
+
+describe('playMove', () => {
+  it('ignora una jugada inválida y retorna el mismo estado', () => {
+    const state = createInitialState();
+    state.redH[0][0] = true;
+    const resultado = playMove(state, { type: 'h', row: 0, col: 0 });
+    expect(resultado).toBe(state);
+  });
+
+  it('marca la arista y pasa el turno cuando no hay victoria', () => {
+    const state = createInitialState();
+    const resultado = playMove(state, { type: 'h', row: 0, col: 0 });
+    expect(resultado.redH[0][0]).toBe(true);
+    expect(resultado.currentPlayer).toBe(2);
+    expect(resultado.status).toBe('playing');
+    expect(resultado.lastMove).toEqual({ player: 1, edge: { type: 'h', row: 0, col: 0 } });
+    // no debe mutar el estado original
+    expect(state.redH[0][0]).toBe(false);
+  });
+
+  it('declara ganador a rojo al completar fila 0 a fila 5', () => {
+    let state = createInitialState();
+    for (let r = 0; r < 4; r++) {
+      state = playMove(state, { type: 'v', row: r, col: 0 });
+      state = playMove(state, { type: 'h', row: r, col: 0 }); // jugadas azules que no interfieren
+    }
+    state = playMove(state, { type: 'v', row: 4, col: 0 });
+    expect(state.status).toBe('won');
+    expect(state.winner).toBe(1);
+    expect(state.winningPath).not.toBeNull();
+  });
+
+  // Nota: la secuencia del brief para esta prueba tenía dos problemas:
+  // (1) llamaba playMove cuatro veces seguidas con el mismo tipo de arista
+  // ('v') sin intercalar jugadas azules — como el turno se alterna
+  // estrictamente en cada llamada a playMove, la segunda de esas llamadas
+  // se habría registrado como jugada AZUL (en blueV, no en redV) y la
+  // columna roja nunca se habría completado; (2) al intercalar las jugadas
+  // azules sugeridas en `blueH[0][0..3]` (misma fila), la CUARTA jugada
+  // azul completa por sí sola el camino azul columna 0 a columna 4 antes
+  // de que rojo pueda jugar su última arista, y la partida terminaba con
+  // victoria AZUL en vez de roja. Se ajustó la secuencia para que las
+  // jugadas azules intercaladas queden en filas distintas
+  // (`{ type: 'h', row: r, col: 0 }`), de modo que nunca formen un camino
+  // azul completo, preservando intacta la aserción final de victoria roja.
+  it('no cambia de turno ni de estado tras la jugada ganadora', () => {
+    let state = createInitialState();
+    for (let r = 0; r < 4; r++) {
+      state = playMove(state, { type: 'v', row: r, col: 0 });
+      state = playMove(state, { type: 'h', row: r, col: 0 });
+    }
+    const antes = state.currentPlayer;
+    state = playMove(state, { type: 'v', row: 4, col: 0 });
+    expect(state.currentPlayer).toBe(antes);
+    expect(puedeJugar(state, { type: 'h', row: 4, col: 1 })).toBe(false); // status ya no es 'playing'
   });
 });
