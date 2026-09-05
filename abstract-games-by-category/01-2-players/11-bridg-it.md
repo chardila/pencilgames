@@ -25,3 +25,9 @@ Represent each player's points as a graph. Edge intersection must be tested if a
 
 ## Note
 The standard Bridg-It layout is not the same as a normal square-grid Hex board.
+
+## Background & Variants (Angiolino, 1995)
+- Invented by David Gale (1958). Known in Europe (Italy, France) as **Brigitte**.
+- **Scaffold (*Impalcatura*):** A traditional variant played on a dot grid where players alternately connect orthogonal neighbor dots to build paths across the sheet or wall off the opponent.
+- **Shannon Switching Game connection:** Gale formulated Bridg-It as a planar graph realization of Claude Shannon's switching game. Gale proved that player 1 has a pairing strategy that guarantees victory.
+

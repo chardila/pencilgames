@@ -28,3 +28,8 @@ used, set head = `n`.
 
 ## Variant
 Larger boards (7×5, 7×7 dots) lengthen the game.
+
+## Related Variants (Angiolino, 1995)
+- **The Big Snake (*Il Serpentone*)**: Light-Cycles / Tron-like pencil game on a graph paper grid. Players delineate any shape board and start at opposite corners. Each turn a player shades one orthogonally adjacent square extending their snake. Squares cannot be revisited. Obstacle squares (pre-blackened blocks) can be placed before starting.
+- **Parton's Snake (Vernon R. Parton, 1970)**: Played on a grid (e.g. $6 \times 6$). Each player takes turns writing sequential numbers ($1, 2, 3, \dots, N$) in adjacent empty squares to build an expanding numbered snake path while trying to trap and cut off the opponent's snake.
+
