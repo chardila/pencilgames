@@ -73,3 +73,63 @@ export function getNeighbors(index: number, size: BoardSize): number[] {
   }
   return neighbors;
 }
+
+export function tocaLados(
+  cells: number[],
+  size: BoardSize
+): { izq: boolean; der: boolean; inf: boolean } {
+  let izq = false;
+  let der = false;
+  let inf = false;
+  for (const i of cells) {
+    const { r, c } = coordsOf(i);
+    if (c === 0) izq = true;
+    if (c === r) der = true;
+    if (r === size - 1) inf = true;
+  }
+  return { izq, der, inf };
+}
+
+export function playMove(state: YState, index: number): YState {
+  if (state.status !== 'playing') return state;
+  if (!esJugadaValida(index, state.size)) return state;
+  if (state.board[index] !== null) return state;
+
+  const player = state.currentPlayer;
+  const board = [...state.board];
+  board[index] = player;
+
+  // Flood-fill BFS desde la ficha recién colocada, solo por celdas de `player`.
+  const componente: number[] = [];
+  const visitado = new Set<number>([index]);
+  const cola: number[] = [index];
+  while (cola.length > 0) {
+    const actual = cola.shift()!;
+    componente.push(actual);
+    for (const vecino of getNeighbors(actual, state.size)) {
+      if (board[vecino] === player && !visitado.has(vecino)) {
+        visitado.add(vecino);
+        cola.push(vecino);
+      }
+    }
+  }
+
+  const { izq, der, inf } = tocaLados(componente, state.size);
+  if (izq && der && inf) {
+    return {
+      ...state,
+      board,
+      status: 'won',
+      winner: player,
+      winningCells: componente,
+      lastMove: index,
+    };
+  }
+
+  return {
+    ...state,
+    board,
+    currentPlayer: player === 1 ? 2 : 1,
+    lastMove: index,
+  };
+}

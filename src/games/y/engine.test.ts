@@ -6,6 +6,8 @@ import {
   esJugadaValida,
   getNeighbors,
   indexOf,
+  playMove,
+  tocaLados,
   type BoardSize,
 } from './engine';
 
@@ -115,5 +117,125 @@ describe('getNeighbors', () => {
     expect(getNeighbors(indexOf(0, 0), 7).sort((a, b) => a - b)).toEqual(
       [indexOf(1, 0), indexOf(1, 1)].sort((a, b) => a - b)
     );
+  });
+});
+
+// Coloca una lista de celdas para `player` en un estado, saltándose la
+// alternancia (helper de test que manipula el board directamente).
+function conFichas(
+  size: BoardSize,
+  fichas: Array<{ i: number; p: 1 | 2 }>
+) {
+  let s = createInitialState(size);
+  const board = [...s.board];
+  for (const { i, p } of fichas) board[i] = p;
+  return { ...s, board };
+}
+
+describe('playMove — guards', () => {
+  it('devuelve el mismo estado si la celda está ocupada', () => {
+    let s = createInitialState(7);
+    s = playMove(s, 0);
+    const antes = s;
+    const despues = playMove(s, 0);
+    expect(despues).toBe(antes);
+  });
+
+  it('devuelve el mismo estado si el índice está fuera de rango', () => {
+    const s = createInitialState(7);
+    expect(playMove(s, 28)).toBe(s);
+    expect(playMove(s, -1)).toBe(s);
+  });
+
+  it('devuelve el mismo estado si la partida ya terminó', () => {
+    // Cadena de J1 en N=7 que toca los tres lados: columna c=0 de r=0..6
+    // toca izq (c=0) e inf (r=6); falta der. Añadimos (6,6) y conectamos por
+    // la fila 6: (6,0),(6,1)..(6,6) toca izq, inf y der.
+    const fichas: Array<{ i: number; p: 1 | 2 }> = [];
+    for (let c = 0; c <= 6; c++) fichas.push({ i: indexOf(6, c), p: 1 });
+    // fila 6 completa toca c=0 (izq), r=6 (inf) y c=r=6 (der)
+    let s = conFichas(7, fichas.slice(0, 6)); // sin la última ficha aún
+    s = { ...s, currentPlayer: 1 };
+    s = playMove(s, indexOf(6, 6)); // ficha ganadora
+    expect(s.status).toBe('won');
+    const congelado = s;
+    expect(playMove(s, indexOf(0, 0))).toBe(congelado);
+  });
+
+  it('no muta el estado de entrada', () => {
+    const s = createInitialState(7);
+    const copiaBoard = [...s.board];
+    playMove(s, 3);
+    expect(s.board).toEqual(copiaBoard);
+    expect(s.currentPlayer).toBe(1);
+  });
+});
+
+describe('playMove — turno', () => {
+  it('alterna currentPlayer y fija lastMove tras jugada válida', () => {
+    let s = createInitialState(7);
+    s = playMove(s, 5);
+    expect(s.currentPlayer).toBe(2);
+    expect(s.lastMove).toBe(5);
+    s = playMove(s, 6);
+    expect(s.currentPlayer).toBe(1);
+  });
+});
+
+describe('playMove — victoria', () => {
+  it('J1 gana al conectar los tres lados; winningCells contiene la cadena', () => {
+    // Fila 6 completa de J1 en N=7.
+    const fichas: Array<{ i: number; p: 1 | 2 }> = [];
+    for (let c = 0; c < 6; c++) fichas.push({ i: indexOf(6, c), p: 1 });
+    let s = conFichas(7, fichas);
+    s = { ...s, currentPlayer: 1 };
+    s = playMove(s, indexOf(6, 6));
+    expect(s.status).toBe('won');
+    expect(s.winner).toBe(1);
+    expect(s.currentPlayer).toBe(1); // no alterna al ganar
+    for (let c = 0; c <= 6; c++) {
+      expect(s.winningCells).toContain(indexOf(6, c));
+    }
+  });
+
+  it('componentes disjuntos NO cuentan como victoria', () => {
+    // Grupo A de J1: (0,0) toca izq+der pero no inf.
+    // Grupo B de J1: (6,3) toca inf pero está desconectado de A.
+    // Colocar (6,4) (adyacente a (6,3)) no debe ganar.
+    let s = conFichas(7, [
+      { i: indexOf(0, 0), p: 1 },
+      { i: indexOf(6, 3), p: 1 },
+    ]);
+    s = { ...s, currentPlayer: 1 };
+    s = playMove(s, indexOf(6, 4));
+    expect(s.status).toBe('playing');
+    expect(s.winner).toBeNull();
+  });
+
+  it('una sola ficha en el ápice no gana (no toca el lado inferior)', () => {
+    let s = createInitialState(7);
+    s = playMove(s, indexOf(0, 0));
+    expect(s.status).toBe('playing');
+  });
+
+  it('colocar la ficha que cerraría la Y del rival no da la victoria a quien mueve', () => {
+    // J2 tiene fila 6 casi completa: (6,0)..(6,5). Turno de J1.
+    // J1 coloca (6,6): completa geométricamente la fila pero es ficha de J1,
+    // el componente de J1 en (6,6) solo toca inf+der, no izq.
+    const fichas: Array<{ i: number; p: 1 | 2 }> = [];
+    for (let c = 0; c <= 5; c++) fichas.push({ i: indexOf(6, c), p: 2 });
+    let s = conFichas(7, fichas);
+    s = { ...s, currentPlayer: 1 };
+    s = playMove(s, indexOf(6, 6));
+    expect(s.status).toBe('playing');
+  });
+});
+
+describe('tocaLados', () => {
+  it('detecta pertenencia a cada lado en N=7', () => {
+    expect(tocaLados([indexOf(3, 0)], 7)).toEqual({ izq: true, der: false, inf: false });
+    expect(tocaLados([indexOf(3, 3)], 7)).toEqual({ izq: false, der: true, inf: false });
+    expect(tocaLados([indexOf(6, 2)], 7)).toEqual({ izq: false, der: false, inf: true });
+    expect(tocaLados([indexOf(0, 0)], 7)).toEqual({ izq: true, der: true, inf: false });
   });
 });
