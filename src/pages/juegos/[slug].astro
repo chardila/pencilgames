@@ -25,6 +25,7 @@ import SnakesBoard from '../../games/snakes/Board.astro';
 import NimBoard from '../../games/nim/Board.astro';
 import ColBoard from '../../games/col/Board.astro';
 import BridgItBoard from '../../games/bridg-it/Board.astro';
+import YBoard from '../../games/y/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
@@ -47,6 +48,7 @@ const BOARDS = {
   nim: NimBoard,
   col: ColBoard,
   'bridg-it': BridgItBoard,
+  'juego-y': YBoard,
 } as const;
 
 export async function getStaticPaths() {
