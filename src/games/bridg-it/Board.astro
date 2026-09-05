@@ -4,52 +4,60 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
 <TableroJuego class="tablero-bridgit-contenedor">
   <div id="bridgit-tablero" class="bridgit-tablero">
+    {/* Puntos rojos: 5 columnas × 6 filas (30), conectan fila 0 con fila 5. */}
     {Array.from({ length: 6 }).map((_, r) => (
-      <Fragment>
-        {Array.from({ length: 6 }).map((_, c) => (
-          <span
-            class={`punto punto-rojo${r === 0 || r === 5 ? ' punto-rojo--borde' : ''}`}
-            style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 1};`}
-          />
-        ))}
-      </Fragment>
-    ))}
-    {Array.from({ length: 5 }).map((_, r) => (
       <Fragment>
         {Array.from({ length: 5 }).map((_, c) => (
           <span
-            class={`punto punto-azul${c === 0 || c === 4 ? ' punto-azul--borde' : ''}`}
-            style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 2};`}
-          />
-        ))}
-      </Fragment>
-    ))}
-    {Array.from({ length: 6 }).map((_, r) => (
-      <Fragment>
-        {Array.from({ length: 5 }).map((_, c) => (
-          <button
-            type="button"
-            class="slot"
-            data-slot="a"
-            data-fila={r}
-            data-columna={c}
+            class={`punto punto-rojo${r === 0 || r === 5 ? ' punto-rojo--borde' : ''}`}
             style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 2};`}
-            aria-label={`Casilla de conexión entre puntos, fila ${r}, columna ${c + 1}`}
           />
         ))}
       </Fragment>
     ))}
+    {/* Puntos azules: 6 columnas × 5 filas (30), conectan columna 0 con columna 5. */}
     {Array.from({ length: 5 }).map((_, r) => (
       <Fragment>
         {Array.from({ length: 6 }).map((_, c) => (
+          <span
+            class={`punto punto-azul${c === 0 || c === 5 ? ' punto-azul--borde' : ''}`}
+            style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 1};`}
+          />
+        ))}
+      </Fragment>
+    ))}
+    {/* Slot A (i,j en 0..5): aloja redH(i,j-1) y/o blueV(i-1,j). Las 4
+        esquinas (i,j en {0,5}×{0,5}) no alojan ninguna arista posible. */}
+    {Array.from({ length: 6 }).map((_, i) => (
+      <Fragment>
+        {Array.from({ length: 6 }).map((_, j) => {
+          const esEsquinaMuerta = (i === 0 || i === 5) && (j === 0 || j === 5);
+          return esEsquinaMuerta ? null : (
+            <button
+              type="button"
+              class="slot"
+              data-slot="a"
+              data-fila={i}
+              data-columna={j}
+              style={`grid-row: ${2 * i + 1}; grid-column: ${2 * j + 1};`}
+              aria-label={`Casilla de conexión entre puntos, posición ${i},${j}`}
+            />
+          );
+        })}
+      </Fragment>
+    ))}
+    {/* Slot B (i,j en 0..4): aloja redV(i,j) y blueH(i,j) siempre. */}
+    {Array.from({ length: 5 }).map((_, i) => (
+      <Fragment>
+        {Array.from({ length: 5 }).map((_, j) => (
           <button
             type="button"
             class="slot"
             data-slot="b"
-            data-fila={r}
-            data-columna={c}
-            style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 1};`}
-            aria-label={`Casilla de conexión entre puntos, fila ${r + 1}, columna ${c}`}
+            data-fila={i}
+            data-columna={j}
+            style={`grid-row: ${2 * i + 2}; grid-column: ${2 * j + 2};`}
+            aria-label={`Casilla de conexión entre puntos, posición ${i},${j}`}
           />
         ))}
       </Fragment>
@@ -96,7 +104,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     background: var(--color-player-2);
   }
 
-  /* Bordes objetivo: fila 0/5 rojas resaltadas, columna 0/4 azules resaltadas */
+  /* Bordes objetivo: fila 0/5 rojas resaltadas, columna 0/5 azules resaltadas */
   .punto-rojo--borde {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-player-1) 40%, transparent);
   }
@@ -219,14 +227,16 @@ import TableroJuego from '../../components/TableroJuego.astro';
       const p2 = camino[i + 1];
       if (ganador === 1) {
         if (p1.r === p2.r) {
-          claves.add(`a:${p1.r},${Math.min(p1.c, p2.c)}`);
+          // redH(r,c) conecta (r,c)-(r,c+1) y vive en el slot A (r, c+1).
+          claves.add(`a:${p1.r},${Math.min(p1.c, p2.c) + 1}`);
         } else {
+          // redV(r,c) conecta (r,c)-(r+1,c) y vive en el slot B (r, c) directamente.
           claves.add(`b:${Math.min(p1.r, p2.r)},${p1.c}`);
         }
       } else {
         if (p1.r === p2.r) {
-          // blueH(r,c) conecta (r,c)-(r,c+1) y vive en el slot B (r, c+1).
-          claves.add(`b:${p1.r},${Math.min(p1.c, p2.c) + 1}`);
+          // blueH(r,c) conecta (r,c)-(r,c+1) y vive en el slot B (r, c) directamente.
+          claves.add(`b:${p1.r},${Math.min(p1.c, p2.c)}`);
         } else {
           // blueV(r,c) conecta (r,c)-(r+1,c) y vive en el slot A (r+1, c).
           claves.add(`a:${Math.min(p1.r, p2.r) + 1},${p1.c}`);

@@ -13,26 +13,42 @@ repositorio y sirve de referencia de patrón de motor/tablero.
 
 Fuente: `abstract-games-by-category/01-2-players/11-bridg-it.md`.
 
+## Corrección post-implementación (geometría del tablero)
+
+La primera implementación usaba una grilla roja 6×6 anidando una grilla azul
+5×5 (36 puntos rojos vs. 25 azules) — un modelo geométrico incorrecto que el
+usuario detectó comparando contra el tablero físico real
+(`papg.com/images/gale-board.gif`) y contra la descripción de Wikipedia del
+juego comercial: "dos retículas rectangulares interladas de 5×6". El tablero
+real usa dos retículas del mismo tamaño (30 puntos cada una), transpuestas
+entre sí, no una anidada dentro de la otra. El resto de este documento ya
+refleja el modelo corregido (rojo 5×6, azul 6×5); ver `## Modelo de datos` y
+`## Regla de cruce`.
+
 ## Alcance
 
-- Tablero fijo (sin selector de tamaño): grid roja 6×6, grid azul 5×5.
+- Tablero fijo (sin selector de tamaño): grid roja 5 columnas × 6 filas,
+  grid azul 6 columnas × 5 filas — 30 puntos cada color.
 - Sin empates: se resalda ganador y camino ganador al final, sin lógica de tablero lleno/empate.
 - Un solo modo de tablero/estética (puntos entrelazados clásicos, ver Renderizado).
 - Sigue el patrón estándar del repo: pase y juega local + soporte remoto genérico ya existente en `[slug].astro`/`TableroJuego`/`ModalJuegoRemoto` (sin cambios especiales de sesión; el motor solo expone estado + `playMove`).
 
 ## Modelo de datos
 
-Dos retículas de puntos:
+Dos retículas de puntos, del mismo tamaño (30 puntos cada una), transpuestas
+entre sí:
 
-- **Rojo**: grid 6×6, puntos `R(r, c)` con `r, c ∈ [0, 5]`. El Jugador 1 (rojo) conecta
-  la fila 0 (borde superior) con la fila 5 (borde inferior).
-- **Azul**: grid 5×5, puntos `B(r, c)` con `r, c ∈ [0, 4]`, ubicados geométricamente
-  en el centro de cada bloque 2×2 de puntos rojos (offset diagonal de medio paso).
-  El Jugador 2 (azul) conecta la columna 0 (borde izquierdo) con la columna 4
+- **Rojo**: 5 columnas × 6 filas, puntos `R(r, c)` con `r ∈ [0,5]`, `c ∈ [0,4]`.
+  El Jugador 1 (rojo) conecta la fila 0 (borde superior) con la fila 5
+  (borde inferior).
+- **Azul**: 6 columnas × 5 filas, puntos `B(r, c)` con `r ∈ [0,4]`, `c ∈ [0,5]`.
+  El Jugador 2 (azul) conecta la columna 0 (borde izquierdo) con la columna 5
   (borde derecho).
 
 Coordenadas de renderizado (unidades de grid CSS, para reproducir el patrón
-entrelazado clásico): `R(r,c)` en `(2c, 2r)`, `B(r,c)` en `(2c+1, 2r+1)`.
+entrelazado clásico del tablero físico real): `R(r,c)` en `(col=2c+2,
+fila=2r+1)`, `B(r,c)` en `(col=2c+1, fila=2r+2)`. Ambas retículas caben en el
+mismo cuadrado de 11×11 líneas de grid.
 
 ### Estado (`BridgItState`)
 
@@ -47,10 +63,10 @@ interface Edge {
 }
 
 interface BridgItState {
-  redH: boolean[][];   // [6][5]  R(r,c)-R(r,c+1)
-  redV: boolean[][];   // [5][6]  R(r,c)-R(r+1,c)
-  blueH: boolean[][];  // [5][4]  B(r,c)-B(r,c+1)
-  blueV: boolean[][];  // [4][5]  B(r,c)-B(r+1,c)
+  redH: boolean[][];   // [6][4]  R(r,c)-R(r,c+1)
+  redV: boolean[][];   // [5][5]  R(r,c)-R(r+1,c)
+  blueH: boolean[][];  // [5][5]  B(r,c)-B(r,c+1)
+  blueV: boolean[][];  // [4][6]  B(r,c)-B(r+1,c)
   currentPlayer: Player;
   status: 'playing' | 'won';
   winner: Player | null;
@@ -61,22 +77,29 @@ interface BridgItState {
 
 Rangos válidos de índices:
 
-- `redH[r][c]`: `r ∈ [0,5]`, `c ∈ [0,4]`.
-- `redV[r][c]`: `r ∈ [0,4]`, `c ∈ [0,5]`.
-- `blueH[r][c]`: `r ∈ [0,4]`, `c ∈ [0,3]`.
-- `blueV[r][c]`: `r ∈ [0,3]`, `c ∈ [0,4]`.
+- `redH[r][c]`: `r ∈ [0,5]`, `c ∈ [0,3]`.
+- `redV[r][c]`: `r ∈ [0,4]`, `c ∈ [0,4]`.
+- `blueH[r][c]`: `r ∈ [0,4]`, `c ∈ [0,4]`.
+- `blueV[r][c]`: `r ∈ [0,3]`, `c ∈ [0,5]`.
+
+Total de aristas posibles: 24 (`redH`) + 25 (`redV`) = 49 para rojo; 25
+(`blueH`) + 24 (`blueV`) = 49 para azul — simétrico, a diferencia del modelo
+anidado original (60 rojas / 40 azules).
 
 ## Regla de cruce
 
-Cada arista roja cruza como máximo una arista azul, y viceversa:
+Cada arista roja cruza como máximo una arista azul, y viceversa. `redV`/`blueH`
+se cruzan siempre, en la misma posición exacta (sin casos de borde); `redH`/`blueV`
+se cruzan desplazados en diagonal, con casos de borde donde no hay cruce posible:
 
-- `redH(r,c)` [R(r,c)–R(r,c+1)] cruza `blueV(r-1,c)` si `r-1 ∈ [0,3]`.
-- `redV(r,c)` [R(r,c)–R(r+1,c)] cruza `blueH(r,c-1)` si `c-1 ∈ [0,3]`.
-- `blueH(r,c)` [B(r,c)–B(r,c+1)] cruza `redV(r,c+1)` (inversa de la segunda regla).
-- `blueV(r,c)` [B(r,c)–B(r+1,c)] cruza `redH(r+1,c)` (inversa de la primera regla).
-
-(Las dos últimas son la relación inversa de las dos primeras; el motor solo
-necesita implementar la comprobación en ambos sentidos al validar una jugada.)
+- `redH(r,c)` [R(r,c)–R(r,c+1)] cruza `blueV(r-1,c+1)` si `r-1 ∈ [0,3]` (sin
+  cruce posible cuando `r=0` o `r=5`, los bordes superior/inferior de rojo).
+- `redV(r,c)` [R(r,c)–R(r+1,c)] cruza `blueH(r,c)` directamente (siempre,
+  mismos índices).
+- `blueH(r,c)` [B(r,c)–B(r,c+1)] cruza `redV(r,c)` directamente (inversa de
+  la anterior).
+- `blueV(r,c)` [B(r,c)–B(r+1,c)] cruza `redH(r+1,c-1)` si `c-1 ∈ [0,3]` (sin
+  cruce posible cuando `c=0` o `c=5`, los bordes izquierdo/derecho de azul).
 
 ## Motor (`src/games/bridg-it/engine.ts`)
 
@@ -140,7 +163,7 @@ con un comentario, como en Hex).
   varios puntos del tablero, incluyendo los bordes donde una de las dos
   aristas cruzadas no existe (no debe lanzar error, simplemente no hay bloqueo).
 - Detección de victoria para rojo (fila 0 → fila 5) y para azul (columna 0 →
-  columna 4), incluyendo caminos que darían un falso positivo si se usara la
+  columna 5), incluyendo caminos que darían un falso positivo si se usara la
   grilla equivocada.
 - Camino ganador (`winningPath`) contiene únicamente puntos conectados por
   aristas propias existentes.

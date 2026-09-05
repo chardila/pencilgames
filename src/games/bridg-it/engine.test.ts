@@ -16,13 +16,13 @@ describe('createInitialState', () => {
   it('crea las cuatro matrices de aristas con las dimensiones correctas, todas en false', () => {
     const state = createInitialState();
     expect(state.redH.length).toBe(6);
-    expect(state.redH.every(fila => fila.length === 5 && fila.every(v => v === false))).toBe(true);
+    expect(state.redH.every(fila => fila.length === 4 && fila.every(v => v === false))).toBe(true);
     expect(state.redV.length).toBe(5);
-    expect(state.redV.every(fila => fila.length === 6 && fila.every(v => v === false))).toBe(true);
+    expect(state.redV.every(fila => fila.length === 5 && fila.every(v => v === false))).toBe(true);
     expect(state.blueH.length).toBe(5);
-    expect(state.blueH.every(fila => fila.length === 4 && fila.every(v => v === false))).toBe(true);
+    expect(state.blueH.every(fila => fila.length === 5 && fila.every(v => v === false))).toBe(true);
     expect(state.blueV.length).toBe(4);
-    expect(state.blueV.every(fila => fila.length === 5 && fila.every(v => v === false))).toBe(true);
+    expect(state.blueV.every(fila => fila.length === 6 && fila.every(v => v === false))).toBe(true);
   });
 
   it('inicia con el jugador 1 (rojo), en juego, sin ganador', () => {
@@ -52,26 +52,30 @@ describe('esJugadaValida', () => {
 });
 
 describe('slotAToEdge / slotBToEdge', () => {
-  it('slot A da la arista roja h para el jugador 1 en cualquier posición válida', () => {
-    expect(slotAToEdge(1, 0, 0)).toEqual({ type: 'h', row: 0, col: 0 });
-    expect(slotAToEdge(1, 5, 4)).toEqual({ type: 'h', row: 5, col: 4 });
+  it('slot A da la arista roja h para el jugador 1 solo cuando j-1 está en rango', () => {
+    expect(slotAToEdge(1, 0, 0)).toBeNull(); // j-1 = -1, fuera de rango
+    expect(slotAToEdge(1, 0, 1)).toEqual({ type: 'h', row: 0, col: 0 });
+    expect(slotAToEdge(1, 5, 4)).toEqual({ type: 'h', row: 5, col: 3 });
+    expect(slotAToEdge(1, 0, 5)).toBeNull(); // j-1 = 4, fuera de rango (redH col máx 3)
   });
 
-  it('slot A da la arista azul v para el jugador 2 solo cuando r-1 está en rango', () => {
-    expect(slotAToEdge(2, 0, 0)).toBeNull(); // r-1 = -1, fuera de rango
+  it('slot A da la arista azul v para el jugador 2 solo cuando i-1 está en rango', () => {
+    expect(slotAToEdge(2, 0, 0)).toBeNull(); // i-1 = -1, fuera de rango
     expect(slotAToEdge(2, 1, 0)).toEqual({ type: 'v', row: 0, col: 0 });
-    expect(slotAToEdge(2, 5, 0)).toBeNull(); // r-1 = 4, fuera de rango (blueV solo 0-3)
+    expect(slotAToEdge(2, 4, 5)).toEqual({ type: 'v', row: 3, col: 5 });
+    expect(slotAToEdge(2, 5, 0)).toBeNull(); // i-1 = 4, fuera de rango (blueV fila máx 3)
   });
 
   it('slot B da la arista roja v para el jugador 1 en cualquier posición válida', () => {
     expect(slotBToEdge(1, 0, 0)).toEqual({ type: 'v', row: 0, col: 0 });
-    expect(slotBToEdge(1, 4, 5)).toEqual({ type: 'v', row: 4, col: 5 });
+    expect(slotBToEdge(1, 4, 4)).toEqual({ type: 'v', row: 4, col: 4 });
+    expect(slotBToEdge(1, 5, 0)).toBeNull(); // fuera de rango (slot B es 0-4 en ambos ejes)
   });
 
-  it('slot B da la arista azul h para el jugador 2 solo cuando c-1 está en rango', () => {
-    expect(slotBToEdge(2, 0, 0)).toBeNull(); // c-1 = -1
-    expect(slotBToEdge(2, 0, 1)).toEqual({ type: 'h', row: 0, col: 0 });
-    expect(slotBToEdge(2, 0, 5)).toBeNull(); // c-1 = 4, fuera de rango (blueH solo 0-3)
+  it('slot B da la arista azul h para el jugador 2 en cualquier posición válida', () => {
+    expect(slotBToEdge(2, 0, 0)).toEqual({ type: 'h', row: 0, col: 0 });
+    expect(slotBToEdge(2, 4, 4)).toEqual({ type: 'h', row: 4, col: 4 });
+    expect(slotBToEdge(2, 0, 5)).toBeNull(); // fuera de rango
   });
 });
 
@@ -82,15 +86,15 @@ describe('getSlotAStatus / getSlotBStatus', () => {
     expect(getSlotBStatus(state, 2, 2)).toEqual({ drawn: false, owner: null });
   });
 
-  it('reporta el dueño rojo cuando redH está marcada', () => {
+  it('reporta el dueño rojo cuando redH está marcada (slot A)', () => {
     const state = createInitialState();
-    state.redH[2][2] = true;
+    state.redH[2][1] = true; // slot A en i=2,j=2 aloja redH(2, j-1=1)
     expect(getSlotAStatus(state, 2, 2)).toEqual({ drawn: true, owner: 1 });
   });
 
-  it('reporta el dueño azul cuando blueV está marcada', () => {
+  it('reporta el dueño azul cuando blueV está marcada (slot A)', () => {
     const state = createInitialState();
-    state.blueV[1][2] = true; // corresponde a slot A en r=2,c=2 (r-1=1)
+    state.blueV[1][2] = true; // slot A en i=2,j=2 aloja blueV(i-1=1, 2)
     expect(getSlotAStatus(state, 2, 2)).toEqual({ drawn: true, owner: 2 });
   });
 
@@ -100,9 +104,9 @@ describe('getSlotAStatus / getSlotBStatus', () => {
     expect(getSlotBStatus(state, 2, 2)).toEqual({ drawn: true, owner: 1 });
   });
 
-  it('reporta el dueño azul cuando blueH está marcada (slot B)', () => {
+  it('reporta el dueño azul cuando blueH está marcada (slot B, mismos índices)', () => {
     const state = createInitialState();
-    state.blueH[0][0] = true; // corresponde a slot B en r=0,c=1 (c-1=0)
+    state.blueH[0][1] = true; // slot B en (0,1) aloja blueH(0,1) directamente
     expect(getSlotBStatus(state, 0, 1)).toEqual({ drawn: true, owner: 2 });
   });
 });
@@ -119,53 +123,67 @@ describe('puedeJugar', () => {
     expect(puedeJugar(state, { type: 'h', row: 0, col: 0 })).toBe(false);
   });
 
-  it('bloquea la arista roja cruzada una vez trazada la azul correspondiente', () => {
+  it('bloquea la arista roja h cruzada una vez trazada la azul v correspondiente', () => {
     const state = createInitialState();
     state.currentPlayer = 2;
-    state.blueV[0][0] = true; // ocupa el slot A en (r=1,c=0)
+    state.blueV[0][1] = true; // redH(1,0) cruza blueV(0,1)
     state.currentPlayer = 1;
     expect(puedeJugar(state, { type: 'h', row: 1, col: 0 })).toBe(false);
   });
 
-  it('bloquea la arista azul cruzada una vez trazada la roja correspondiente', () => {
+  it('bloquea la arista azul v cruzada una vez trazada la roja h correspondiente', () => {
     const state = createInitialState();
-    state.redV[0][1] = true; // ocupa el slot B en (r=0,c=1)
+    state.redH[1][0] = true;
+    state.currentPlayer = 2;
+    expect(puedeJugar(state, { type: 'v', row: 0, col: 1 })).toBe(false);
+  });
+
+  it('bloquea la arista azul h cruzada una vez trazada la roja v correspondiente (índices directos)', () => {
+    const state = createInitialState();
+    state.redV[0][0] = true;
     state.currentPlayer = 2;
     expect(puedeJugar(state, { type: 'h', row: 0, col: 0 })).toBe(false);
   });
 
-  it('permite jugar en los bordes donde la arista cruzada no existe (sin lanzar error)', () => {
+  it('bloquea la arista roja v cruzada una vez trazada la azul h correspondiente (índices directos)', () => {
     const state = createInitialState();
-    // redH(0,0): slot A en r=0, blueV correspondiente sería r-1=-1, no existe.
-    expect(puedeJugar(state, { type: 'h', row: 0, col: 0 })).toBe(true);
     state.currentPlayer = 2;
-    // blueH(0,0): slot B en c=1, redV correspondiente es (0,1); si no está trazada, se puede jugar.
+    state.blueH[4][4] = true;
+    state.currentPlayer = 1;
+    expect(puedeJugar(state, { type: 'v', row: 4, col: 4 })).toBe(false);
+  });
+
+  it('permite jugar redH en la fila 0 (borde superior rojo, sin arista cruzada posible)', () => {
+    const state = createInitialState();
+    // redH(0,0): br = -1, fuera de rango de blueV — no hay cruce posible.
     expect(puedeJugar(state, { type: 'h', row: 0, col: 0 })).toBe(true);
+  });
+
+  it('permite jugar redH en la fila 5 (borde inferior rojo, sin arista cruzada posible)', () => {
+    const state = createInitialState();
+    // redH(5,0): br = 4, fuera de rango de blueV (máx 3) — no hay cruce posible.
+    expect(puedeJugar(state, { type: 'h', row: 5, col: 0 })).toBe(true);
+  });
+
+  it('permite jugar blueV en la columna 0 (borde izquierdo azul, sin arista cruzada posible)', () => {
+    const state = createInitialState();
+    state.currentPlayer = 2;
+    // blueV(0,0): bc = -1, fuera de rango de redH — no hay cruce posible.
+    expect(puedeJugar(state, { type: 'v', row: 0, col: 0 })).toBe(true);
+  });
+
+  it('permite jugar blueV en la columna 5 (borde derecho azul, sin arista cruzada posible)', () => {
+    const state = createInitialState();
+    state.currentPlayer = 2;
+    // blueV(0,5): bc = 4, fuera de rango de redH (máx 3) — no hay cruce posible.
+    expect(puedeJugar(state, { type: 'v', row: 0, col: 5 })).toBe(true);
   });
 
   it('rechaza coordenadas fuera de rango para el jugador activo', () => {
     const state = createInitialState();
-    expect(puedeJugar(state, { type: 'h', row: 0, col: 5 })).toBe(false); // redH col máx es 4
+    expect(puedeJugar(state, { type: 'h', row: 0, col: 4 })).toBe(false); // redH col máx es 3
     state.currentPlayer = 2;
-    expect(puedeJugar(state, { type: 'h', row: 0, col: 4 })).toBe(false); // blueH col máx es 3
-  });
-
-  it('permite jugar redH en la fila 5 (borde inferior rojo, sin arista cruzada)', () => {
-    const state = createInitialState();
-    // redH(5,0): slot A en r=5, blueV correspondiente sería r-1=4, fuera de rango.
-    expect(puedeJugar(state, { type: 'h', row: 5, col: 0 })).toBe(true);
-  });
-
-  it('permite jugar redV en la columna 0 (borde izquierdo, sin arista cruzada)', () => {
-    const state = createInitialState();
-    // redV(0,0): slot B en c=0, blueH correspondiente sería c-1=-1, fuera de rango.
-    expect(puedeJugar(state, { type: 'v', row: 0, col: 0 })).toBe(true);
-  });
-
-  it('permite jugar redV en la columna 5 (borde derecho, sin arista cruzada)', () => {
-    const state = createInitialState();
-    // redV(0,5): slot B en c=5, blueH correspondiente sería c-1=4, fuera de rango (blueH col máx 3).
-    expect(puedeJugar(state, { type: 'v', row: 0, col: 5 })).toBe(true);
+    expect(puedeJugar(state, { type: 'h', row: 0, col: 5 })).toBe(false); // blueH col máx es 4
   });
 });
 
@@ -184,18 +202,18 @@ describe('findWinningPath', () => {
     expect(camino![camino!.length - 1]).toEqual({ r: 5, c: 0 });
   });
 
-  it('encuentra la conexión azul columna 0 a columna 4 por una fila recta', () => {
+  it('encuentra la conexión azul columna 0 a columna 5 por una fila recta', () => {
     const state = createInitialState();
-    for (let c = 0; c < 4; c++) state.blueH[0][c] = true; // fila 0 completa
+    for (let c = 0; c < 5; c++) state.blueH[0][c] = true; // fila 0 completa
     const camino = findWinningPath(state, 2);
     expect(camino).not.toBeNull();
     expect(camino![0]).toEqual({ r: 0, c: 0 });
-    expect(camino![camino!.length - 1]).toEqual({ r: 0, c: 4 });
+    expect(camino![camino!.length - 1]).toEqual({ r: 0, c: 5 });
   });
 
   it('no confunde la grilla roja con la azul', () => {
     const state = createInitialState();
-    for (let c = 0; c < 4; c++) state.blueH[0][c] = true;
+    for (let c = 0; c < 5; c++) state.blueH[0][c] = true;
     expect(findWinningPath(state, 1)).toBeNull();
   });
 });
@@ -219,11 +237,17 @@ describe('playMove', () => {
     expect(state.redH[0][0]).toBe(false);
   });
 
+  // Las jugadas azules intercaladas usan columna 1 (no columna 0) a propósito:
+  // redV(r,0) cruza blueH(r,0) directamente (mismos índices), así que una
+  // jugada azul en blueH(r,0) quedaría bloqueada apenas rojo jugara
+  // redV(r,0) en esa misma fila. Usando blueH(r,1) se evita ese cruce por
+  // completo, y al estar cada una en una fila distinta tampoco forman nunca
+  // un camino azul columna 0 a columna 5.
   it('declara ganador a rojo al completar fila 0 a fila 5', () => {
     let state = createInitialState();
     for (let r = 0; r < 4; r++) {
       state = playMove(state, { type: 'v', row: r, col: 0 });
-      state = playMove(state, { type: 'h', row: r, col: 0 }); // jugadas azules que no interfieren
+      state = playMove(state, { type: 'h', row: r, col: 1 });
     }
     state = playMove(state, { type: 'v', row: 4, col: 0 });
     expect(state.status).toBe('won');
@@ -231,32 +255,24 @@ describe('playMove', () => {
     expect(state.winningPath).not.toBeNull();
   });
 
-  // Nota: la secuencia del brief para esta prueba tenía dos problemas:
-  // (1) llamaba playMove cuatro veces seguidas con el mismo tipo de arista
-  // ('v') sin intercalar jugadas azules — como el turno se alterna
-  // estrictamente en cada llamada a playMove, la segunda de esas llamadas
-  // se habría registrado como jugada AZUL (en blueV, no en redV) y la
-  // columna roja nunca se habría completado; (2) al intercalar las jugadas
-  // azules sugeridas en `blueH[0][0..3]` (misma fila), la CUARTA jugada
-  // azul completa por sí sola el camino azul columna 0 a columna 4 antes
-  // de que rojo pueda jugar su última arista, y la partida terminaba con
-  // victoria AZUL en vez de roja. Se ajustó la secuencia para que las
-  // jugadas azules intercaladas queden en filas distintas
-  // (`{ type: 'h', row: r, col: 0 }`), de modo que nunca formen un camino
-  // azul completo, preservando intacta la aserción final de victoria roja.
   it('no cambia de turno ni de estado tras la jugada ganadora', () => {
     let state = createInitialState();
     for (let r = 0; r < 4; r++) {
       state = playMove(state, { type: 'v', row: r, col: 0 });
-      state = playMove(state, { type: 'h', row: r, col: 0 });
+      state = playMove(state, { type: 'h', row: r, col: 1 });
     }
     const antes = state.currentPlayer;
     state = playMove(state, { type: 'v', row: 4, col: 0 });
     expect(state.currentPlayer).toBe(antes);
-    expect(puedeJugar(state, { type: 'h', row: 4, col: 1 })).toBe(false); // status ya no es 'playing'
+    expect(puedeJugar(state, { type: 'h', row: 4, col: 2 })).toBe(false); // status ya no es 'playing'
   });
 });
 
+// Candidatas: type 'h' con r:0-5,c:0-4 cubre tanto el rango propio de rojo
+// (r:0-5,c:0-3) como el de azul (r:0-4,c:0-4); type 'v' con r:0-4,c:0-5
+// cubre tanto el de rojo (r:0-4,c:0-4) como el de azul (r:0-3,c:0-5). Ambos
+// jugadores quedan representados sin necesidad de generar sus rangos por
+// separado (evita duplicados y mantiene una única fuente de candidatas).
 function todasLasAristasPosibles(): Edge[] {
   const aristas: Edge[] = [];
   for (let r = 0; r <= 5; r++) for (let c = 0; c <= 4; c++) aristas.push({ type: 'h', row: r, col: c });
@@ -307,7 +323,7 @@ describe('partidas aleatorias', () => {
         expect(ultimo.r).toBe(5);
       } else {
         expect(primero.c).toBe(0);
-        expect(ultimo.c).toBe(4);
+        expect(ultimo.c).toBe(5);
       }
     }
   });
