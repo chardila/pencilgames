@@ -241,11 +241,58 @@ describe('tocaLados', () => {
 });
 
 // Verificación independiente: ¿algún componente conectado de `player`
-// toca los tres lados?
+// toca los tres lados? Recomputa adyacencia y pertenencia a lados inline
+// (sin reutilizar getNeighbors ni tocaLados del motor).
 function ganadorPorFloodFill(
   board: (1 | 2 | null)[],
   size: BoardSize
 ): 1 | 2 | null {
+  // Convierte índice lineal a índice de fila: i = r*(r+1)/2 + c
+  // Por lo tanto r tal que r*(r+1)/2 <= i < (r+1)*(r+2)/2
+  const getRowFromIndex = (i: number): number => {
+    let r = 0;
+    while ((r + 1) * (r + 2) / 2 <= i) r++;
+    return r;
+  };
+
+  // Dado índice i e índice de fila r, retorna columna c
+  const getColFromIndex = (i: number, r: number): number => i - r * (r + 1) / 2;
+
+  // Calcula 6 vecinos directos en (r,c) aritmética, convierte a índices
+  const getNeighborsIndependent = (i: number, N: BoardSize): number[] => {
+    const r = getRowFromIndex(i);
+    const c = getColFromIndex(i, r);
+    const neighbors: number[] = [];
+
+    const deltas = [
+      [-1, -1], [-1, 0], [0, -1], [0, 1], [1, 0], [1, 1],
+    ];
+
+    for (const [dr, dc] of deltas) {
+      const nr = r + dr;
+      const nc = c + dc;
+      // Valida: 0 <= nr < N, 0 <= nc <= nr
+      if (nr >= 0 && nr < N && nc >= 0 && nc <= nr) {
+        const idx = (nr * (nr + 1)) / 2 + nc;
+        neighbors.push(idx);
+      }
+    }
+    return neighbors;
+  };
+
+  // Verifica pertenencia a los tres lados sin llamar a tocaLados
+  const tocaLadosIndependent = (comp: number[], N: BoardSize): { izq: boolean; der: boolean; inf: boolean } => {
+    let izq = false, der = false, inf = false;
+    for (const i of comp) {
+      const r = getRowFromIndex(i);
+      const c = getColFromIndex(i, r);
+      if (c === 0) izq = true;
+      if (c === r) der = true;
+      if (r === N - 1) inf = true;
+    }
+    return { izq, der, inf };
+  };
+
   for (const player of [1, 2] as const) {
     const visitado = new Set<number>();
     for (let inicio = 0; inicio < cellCount(size); inicio++) {
@@ -256,14 +303,14 @@ function ganadorPorFloodFill(
       while (cola.length > 0) {
         const a = cola.shift()!;
         comp.push(a);
-        for (const v of getNeighbors(a, size)) {
+        for (const v of getNeighborsIndependent(a, size)) {
           if (board[v] === player && !visitado.has(v)) {
             visitado.add(v);
             cola.push(v);
           }
         }
       }
-      const { izq, der, inf } = tocaLados(comp, size);
+      const { izq, der, inf } = tocaLadosIndependent(comp, size);
       if (izq && der && inf) return player;
     }
   }
