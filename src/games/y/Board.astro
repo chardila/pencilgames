@@ -1,0 +1,391 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+---
+
+<TableroJuego class="tablero-y-contenedor">
+  <div class="y-controles">
+    <div class="selector-tamano" role="radiogroup" aria-label="Tamaño del tablero">
+      <button type="button" role="radio" aria-checked="false" class="btn-tamano" data-tamano="7">7 (Rápido)</button>
+      <button type="button" role="radio" aria-checked="true" class="btn-tamano btn-tamano--activo" data-tamano="9">9 (Estándar)</button>
+      <button type="button" role="radio" aria-checked="false" class="btn-tamano" data-tamano="11">11 (Estratégico)</button>
+    </div>
+  </div>
+
+  <div class="y-tablero-wrapper">
+    <svg id="y-svg" class="y-svg" role="grid" aria-label="Tablero de Juego Y"></svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-y-contenedor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .y-controles {
+    display: flex;
+    justify-content: center;
+  }
+
+  .selector-tamano {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--color-surface);
+    padding: 0.35rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-tamano {
+    background: transparent;
+    border: none;
+    padding: 0.4rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .btn-tamano--activo {
+    background: var(--color-accent);
+    color: #fff;
+  }
+
+  .btn-tamano:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .y-tablero-wrapper {
+    width: min(94vw, 34rem);
+    margin: 0 auto;
+    touch-action: manipulation;
+  }
+
+  .y-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+  }
+
+  :global(.y-borde-banda) {
+    fill: none;
+    stroke: #9aa0a6;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  :global(.y-celda) {
+    fill: var(--color-surface);
+    stroke: #bbb;
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: fill 0.15s ease, stroke 0.15s ease;
+    outline: none;
+  }
+
+  :global(.y-grupo-celda) {
+    outline: none;
+  }
+
+  :global(.y-grupo-celda:focus-visible .y-celda) {
+    stroke: var(--color-accent);
+    stroke-width: 3.5;
+  }
+
+  :global(.y-celda:hover:not([data-ocupada='true'])) {
+    fill: rgba(0, 0, 0, 0.06);
+    stroke: var(--color-accent);
+  }
+
+  :global(.y-celda[data-ocupada='true']) {
+    cursor: default;
+  }
+
+  :global(.y-celda[data-jugador='1']) {
+    fill: var(--color-player-1);
+    stroke: var(--color-player-1);
+  }
+
+  :global(.y-celda[data-jugador='2']) {
+    fill: var(--color-player-2);
+    stroke: var(--color-player-2);
+  }
+
+  :global(.y-celda--ultima) {
+    stroke: #ffffff !important;
+    stroke-width: 3.5 !important;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
+  }
+
+  :global(.y-celda--ganadora) {
+    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.9));
+    animation: y-pulso 1.5s infinite alternate ease-in-out;
+  }
+
+  :global(.y-glifo) {
+    font-size: 1.15rem;
+    font-weight: 800;
+    fill: #ffffff;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: central;
+    user-select: none;
+  }
+
+  @keyframes y-pulso {
+    0% { opacity: 0.85; }
+    100% {
+      opacity: 1;
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.9));
+    }
+  }
+</style>
+
+<script>
+  import {
+    cellCount,
+    coordsOf,
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    type BoardSize,
+    type YState,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('y-svg') as unknown as SVGSVGElement;
+  const botonesTamano = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('.btn-tamano')
+  );
+
+  let currentSize: BoardSize = 9;
+  let state: YState = createInitialState(currentSize);
+
+  const sesion = iniciarSesionJuego<number>({
+    validarMovimiento: p => esJugadaValida(p, state.size),
+    onMovimientoRemoto: idx => jugar(idx, false),
+    onAplicarReinicio: () => {
+      state = createInitialState(currentSize);
+      construirTablero();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      svg.querySelectorAll<SVGPolygonElement>('.y-celda').forEach(celda => {
+        celda.style.pointerEvents = 'none';
+      });
+      botonesTamano.forEach(btn => (btn.disabled = true));
+    },
+  });
+
+  const R = 24; // radio del hexágono
+  const W = Math.sqrt(3) * R;
+  const MARGIN = 42;
+
+  function hexCenter(r: number, c: number, size: number): { cx: number; cy: number } {
+    // Fila r desplazada a la izquierda media celda por nivel para formar el
+    // triángulo equilátero con ápice arriba.
+    const offsetX = MARGIN + ((size - 1) / 2) * W + R;
+    const cx = offsetX + (c - r / 2) * W;
+    const cy = MARGIN + r * (1.5 * R) + R;
+    return { cx, cy };
+  }
+
+  function hexCorners(cx: number, cy: number): string {
+    const points: string[] = [];
+    for (let k = 0; k < 6; k++) {
+      const angle = ((30 + 60 * k) * Math.PI) / 180;
+      points.push(
+        `${(cx + R * Math.cos(angle)).toFixed(1)},${(cy + R * Math.sin(angle)).toFixed(1)}`
+      );
+    }
+    return points.join(' ');
+  }
+
+  function construirTablero(): void {
+    svg.innerHTML = '';
+    const size = state.size;
+
+    const totalWidth = MARGIN * 2 + (size - 1) * W + 2 * R;
+    const totalHeight = MARGIN * 2 + (size - 1) * (1.5 * R) + 2 * R;
+    svg.setAttribute('viewBox', `0 0 ${totalWidth.toFixed(1)} ${totalHeight.toFixed(1)}`);
+
+    // Bandas de borde neutras (los tres lados son de ambos jugadores).
+    const gBordes = document.createElementNS(SVG_NS, 'g');
+    const lado = (pts: string[]) => {
+      const pl = document.createElementNS(SVG_NS, 'polyline');
+      pl.setAttribute('points', pts.join(' '));
+      pl.setAttribute('class', 'y-borde-banda');
+      gBordes.appendChild(pl);
+    };
+    const v = (cx: number, cy: number, gradoAngulo: number) => {
+      const a = (gradoAngulo * Math.PI) / 180;
+      return `${(cx + R * Math.cos(a)).toFixed(1)},${(cy + R * Math.sin(a)).toFixed(1)}`;
+    };
+
+    // Lado izquierdo: celdas (r, 0), vértices exteriores izquierdos.
+    const ptsIzq: string[] = [];
+    for (let r = 0; r < size; r++) {
+      const { cx, cy } = hexCenter(r, 0, size);
+      if (r === 0) ptsIzq.push(v(cx, cy, 270));
+      ptsIzq.push(v(cx, cy, 210), v(cx, cy, 150));
+    }
+    lado(ptsIzq);
+
+    // Lado derecho: celdas (r, r), vértices exteriores derechos.
+    const ptsDer: string[] = [];
+    for (let r = 0; r < size; r++) {
+      const { cx, cy } = hexCenter(r, r, size);
+      if (r === 0) ptsDer.push(v(cx, cy, 270));
+      ptsDer.push(v(cx, cy, 330), v(cx, cy, 30));
+    }
+    lado(ptsDer);
+
+    // Lado inferior: celdas (size-1, c), vértices exteriores inferiores.
+    const ptsInf: string[] = [];
+    for (let c = 0; c < size; c++) {
+      const { cx, cy } = hexCenter(size - 1, c, size);
+      if (c === 0) ptsInf.push(v(cx, cy, 150));
+      ptsInf.push(v(cx, cy, 90), v(cx, cy, 30));
+    }
+    lado(ptsInf);
+
+    svg.appendChild(gBordes);
+
+    // Celdas.
+    const gCeldas = document.createElementNS(SVG_NS, 'g');
+    for (let i = 0; i < cellCount(size); i++) {
+      const { r, c } = coordsOf(i);
+      const { cx, cy } = hexCenter(r, c, size);
+
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('class', 'y-grupo-celda');
+      g.setAttribute('data-indice', String(i));
+      g.setAttribute('tabindex', '0');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', `Fila ${r + 1}, celda ${c + 1}`);
+
+      const poly = document.createElementNS(SVG_NS, 'polygon');
+      poly.setAttribute('points', hexCorners(cx, cy));
+      poly.setAttribute('class', 'y-celda');
+      poly.setAttribute('data-indice', String(i));
+
+      const text = document.createElementNS(SVG_NS, 'text');
+      text.setAttribute('x', cx.toFixed(1));
+      text.setAttribute('y', (cy + 1).toFixed(1));
+      text.setAttribute('class', 'y-glifo');
+
+      g.appendChild(poly);
+      g.appendChild(text);
+      g.addEventListener('click', () => jugar(i));
+      g.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          jugar(i);
+        }
+      });
+      gCeldas.appendChild(g);
+    }
+    svg.appendChild(gCeldas);
+  }
+
+  function jugar(indice: number, emitirRemoto = true): void {
+    if (state.board[indice] !== null || state.status !== 'playing') return;
+    // El guard de turno solo aplica a la entrada local. Los movimientos remotos
+    // llegan cuando `currentPlayer` es el asiento del rival, así que `esMiTurno`
+    // sería falso y los descartaría en silencio (boards desincronizados).
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+
+    state = playMove(state, indice);
+    render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(indice);
+    }
+  }
+
+  function render(): void {
+    const jugadorDelTurno = state.currentPlayer;
+    const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+
+    const hayJugadas = state.board.some(cel => cel !== null);
+    botonesTamano.forEach(btn => {
+      const btnSize = Number(btn.dataset.tamano);
+      const isActivo = btnSize === state.size;
+      btn.classList.toggle('btn-tamano--activo', isActivo);
+      btn.setAttribute('aria-checked', isActivo ? 'true' : 'false');
+      btn.disabled = hayJugadas || sesion.miAsiento !== null;
+    });
+
+    const grupos = svg.querySelectorAll<SVGGElement>('.y-grupo-celda');
+    grupos.forEach((grupo, i) => {
+      const valor = state.board[i];
+      const poly = grupo.querySelector<SVGPolygonElement>('.y-celda')!;
+      const text = grupo.querySelector<SVGTextElement>('.y-glifo')!;
+      const { r, c } = coordsOf(i);
+
+      if (valor) {
+        poly.dataset.ocupada = 'true';
+        poly.dataset.jugador = String(valor);
+        const simbolo = valor === 1 ? '●' : '▲';
+        text.textContent = simbolo;
+        grupo.setAttribute('aria-label', `Fila ${r + 1}, celda ${c + 1} (Jugador ${valor} ${simbolo})`);
+        grupo.setAttribute('aria-disabled', 'true');
+      } else {
+        delete poly.dataset.ocupada;
+        delete poly.dataset.jugador;
+        text.textContent = '';
+        grupo.setAttribute('aria-label', `Fila ${r + 1}, celda ${c + 1}`);
+        if (state.status !== 'playing' || !esMiTurno) {
+          grupo.setAttribute('aria-disabled', 'true');
+        } else {
+          grupo.removeAttribute('aria-disabled');
+        }
+      }
+
+      poly.classList.toggle('y-celda--ultima', state.lastMove === i);
+      poly.classList.toggle(
+        'y-celda--ganadora',
+        state.winningCells?.includes(i) ?? false
+      );
+
+      const interactiva = valor === null && state.status === 'playing' && esMiTurno;
+      poly.style.pointerEvents = interactiva ? 'auto' : valor ? 'default' : 'none';
+    });
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: jugadorDelTurno,
+        simbolos: { 1: '●', 2: '▲' },
+      });
+    } else if (state.status === 'won') {
+      const ganador = state.winner!;
+      const simbolo = ganador === 1 ? '●' : '▲';
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[ganador]} (${simbolo})!`,
+        detalle: 'Conectó los tres lados del triángulo',
+      });
+    }
+  }
+
+  botonesTamano.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state.board.some(cel => cel !== null) || sesion.miAsiento !== null) return;
+      currentSize = Number(btn.dataset.tamano) as BoardSize;
+      state = createInitialState(currentSize);
+      construirTablero();
+      render();
+    });
+  });
+
+  construirTablero();
+  render();
+</script>

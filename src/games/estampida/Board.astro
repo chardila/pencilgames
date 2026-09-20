@@ -1,0 +1,231 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const TAMANO = 8;
+const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
+const FLECHAS = [
+  { dir: 'arriba', glifo: '↑', etiqueta: 'Duplicar hacia arriba' },
+  { dir: 'izquierda', glifo: '←', etiqueta: 'Duplicar hacia la izquierda' },
+  { dir: 'derecha', glifo: '→', etiqueta: 'Duplicar hacia la derecha' },
+  { dir: 'abajo', glifo: '↓', etiqueta: 'Duplicar hacia abajo' },
+] as const;
+---
+
+<TableroJuego class="tablero-estampida">
+  <div
+    id="tablero"
+    class="tablero"
+    role="grid"
+    aria-label="Tablero de Estampida, 8 por 8"
+  >
+    {casillas.map(i => (
+      <button
+        type="button"
+        class="casilla"
+        data-indice={i}
+        aria-label={`Fila ${Math.floor(i / TAMANO) + 1}, columna ${(i % TAMANO) + 1}`}
+      />
+    ))}
+  </div>
+  <div id="controles-direccion" class="controles-direccion" hidden>
+    {FLECHAS.map(({ dir, glifo, etiqueta }) => (
+      <button type="button" class="flecha" data-dir={dir} aria-label={etiqueta}>
+        {glifo}
+      </button>
+    ))}
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: min(92vw, 30rem);
+    aspect-ratio: 1;
+    gap: 0.2rem;
+    margin: 0 auto;
+    touch-action: manipulation;
+  }
+
+  .casilla {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(0.9rem, 5vw, 1.8rem);
+    font-weight: 700;
+    line-height: 1;
+    background: var(--color-surface);
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    padding: 0;
+  }
+
+  .casilla[data-valor='1'] {
+    color: var(--color-player-1);
+  }
+
+  .casilla[data-valor='2'] {
+    color: var(--color-player-2);
+  }
+
+  .casilla--ultima {
+    box-shadow: inset 0 0 0 3px var(--color-accent);
+  }
+
+  .controles-direccion[hidden] {
+    display: none;
+  }
+
+  .controles-direccion {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 1rem auto 0;
+  }
+
+  .flecha {
+    min-width: var(--tap-target-min);
+    min-height: var(--tap-target-min);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    background: var(--color-surface);
+    border: 2px solid var(--color-accent);
+    border-radius: 8px;
+    color: inherit;
+  }
+
+  .flecha:disabled {
+    opacity: 0.35;
+    border-color: #ddd;
+    cursor: default;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    celdasQueCopian,
+    contar,
+    playMove,
+    FICHAS_POR_JUGADOR,
+    type EstampidaState,
+    type Move,
+    type Direccion,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const FICHAS = { 1: '●', 2: '▲' } as const;
+
+  const tablero = document.getElementById('tablero')!;
+  const controles = document.getElementById('controles-direccion')!;
+  const casillas = Array.from(
+    tablero.querySelectorAll<HTMLButtonElement>('.casilla'),
+  );
+  const flechas = Array.from(
+    controles.querySelectorAll<HTMLButtonElement>('.flecha'),
+  );
+
+  let state: EstampidaState = createInitialState();
+  let rivalSaltado = false;
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      rivalSaltado = false;
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      casillas.forEach(c => (c.disabled = true));
+      flechas.forEach(f => (f.disabled = true));
+    },
+  });
+
+  function render(): void {
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer);
+    const enSetup = state.fase === 'setup';
+    const enJuego = state.fase === 'playing';
+    const puntajes = contar(state.board);
+
+    casillas.forEach((casilla, i) => {
+      const valor = state.board[i];
+      casilla.textContent = valor ? FICHAS[valor] : '';
+      if (valor) casilla.dataset.valor = String(valor);
+      else delete casilla.dataset.valor;
+      casilla.classList.toggle(
+        'casilla--ultima',
+        state.ultimasCopias.includes(i),
+      );
+      casilla.disabled = valor !== null || !enSetup || !esMiTurno;
+    });
+
+    controles.hidden = !enJuego;
+    flechas.forEach(flecha => {
+      const dir = flecha.dataset.dir as Direccion;
+      const viva =
+        enJuego &&
+        celdasQueCopian(state.board, state.currentPlayer, dir).length > 0;
+      flecha.disabled = !viva || !esMiTurno;
+    });
+
+    if (state.fase === 'finished') {
+      if (state.winner === null) {
+        sesion.mostrarFinDeJuego({
+          titulo: '🤝 ¡Empate!',
+          detalle: `${puntajes[1]} casillas cada uno`,
+        });
+      } else {
+        const perdedor = state.winner === 1 ? 2 : 1;
+        sesion.mostrarFinDeJuego({
+          titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner]} (${FICHAS[state.winner]})!`,
+          detalle: `${puntajes[state.winner]} casillas a ${puntajes[perdedor]}`,
+        });
+      }
+      return;
+    }
+
+    sesion.mostrarTurno({
+      jugador: state.currentPlayer,
+      simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
+      puntajes,
+      repiteTurno: rivalSaltado,
+      motivoRepeticion: '⛔ Tu rival no puede avanzar: repites turno',
+      detalle: enSetup
+        ? `Coloca tus fichas (${state.colocadas[state.currentPlayer]}/${FICHAS_POR_JUGADOR})`
+        : 'Elige una dirección',
+    });
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    const prev = state;
+    state = playMove(state, move);
+    if (state === prev) return; // rechazado → no renderiza ni emite
+    // Una estampida normal siempre cambia de turno o termina la partida; mismo
+    // jugador y sigue en juego ⟹ el rival no podía avanzar y se le saltó.
+    rivalSaltado =
+      prev.fase === 'playing' &&
+      state.fase === 'playing' &&
+      prev.currentPlayer === state.currentPlayer;
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  casillas.forEach(casilla => {
+    casilla.addEventListener('click', () => {
+      jugar({ tipo: 'colocar', celda: Number(casilla.dataset.indice) });
+    });
+  });
+
+  flechas.forEach(flecha => {
+    flecha.addEventListener('click', () => {
+      jugar({ tipo: 'estampida', dir: flecha.dataset.dir as Direccion });
+    });
+  });
+
+  render();
+</script>

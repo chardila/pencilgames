@@ -1,0 +1,258 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+import { TAMANO } from './engine';
+
+const ORIGEN = 40;
+const PASO = 400 / (TAMANO + 0.5); // ~53.3, deja margen en ambos lados
+
+function px(celda: number): { x: number; y: number } {
+  const col = celda % TAMANO;
+  const fila = Math.floor(celda / TAMANO);
+  return { x: ORIGEN + col * PASO, y: ORIGEN + fila * PASO };
+}
+
+const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
+  const { x, y } = px(i);
+  const col = i % TAMANO;
+  const fila = Math.floor(i / TAMANO);
+  return { i, x, y, col, fila };
+});
+---
+
+<TableroJuego class="tablero-metasquares">
+  <div id="tablero" class="tablero-metasquares__container">
+    <svg
+      id="svg-metasquares"
+      viewBox="0 0 400 400"
+      class="tablero-metasquares__svg"
+      role="application"
+      aria-label="Tablero de MetaSquares, 7 por 7"
+    >
+      <g class="capa-cuadrados"></g>
+
+      <g class="capa-puntos">
+        {celdas.map(c => (
+          <g
+            class="punto"
+            data-indice={c.i}
+            role="button"
+            tabindex="0"
+            aria-label={`Celda columna ${c.col + 1}, fila ${c.fila + 1}`}
+          >
+            <circle class="punto__halo" cx={c.x} cy={c.y} r="22" />
+            <circle class="punto__circulo" cx={c.x} cy={c.y} r="7" />
+            <text
+              class="punto__ficha"
+              x={c.x}
+              y={c.y}
+              text-anchor="middle"
+              dominant-baseline="central"
+            ></text>
+          </g>
+        ))}
+      </g>
+    </svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-metasquares__container {
+    width: min(94vw, 32rem);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  .tablero-metasquares__svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  /* Los polígonos se crean dinámicamente desde el script, así que el CSS
+     con ámbito de Astro no los alcanza: se marcan como globales. */
+  :global(.capa-cuadrados .cuadrado) {
+    fill: transparent;
+    stroke-width: 4px;
+    stroke-linejoin: round;
+    pointer-events: none;
+  }
+  :global(.capa-cuadrados .cuadrado[data-jugador='1']) {
+    stroke: var(--color-player-1);
+    fill: color-mix(in srgb, var(--color-player-1) 12%, transparent);
+  }
+  :global(.capa-cuadrados .cuadrado[data-jugador='2']) {
+    stroke: var(--color-player-2);
+    fill: color-mix(in srgb, var(--color-player-2) 12%, transparent);
+  }
+
+  .punto {
+    cursor: pointer;
+    outline: none;
+  }
+  .punto[data-deshabilitado='true'] {
+    cursor: default;
+  }
+  .punto__halo {
+    fill: transparent;
+  }
+  .punto__circulo {
+    fill: var(--color-surface, #fff);
+    stroke: rgba(0, 0, 0, 0.25);
+    stroke-width: 2px;
+    transition: stroke 0.15s ease;
+  }
+  .punto[data-valor='1'] .punto__circulo {
+    stroke: var(--color-player-1);
+  }
+  .punto[data-valor='2'] .punto__circulo {
+    stroke: var(--color-player-2);
+  }
+  .punto.ultima .punto__circulo {
+    stroke: var(--color-accent);
+    stroke-width: 3px;
+  }
+  .punto__ficha {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: inherit;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+  .punto[data-valor='1'] .punto__ficha {
+    fill: var(--color-player-1);
+  }
+  .punto[data-valor='2'] .punto__ficha {
+    fill: var(--color-player-2);
+  }
+  .punto:focus-visible .punto__circulo {
+    stroke: var(--color-accent);
+    stroke-width: 3px;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    OBJETIVO,
+    type MetaSquaresState,
+    type Move,
+    type Player,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const SIMBOLOS = { 1: '●', 2: '▲' } as const;
+
+  const svg = document.getElementById('svg-metasquares') as unknown as SVGSVGElement;
+  const capaCuadrados = svg.querySelector<SVGGElement>('.capa-cuadrados')!;
+  const puntosEl = Array.from(svg.querySelectorAll<SVGGElement>('.punto'));
+
+  const COORD: { x: number; y: number }[] = puntosEl.map(el => {
+    const c = el.querySelector<SVGCircleElement>('.punto__circulo')!;
+    return { x: Number(c.getAttribute('cx')), y: Number(c.getAttribute('cy')) };
+  });
+
+  let state: MetaSquaresState = createInitialState();
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      puntosEl.forEach(el => (el.dataset.deshabilitado = 'true'));
+      render();
+    },
+  });
+
+  function ordenarEnCiclo(corners: readonly number[]): number[] {
+    const cx = corners.reduce((s, c) => s + COORD[c].x, 0) / 4;
+    const cy = corners.reduce((s, c) => s + COORD[c].y, 0) / 4;
+    return [...corners].sort(
+      (a, b) =>
+        Math.atan2(COORD[a].y - cy, COORD[a].x - cx) -
+        Math.atan2(COORD[b].y - cy, COORD[b].x - cx),
+    );
+  }
+
+  function render(): void {
+    const enJuego = state.status.kind === 'playing';
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer) && enJuego;
+
+    for (const el of puntosEl) {
+      const i = Number(el.dataset.indice);
+      const valor = state.board[i];
+      if (valor) el.dataset.valor = String(valor);
+      else delete el.dataset.valor;
+      el.querySelector('.punto__ficha')!.textContent = valor ? SIMBOLOS[valor] : '';
+      el.classList.toggle('ultima', state.lastMove === i);
+      el.dataset.deshabilitado = String(!esMiTurno || valor !== null);
+    }
+
+    capaCuadrados.replaceChildren();
+    for (const sq of state.claimed) {
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      const pts = ordenarEnCiclo(sq.corners).map(c => `${COORD[c].x},${COORD[c].y}`);
+      poly.setAttribute('points', pts.join(' '));
+      poly.setAttribute('class', 'cuadrado');
+      poly.dataset.jugador = String(sq.player);
+      capaCuadrados.appendChild(poly);
+    }
+
+    if (!enJuego) {
+      if (state.status.kind === 'draw') {
+        sesion.mostrarFinDeJuego({
+          titulo: '🤝 ¡Empate!',
+          detalle: `${state.scores[1]} cuadrados cada uno`,
+        });
+      } else if (state.status.kind === 'won') {
+        const w: Player = state.status.winner;
+        const p: Player = w === 1 ? 2 : 1;
+        sesion.mostrarFinDeJuego({
+          titulo: `🎉 ¡Ganó ${sesion.nombres[w]} (${SIMBOLOS[w]})!`,
+          detalle: `${state.scores[w]} cuadrados a ${state.scores[p]}`,
+        });
+      }
+      return;
+    }
+
+    sesion.mostrarTurno({
+      jugador: state.currentPlayer,
+      simbolos: { 1: SIMBOLOS[1], 2: SIMBOLOS[2] },
+      puntajes: state.scores,
+      detalle: `Forma cuadrados perfectos — primero a ${OBJETIVO}`,
+    });
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    if (state.status.kind !== 'playing') return;
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+    const prev = state;
+    state = playMove(state, move);
+    if (state === prev) return;
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  for (const el of puntosEl) {
+    const i = Number(el.dataset.indice);
+    el.addEventListener('click', () => jugar({ celda: i }));
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        jugar({ celda: i });
+      }
+    });
+  }
+
+  render();
+</script>

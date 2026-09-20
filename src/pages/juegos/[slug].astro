@@ -17,6 +17,15 @@ import ObstruccionBoard from '../../games/obstruccion/Board.astro';
 import HexBoard from '../../games/hex/Board.astro';
 import SimBoard from '../../games/sim/Board.astro';
 import DomineeringBoard from '../../games/domineering/Board.astro';
+import EstampidaBoard from '../../games/estampida/Board.astro';
+import TriggleBoard from '../../games/triggle/Board.astro';
+import BattleshipBoard from '../../games/battleship/Board.astro';
+import MetaSquaresBoard from '../../games/metasquares/Board.astro';
+import SnakesBoard from '../../games/snakes/Board.astro';
+import NimBoard from '../../games/nim/Board.astro';
+import ColBoard from '../../games/col/Board.astro';
+import BridgItBoard from '../../games/bridg-it/Board.astro';
+import YBoard from '../../games/y/Board.astro';
 
 const BOARDS = {
   'tres-en-raya': TresEnRayaBoard,
@@ -31,6 +40,15 @@ const BOARDS = {
   hex: HexBoard,
   sim: SimBoard,
   domineering: DomineeringBoard,
+  estampida: EstampidaBoard,
+  triggle: TriggleBoard,
+  battleship: BattleshipBoard,
+  metasquares: MetaSquaresBoard,
+  snakes: SnakesBoard,
+  nim: NimBoard,
+  col: ColBoard,
+  'bridg-it': BridgItBoard,
+  'juego-y': YBoard,
 } as const;
 
 export async function getStaticPaths() {

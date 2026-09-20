@@ -1,0 +1,319 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+---
+
+<TableroJuego class="tablero-bridgit-contenedor">
+  <div id="bridgit-tablero" class="bridgit-tablero">
+    {/* Puntos rojos: 5 columnas × 6 filas (30), conectan fila 0 con fila 5. */}
+    {Array.from({ length: 6 }).map((_, r) => (
+      <Fragment>
+        {Array.from({ length: 5 }).map((_, c) => (
+          <span
+            class={`punto punto-rojo${r === 0 || r === 5 ? ' punto-rojo--borde' : ''}`}
+            style={`grid-row: ${2 * r + 1}; grid-column: ${2 * c + 2};`}
+          />
+        ))}
+      </Fragment>
+    ))}
+    {/* Puntos azules: 6 columnas × 5 filas (30), conectan columna 0 con columna 5. */}
+    {Array.from({ length: 5 }).map((_, r) => (
+      <Fragment>
+        {Array.from({ length: 6 }).map((_, c) => (
+          <span
+            class={`punto punto-azul${c === 0 || c === 5 ? ' punto-azul--borde' : ''}`}
+            style={`grid-row: ${2 * r + 2}; grid-column: ${2 * c + 1};`}
+          />
+        ))}
+      </Fragment>
+    ))}
+    {/* Slot A (i,j en 0..5): aloja redH(i,j-1) y/o blueV(i-1,j). Las 4
+        esquinas (i,j en {0,5}×{0,5}) no alojan ninguna arista posible. */}
+    {Array.from({ length: 6 }).map((_, i) => (
+      <Fragment>
+        {Array.from({ length: 6 }).map((_, j) => {
+          const esEsquinaMuerta = (i === 0 || i === 5) && (j === 0 || j === 5);
+          return esEsquinaMuerta ? null : (
+            <button
+              type="button"
+              class="slot"
+              data-slot="a"
+              data-fila={i}
+              data-columna={j}
+              style={`grid-row: ${2 * i + 1}; grid-column: ${2 * j + 1};`}
+              aria-label={`Casilla de conexión A, posición ${i},${j}`}
+            />
+          );
+        })}
+      </Fragment>
+    ))}
+    {/* Slot B (i,j en 0..4): aloja redV(i,j) y blueH(i,j) siempre. */}
+    {Array.from({ length: 5 }).map((_, i) => (
+      <Fragment>
+        {Array.from({ length: 5 }).map((_, j) => (
+          <button
+            type="button"
+            class="slot"
+            data-slot="b"
+            data-fila={i}
+            data-columna={j}
+            style={`grid-row: ${2 * i + 2}; grid-column: ${2 * j + 2};`}
+            aria-label={`Casilla de conexión B, posición ${i},${j}`}
+          />
+        ))}
+      </Fragment>
+    ))}
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-bridgit-contenedor {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .bridgit-tablero {
+    --celda: minmax(1.6rem, 2.6rem);
+    display: grid;
+    grid-template-columns: repeat(11, var(--celda));
+    grid-template-rows: repeat(11, var(--celda));
+    width: min(94vw, 32rem);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    padding: 0.5rem;
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    position: relative;
+  }
+
+  .punto {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    justify-self: center;
+    align-self: center;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .punto-rojo {
+    background: var(--color-player-1);
+  }
+
+  .punto-azul {
+    background: var(--color-player-2);
+  }
+
+  /* Bordes objetivo: fila 0/5 rojas resaltadas, columna 0/5 azules resaltadas */
+  .punto-rojo--borde {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-player-1) 40%, transparent);
+  }
+
+  .punto-azul--borde {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-player-2) 40%, transparent);
+  }
+
+  .slot {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    padding: 0;
+    justify-self: center;
+    align-self: center;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .slot::before {
+    content: '';
+    display: block;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--color-text) 15%, transparent);
+  }
+
+  /* El botón (área clicable) siempre ocupa toda su celda de grid, sin
+     importar el tipo de slot (A o B). La orientación VISUAL de la línea
+     interna (::before) depende de a quién pertenece la jugada que aloja
+     ese slot, ver data-orientacion seteado en render(). */
+  .slot[data-orientacion='h']::before {
+    width: 100%;
+    height: 6px;
+  }
+
+  .slot[data-orientacion='v']::before {
+    width: 6px;
+    height: 100%;
+    margin: 0 auto;
+  }
+
+  .slot:not(:disabled):hover::before {
+    background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  }
+
+  .slot[data-jugador='1']::before {
+    background: var(--color-player-1) !important;
+  }
+
+  .slot[data-jugador='2']::before {
+    background: var(--color-player-2) !important;
+  }
+
+  .slot:disabled {
+    cursor: default;
+  }
+
+  .slot--ganador::before {
+    outline: 3px solid gold;
+    outline-offset: 1px;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    puedeJugar,
+    slotAToEdge,
+    slotBToEdge,
+    getSlotAStatus,
+    getSlotBStatus,
+    type BridgItState,
+    type Edge,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const tablero = document.getElementById('bridgit-tablero')!;
+  const slots = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.slot'));
+
+  let state: BridgItState = createInitialState();
+
+  const sesion = iniciarSesionJuego<Edge>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: edge => jugar(edge, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      for (const slot of slots) slot.disabled = true;
+    },
+  });
+
+  function jugar(edge: Edge, emitirRemoto = true): void {
+    // El guard de turno solo aplica a la entrada local: los movimientos
+    // remotos llegan cuando `currentPlayer` es el asiento del rival, así que
+    // `esMiTurno` sería falso y los descartaría en silencio.
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+    if (!puedeJugar(state, edge)) return;
+    state = playMove(state, edge);
+    render();
+    if (emitirRemoto) {
+      sesion.enviarMovimiento(edge);
+    }
+  }
+
+  // Slots que forman parte del camino ganador (claves "a:r,c" / "b:r,c"),
+  // recalculado en cada render cuando la partida ya terminó.
+  function slotsDelCaminoGanador(): Set<string> {
+    const claves = new Set<string>();
+    if (state.status !== 'won' || !state.winningPath || !state.winner) return claves;
+    const ganador = state.winner;
+    const camino = state.winningPath;
+    for (let i = 0; i < camino.length - 1; i++) {
+      const p1 = camino[i];
+      const p2 = camino[i + 1];
+      if (ganador === 1) {
+        if (p1.r === p2.r) {
+          // redH(r,c) conecta (r,c)-(r,c+1) y vive en el slot A (r, c+1).
+          claves.add(`a:${p1.r},${Math.min(p1.c, p2.c) + 1}`);
+        } else {
+          // redV(r,c) conecta (r,c)-(r+1,c) y vive en el slot B (r, c) directamente.
+          claves.add(`b:${Math.min(p1.r, p2.r)},${p1.c}`);
+        }
+      } else {
+        if (p1.r === p2.r) {
+          // blueH(r,c) conecta (r,c)-(r,c+1) y vive en el slot B (r, c) directamente.
+          claves.add(`b:${p1.r},${Math.min(p1.c, p2.c)}`);
+        } else {
+          // blueV(r,c) conecta (r,c)-(r+1,c) y vive en el slot A (r+1, c).
+          claves.add(`a:${Math.min(p1.r, p2.r) + 1},${p1.c}`);
+        }
+      }
+    }
+    return claves;
+  }
+
+  function render(): void {
+    const jugadorDelTurno = state.currentPlayer;
+    const esMiTurno = sesion.esMiTurno(jugadorDelTurno);
+    const claveCaminoGanador = slotsDelCaminoGanador();
+
+    for (const slot of slots) {
+      const tipo = slot.dataset.slot as 'a' | 'b';
+      const r = Number(slot.dataset.fila);
+      const c = Number(slot.dataset.columna);
+      const estado = tipo === 'a' ? getSlotAStatus(state, r, c) : getSlotBStatus(state, r, c);
+      const edgePropia = tipo === 'a' ? slotAToEdge(jugadorDelTurno, r, c) : slotBToEdge(jugadorDelTurno, r, c);
+
+      if (estado.owner) {
+        slot.dataset.jugador = String(estado.owner);
+      } else {
+        delete slot.dataset.jugador;
+      }
+
+      // Orientación visual real de la línea que aloja este slot: si ya está
+      // dibujada, según su dueño; si no, según el jugador en turno, para que
+      // el hover/preview muestre la orientación de SU jugada (slot A: rojo
+      // = horizontal, azul = vertical; slot B: rojo = vertical, azul =
+      // horizontal).
+      const jugadorParaOrientacion = estado.owner ?? jugadorDelTurno;
+      const orientacion =
+        tipo === 'a'
+          ? jugadorParaOrientacion === 1
+            ? 'h'
+            : 'v'
+          : jugadorParaOrientacion === 1
+            ? 'v'
+            : 'h';
+      slot.dataset.orientacion = orientacion;
+
+      slot.classList.toggle('slot--ganador', claveCaminoGanador.has(`${tipo}:${r},${c}`));
+
+      const jugable =
+        state.status === 'playing' &&
+        esMiTurno &&
+        !estado.drawn &&
+        edgePropia !== null &&
+        puedeJugar(state, edgePropia);
+      slot.disabled = !jugable;
+    }
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: jugadorDelTurno,
+        simbolos: { 1: '●', 2: '▲' },
+      });
+    } else if (state.status === 'won') {
+      const ganador = state.winner!;
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[ganador]}!`,
+        detalle: ganador === 1 ? 'Conexión Norte - Sur completada' : 'Conexión Oeste - Este completada',
+      });
+    }
+  }
+
+  for (const slot of slots) {
+    slot.addEventListener('click', () => {
+      const tipo = slot.dataset.slot as 'a' | 'b';
+      const r = Number(slot.dataset.fila);
+      const c = Number(slot.dataset.columna);
+      const edge = tipo === 'a' ? slotAToEdge(state.currentPlayer, r, c) : slotBToEdge(state.currentPlayer, r, c);
+      if (edge) jugar(edge);
+    });
+  }
+
+  render();
+</script>

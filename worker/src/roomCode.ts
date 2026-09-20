@@ -7,11 +7,27 @@ const LONGITUD = 6;
 // formato de validación nunca puedan desincronizarse.
 const PATRON_CODIGO_SALA = new RegExp(`^[${ALFABETO}]{${LONGITUD}}$`);
 
+// Mayor múltiplo de ALFABETO.length que cabe en un byte. Los valores en
+// [LIMITE_SIN_SESGO, 256) se descartan para que `byte % ALFABETO.length`
+// no favorezca a los primeros símbolos del alfabeto (rejection sampling).
+const LIMITE_SIN_SESGO = 256 - (256 % ALFABETO.length);
+
 export function generarCodigoSala(): string {
   let codigo = '';
-  for (let i = 0; i < LONGITUD; i++) {
-    codigo += ALFABETO[Math.floor(Math.random() * ALFABETO.length)];
+  const buffer = new Uint8Array(LONGITUD * 2);
+  let cursor = buffer.length;
+
+  while (codigo.length < LONGITUD) {
+    if (cursor >= buffer.length) {
+      crypto.getRandomValues(buffer);
+      cursor = 0;
+    }
+    const byte = buffer[cursor++];
+    if (byte < LIMITE_SIN_SESGO) {
+      codigo += ALFABETO[byte % ALFABETO.length];
+    }
   }
+
   return codigo;
 }
 
