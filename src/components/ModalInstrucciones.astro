@@ -147,15 +147,27 @@ const { title, slug } = Astro.props;
     else olvidarReglasVistas(slug);
   }
 
-  // Una vez el modo ya quedó decidido y el tablero está a la vista, el
-  // botón "por internet" de este modal ya no tiene sentido: reabrir las
+  // Una vez el modo ya quedó decidido, o se abrió el flujo de sala remota,
+  // el botón "por internet" de este modal ya no tiene sentido: reabrir las
   // reglas con "?" y tocarlo por error abriría un segundo flujo de sala
-  // encima de una partida remota ya conectada (o local en curso).
+  // encima de una sala ya en espera, o de una partida ya conectada (o local en curso).
+  let tableroVisible = false;
+
   document.addEventListener('modo-elegido-local', () => {
+    tableroVisible = true;
+    botonRemoto.hidden = true;
+  });
+  document.addEventListener('abrir-modal-remoto', () => {
     botonRemoto.hidden = true;
   });
   document.addEventListener('canal-remoto-listo', () => {
+    tableroVisible = true;
     botonRemoto.hidden = true;
+  });
+  document.addEventListener('modal-remoto-cancelado', () => {
+    if (!tableroVisible) {
+      botonRemoto.hidden = false;
+    }
   });
 
   if (!enFlujoSala) {
@@ -192,6 +204,7 @@ const { title, slug } = Astro.props;
   });
 
   abrir.addEventListener('click', () => {
+    noMostrar.checked = haVistoReglas(slug);
     modal.hidden = false;
   });
 </script>

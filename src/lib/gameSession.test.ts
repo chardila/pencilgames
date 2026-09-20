@@ -206,6 +206,44 @@ describe('gameSession', () => {
     sesion.destruir();
   });
 
+  it('al pasar de partida local con jugadas a canal remoto, reinicia el tablero y limpia la sesión', () => {
+    const onAplicarReinicio = vi.fn();
+    const onRender = vi.fn();
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender,
+    });
+
+    // Jugadas locales previas
+    sesion.guardarParaDeshacer({ estado: 'previo' });
+    sesion.enviarMovimiento(42);
+
+    expect(onAplicarReinicio).not.toHaveBeenCalled();
+
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Host' },
+      })
+    );
+
+    // Debe reiniciar el tablero para que la partida remota empiece limpia
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
+    expect(sesion.miAsiento).toBe(1);
+
+    sesion.destruir();
+  });
+
   it('sanea el nombre remoto: recorta, acota a 40 y descarta vacío o de otro tipo', () => {
     let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
     const mockCanal: MoveChannel = {

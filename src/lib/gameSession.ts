@@ -216,6 +216,20 @@ export function iniciarSesionJuego<TMovimiento>(
     miAsiento = canal.asiento;
     nombres[miAsiento] = detalle.miNombre;
 
+    // Si se venía de una partida local en curso (con jugadas en el registro
+    // o en la pila de deshacer), se reinicia el tablero y el marcador para
+    // que ambos rivales arranquen sincronizados desde el tablero limpio y
+    // el turno 1.
+    const teniaPartidaPrevia = registro.length > 0 || pilaDeshacer.length > 0;
+    registro = [];
+    desincronizado = false;
+    pilaDeshacer = [];
+    if (teniaPartidaPrevia) {
+      limpiarMarcador(slug);
+      marcador = obtenerMarcador(slug);
+      config.onAplicarReinicio();
+    }
+
     solicitarWakeLock();
     limpiarVisibilidad?.();
     limpiarVisibilidad = registrarReactivacionWakeLock();
