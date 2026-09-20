@@ -2,7 +2,7 @@
 import TableroJuego from '../../components/TableroJuego.astro';
 ---
 
-<TableroJuego class="tablero-tres-en-raya">
+<TableroJuego class="tablero-tres-en-raya" n={3}>
   <div id="tablero" class="tablero" role="grid" aria-label="Tablero de tres en raya">
     {Array.from({ length: 9 }).map((_, i) => (
       <button type="button" class="casilla" data-indice={i} aria-label={`Casilla ${i + 1}`} />
@@ -13,9 +13,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
 <style>
   .tablero {
     display: grid;
-    grid-template-columns: repeat(3, minmax(4rem, 6rem));
-    grid-template-rows: repeat(3, minmax(4rem, 6rem));
-    gap: 0.5rem;
+    grid-template-columns: repeat(3, var(--celda));
+    grid-template-rows: repeat(3, var(--celda));
+    gap: var(--gap);
+    touch-action: manipulation;
   }
 
   .casilla {
@@ -24,6 +25,8 @@ import TableroJuego from '../../components/TableroJuego.astro';
     background: var(--color-surface);
     border: 2px solid #ddd;
     border-radius: 12px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .casilla[data-valor="X"] {

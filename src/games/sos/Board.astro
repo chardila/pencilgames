@@ -4,7 +4,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 const SIZE = 6;
 ---
 
-<TableroJuego class="tablero-sos">
+<TableroJuego class="tablero-sos" n={SIZE}>
   <div class="selector-letra" role="radiogroup" aria-label="Elegir letra">
     <span class="selector-letra__label">Letra:</span>
     <div class="selector-letra__controles">
@@ -109,7 +109,7 @@ const SIZE = 6;
 
   .tablero-sos__contenedor {
     position: relative;
-    width: min(92vw, 26rem);
+    width: calc(6 * var(--celda) + 7 * var(--gap));
     aspect-ratio: 1;
     margin: 0 auto;
   }
@@ -156,9 +156,9 @@ const SIZE = 6;
     grid-template-rows: repeat(6, 1fr);
     width: 100%;
     height: 100%;
-    gap: 4px;
+    gap: var(--gap);
     background: rgba(0, 0, 0, 0.08);
-    padding: 4px;
+    padding: var(--gap);
     border-radius: var(--radius);
   }
 
@@ -176,6 +176,8 @@ const SIZE = 6;
     user-select: none;
     transition: background 0.15s ease, transform 0.1s ease;
     padding: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .casilla:hover:not(:disabled) {

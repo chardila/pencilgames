@@ -7,7 +7,7 @@ const letras = Array.from({ length: TAMANO }, (_, i) => String.fromCharCode(65 +
 const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 ---
 
-<TableroJuego class="tablero-battleship">
+<TableroJuego class="tablero-battleship" n={TAMANO}>
   <div id="interstitial" class="interstitial">
     <p id="interstitial-texto" class="interstitial__texto">Jugador 1 (●): coloca tu flota</p>
     <button type="button" id="empezar" class="boton-primario">Empezar</button>
@@ -91,11 +91,11 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
   .grid-wrap {
     display: grid;
-    grid-template-columns: 1.4rem 1fr;
-    grid-template-rows: 1.4rem 1fr;
-    width: min(92vw, 30rem);
+    grid-template-columns: 1.4rem auto;
+    grid-template-rows: 1.4rem auto;
+    width: fit-content;
     margin: 0 auto;
-    gap: 0.2rem;
+    gap: var(--gap);
   }
 
   .etiquetas {
@@ -113,28 +113,27 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
   .etiquetas--col {
     grid-column: 2;
     grid-row: 1;
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(8, var(--celda));
   }
 
   .etiquetas--fila {
     grid-column: 1;
     grid-row: 2;
-    grid-template-rows: repeat(8, 1fr);
+    grid-template-rows: repeat(8, var(--celda));
   }
 
   .tablero {
     grid-column: 2;
     grid-row: 2;
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    aspect-ratio: 1;
-    gap: 0.2rem;
+    grid-template-columns: repeat(8, var(--celda));
+    grid-template-rows: repeat(8, var(--celda));
+    gap: var(--gap);
     touch-action: manipulation;
   }
 
   .casilla {
     position: relative;
-    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -145,6 +144,8 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
     border: 2px solid #ddd;
     border-radius: 6px;
     padding: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /*

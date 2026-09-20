@@ -7,7 +7,7 @@ const TOTAL = FILAS * COLUMNAS;
 const casillas = Array.from({ length: TOTAL }, (_, i) => i);
 ---
 
-<TableroJuego class="tablero-chomp">
+<TableroJuego class="tablero-chomp" n={COLUMNAS} filas={FILAS}>
   <div id="tablero" class="tablero" role="grid" aria-label="Tableta de chocolate Chomp, 4 filas por 7 columnas">
     {casillas.map(i => (
       <button
@@ -29,20 +29,19 @@ const casillas = Array.from({ length: TOTAL }, (_, i) => i);
 <style>
   .tablero {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    width: min(92vw, 34rem);
-    aspect-ratio: 7 / 4;
-    gap: 0.35rem;
+    grid-template-columns: repeat(7, var(--celda));
+    grid-template-rows: repeat(4, var(--celda));
+    gap: var(--gap);
     margin: 0 auto;
     padding: 0.75rem;
     background: #3e2723;
     border-radius: 12px;
     box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15);
     touch-action: manipulation;
+    width: fit-content;
   }
 
   .casilla {
-    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -57,6 +56,8 @@ const casillas = Array.from({ length: TOTAL }, (_, i) => i);
     padding: 0;
     cursor: pointer;
     transition: transform 0.1s ease, background 0.15s ease, opacity 0.2s ease;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .casilla:not(:disabled):hover,

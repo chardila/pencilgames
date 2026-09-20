@@ -11,7 +11,7 @@ const FLECHAS = [
 ] as const;
 ---
 
-<TableroJuego class="tablero-estampida">
+<TableroJuego class="tablero-estampida" n={TAMANO}>
   <div
     id="tablero"
     class="tablero"
@@ -39,16 +39,14 @@ const FLECHAS = [
 <style>
   .tablero {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    width: min(92vw, 30rem);
-    aspect-ratio: 1;
-    gap: 0.2rem;
+    grid-template-columns: repeat(8, var(--celda));
+    grid-template-rows: repeat(8, var(--celda));
+    gap: var(--gap);
     margin: 0 auto;
     touch-action: manipulation;
   }
 
   .casilla {
-    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -59,6 +57,8 @@ const FLECHAS = [
     border: 2px solid #ddd;
     border-radius: 6px;
     padding: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .casilla[data-valor='1'] {
