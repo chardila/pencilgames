@@ -145,6 +145,14 @@ const { title, slug } = Astro.props;
   // para no competir con esa lógica.
   const enFlujoSala = !!new URLSearchParams(location.search).get('sala');
 
+  // El botón "por internet" no debe estar disponible mientras el deep-link
+  // ?sala=CODIGO controla su propio arranque: como ese flujo nunca dispara
+  // 'abrir-modal-remoto', el botón no se ocultaba solo, y reabrir las reglas
+  // con "?" y tocarlo secuestraba el join-por-código en curso (reseteaba
+  // ModalJuegoRemoto a "Crear sala / Unirse con código", perdiendo el
+  // código precargado).
+  if (enFlujoSala) botonRemoto.hidden = true;
+
   function aplicarNoMostrar(): void {
     // Simétrico: si el usuario destildó "No volver a mostrar" (típicamente
     // reabriendo con "?" tras haberlas marcado como vistas antes), hay que
