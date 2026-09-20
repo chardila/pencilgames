@@ -35,8 +35,10 @@ class MemoryStorage {
 class MockElement extends EventTarget {
   id: string = '';
   hidden: boolean = false;
+  disabled: boolean = false;
   style: Record<string, string> = {};
   dataset: Record<string, string> = {};
+  closest?: (selector: string) => MockElement | null;
   private _textContent: string = '';
   private _innerHTML: string = '';
   private subElements = new Map<string, MockElement>();
@@ -694,6 +696,236 @@ describe('gameSession', () => {
     expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
 
     sesion.destruir();
+  });
+
+  describe('deshacer, reiniciar con confirmación y marcador (spec 02)', () => {
+    function botones() {
+      return {
+        deshacer: mockDoc.getElementById('control-deshacer')!,
+        reiniciar: mockDoc.getElementById('control-reiniciar')!,
+        confirmar: mockDoc.getElementById('confirmar-reinicio')!,
+        confirmarSi: mockDoc.getElementById('confirmar-reinicio-si')!,
+        confirmarNo: mockDoc.getElementById('confirmar-reinicio-no')!,
+        marcador: mockDoc.getElementById('marcador-partida')!,
+      };
+    }
+
+    it('guardarParaDeshacer llena una pila de profundidad 10; deshacer restaura y agota', () => {
+      const onDeshacer = vi.fn();
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+        onDeshacer,
+      });
+      const { deshacer } = botones();
+      expect(deshacer.disabled).toBe(true); // pila vacía al inicio
+
+      for (let i = 0; i < 12; i++) sesion.guardarParaDeshacer({ n: i });
+      expect(deshacer.disabled).toBe(false);
+
+      // Con profundidad 10, solo quedan los 10 últimos snapshots (2..11).
+      for (let i = 11; i >= 2; i--) {
+        deshacer.dispatchEvent(new Event('click'));
+        expect(onDeshacer).toHaveBeenLastCalledWith({ n: i });
+      }
+      expect(deshacer.disabled).toBe(true);
+
+      onDeshacer.mockClear();
+      deshacer.dispatchEvent(new Event('click'));
+      expect(onDeshacer).not.toHaveBeenCalled();
+
+      sesion.destruir();
+    });
+
+    it('el snapshot es opaco: el juego decide qué incluir además del tablero', () => {
+      // Puntos y cajas necesita revertir `repiteTurno` junto al estado, no
+      // solo la última marca en el tablero (spec 02, R2).
+      const onDeshacer = vi.fn();
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+        onDeshacer,
+      });
+      const snapshot = { estado: { casillas: [1, null, 2] }, repiteTurno: true };
+      sesion.guardarParaDeshacer(snapshot);
+      // Mutar el original después de guardarlo no debe afectar la copia.
+      snapshot.repiteTurno = false;
+
+      botones().deshacer.dispatchEvent(new Event('click'));
+      expect(onDeshacer).toHaveBeenCalledWith({
+        estado: { casillas: [1, null, 2] },
+        repiteTurno: true,
+      });
+
+      sesion.destruir();
+    });
+
+    it('en modo remoto, deshacer queda oculto y no hace nada aunque haya snapshots', () => {
+      const onDeshacer = vi.fn();
+      const mockCanal: MoveChannel = {
+        asiento: 1,
+        estado: 'conectado',
+        enviar: vi.fn(),
+        alRecibir: vi.fn(),
+        alCambiarEstado: vi.fn(),
+        cerrar: vi.fn(),
+      };
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+        onDeshacer,
+      });
+
+      sesion.guardarParaDeshacer({ n: 1 }); // antes de conectar, local todavía
+      document.dispatchEvent(
+        new CustomEvent('canal-remoto-listo', {
+          detail: { channel: mockCanal, miNombre: 'Jugador 1' },
+        })
+      );
+
+      const { deshacer } = botones();
+      expect(deshacer.hidden).toBe(true);
+
+      sesion.guardarParaDeshacer({ n: 2 }); // no debería apilarse en remoto
+      deshacer.dispatchEvent(new Event('click'));
+      expect(onDeshacer).not.toHaveBeenCalled();
+
+      sesion.destruir();
+    });
+
+    it('reiniciar desde la barra pide confirmación: "No" no hace nada, "Sí" reinicia', async () => {
+      const onAplicarReinicio = vi.fn();
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio,
+        onRender: vi.fn(),
+      });
+      const { reiniciar, confirmar, confirmarSi, confirmarNo } = botones();
+
+      reiniciar.dispatchEvent(new Event('click'));
+      expect(confirmar.hidden).toBe(false);
+
+      confirmarNo.dispatchEvent(new Event('click'));
+      await Promise.resolve();
+      expect(confirmar.hidden).toBe(true);
+      expect(onAplicarReinicio).not.toHaveBeenCalled();
+
+      reiniciar.dispatchEvent(new Event('click'));
+      confirmarSi.dispatchEvent(new Event('click'));
+      await Promise.resolve();
+      expect(confirmar.hidden).toBe(true);
+      expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
+
+      sesion.destruir();
+    });
+
+    it('reiniciar vacía la pila de deshacer', () => {
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+      sesion.guardarParaDeshacer({ n: 1 });
+      const { deshacer } = botones();
+      expect(deshacer.disabled).toBe(false);
+
+      sesion.reiniciar();
+      expect(deshacer.disabled).toBe(true);
+
+      sesion.destruir();
+    });
+
+    it('mostrarFinDeJuego con ganador incrementa el marcador y persiste entre partidas', () => {
+      vi.stubGlobal('location', { pathname: '/juegos/gomoku-test', reload: vi.fn() });
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+
+      sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 1!', ganador: 1 });
+      expect(botones().marcador.textContent).toBe('Jugador 1 1 · Jugador 2 0');
+
+      // Revancha (mismo mecanismo que reiniciar): el marcador sobrevive.
+      sesion.reiniciar();
+      expect(botones().marcador.textContent).toBe('Jugador 1 1 · Jugador 2 0');
+
+      sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 2!', ganador: 2 });
+      expect(botones().marcador.textContent).toBe('Jugador 1 1 · Jugador 2 1');
+
+      sesion.destruir();
+    });
+
+    it('un empate no incrementa el marcador', () => {
+      vi.stubGlobal('location', { pathname: '/juegos/empate-test', reload: vi.fn() });
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+
+      sesion.mostrarFinDeJuego({ titulo: '¡Empate!', ganador: null });
+      expect(botones().marcador.textContent).toBe('Jugador 1 0 · Jugador 2 0');
+
+      sesion.destruir();
+    });
+
+    it('cambiar los nombres limpia el marcador acumulado', () => {
+      vi.stubGlobal('location', { pathname: '/juegos/nombres-test', reload: vi.fn() });
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+
+      sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 1!', ganador: 1 });
+      expect(botones().marcador.textContent).toBe('Jugador 1 1 · Jugador 2 0');
+
+      document.dispatchEvent(
+        new CustomEvent('nombres-jugadores-actualizados', {
+          detail: { 1: 'Alicia', 2: 'Bob' },
+        })
+      );
+      expect(botones().marcador.textContent).toBe('Alicia 0 · Bob 0');
+
+      sesion.destruir();
+    });
+
+    it('un clic en cualquier enlace a "/" limpia el marcador acumulado', () => {
+      vi.stubGlobal('location', { pathname: '/juegos/volver-test', reload: vi.fn() });
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+      sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 1!', ganador: 1 });
+      expect(localStorage.getItem('pencilgames:marcador:volver-test')).not.toBeNull();
+
+      const link = new MockElement();
+      link.closest = ((sel: string) => (sel === 'a[href="/"]' ? link : null)) as any;
+      const clickEvent = new Event('click');
+      // Event.target es de solo lectura vía getter del prototipo; se sombrea
+      // como propiedad propia para simular que el clic llegó a `link` sin
+      // depender del bubbling real que MockElement no implementa.
+      Object.defineProperty(clickEvent, 'target', { value: link, configurable: true });
+      document.dispatchEvent(clickEvent);
+
+      expect(localStorage.getItem('pencilgames:marcador:volver-test')).toBeNull();
+
+      sesion.destruir();
+    });
   });
 
   describe('resincronización tras reconexión', () => {

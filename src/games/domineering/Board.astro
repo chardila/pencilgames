@@ -147,6 +147,11 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
       casillas.forEach(c => (c.disabled = true));
       render();
     },
+    onDeshacer: snapshot => {
+      state = snapshot as DomineeringState;
+      limpiarSeleccion();
+      render();
+    },
   });
 
   function limpiarSeleccion(): void {
@@ -217,6 +222,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]}!`,
         detalle: `${sesion.nombres[perdedor]} no puede colocar más dominós`,
+        ganador: state.winner,
       });
     }
   }
@@ -249,6 +255,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
     const prev = state;
     state = playMove(state, move);
     if (state === prev) return;
+    sesion.guardarParaDeshacer(prev);
     limpiarSeleccion();
     render();
     if (emitirRemoto) sesion.enviarMovimiento(move);

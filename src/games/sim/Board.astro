@@ -294,6 +294,12 @@ const allEdges = getAllEdges().map(edge => {
       actualizarPreview(null);
       render();
     },
+    onDeshacer: snapshot => {
+      state = snapshot as SimState;
+      selectedVertex = null;
+      actualizarPreview(null);
+      render();
+    },
   });
 
   function render(): void {
@@ -362,6 +368,7 @@ const allEdges = getAllEdges().map(edge => {
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[ganador]}!`,
         detalle: `${sesion.nombres[perdedor]} cerró un triángulo de su color.`,
+        ganador,
       });
     }
   }
@@ -394,6 +401,7 @@ const allEdges = getAllEdges().map(edge => {
     const prevState = state;
     state = playMove(state, edge);
     if (state === prevState) return;
+    sesion.guardarParaDeshacer(prevState);
 
     selectedVertex = null;
     actualizarPreview(null);

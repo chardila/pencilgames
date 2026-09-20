@@ -311,12 +311,34 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
         b => (b.disabled = true),
       );
     },
+    onDeshacer: snapshot => {
+      const s = snapshot as {
+        state: BattleshipState;
+        flotaPrevia: number[][];
+        listoParaColocar: boolean;
+        handoffPendiente: typeof handoffPendiente;
+      };
+      state = s.state;
+      flotaPrevia = s.flotaPrevia;
+      listoParaColocar = s.listoParaColocar;
+      handoffPendiente = s.handoffPendiente;
+      render();
+    },
   });
 
   function jugar(move: Move, emitirRemoto = true): void {
     const prev = state;
+    // Snapshot para deshacer: captura todo lo que jugar() puede mutar además
+    // de `state` (colocación en curso, handoff pendiente), antes de tocarlo.
+    const snapshotPrevio = {
+      state: prev,
+      flotaPrevia,
+      listoParaColocar,
+      handoffPendiente,
+    };
     state = playMove(state, move);
     if (state === prev) return; // rechazado → no renderiza ni emite
+    sesion.guardarParaDeshacer(snapshotPrevio);
     // Si durante la colocación cambió el jugador que coloca, el nuevo debe
     // pasar por el interstitial "Empezar".
     if (
@@ -448,6 +470,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[g]} (${FICHAS[g]})!`,
         detalle: 'Hundió toda la flota rival',
+        ganador: g,
       });
       return;
     }

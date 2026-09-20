@@ -63,6 +63,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
     onDesconectar: () => {
       casillas.forEach(casilla => (casilla.disabled = true));
     },
+    onDeshacer: snapshot => {
+      state = snapshot as TresEnRayaState;
+      render();
+    },
   });
 
   function render(): void {
@@ -92,11 +96,13 @@ import TableroJuego from '../../components/TableroJuego.astro';
           state.status === 'won'
             ? `🎉 ¡Ganó ${sesion.nombres[state.winner === 'X' ? 1 : 2]} (${ETIQUETAS[state.winner!]})!`
             : '🤝 ¡Empate!',
+        ganador: state.status === 'won' ? (state.winner === 'X' ? 1 : 2) : null,
       });
     }
   }
 
   function jugar(indice: number, emitirRemoto = true): void {
+    sesion.guardarParaDeshacer(state);
     state = playMove(state, indice);
     render();
     if (emitirRemoto) {
