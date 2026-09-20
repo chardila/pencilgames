@@ -110,7 +110,11 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
   }
 
   @media (orientation: landscape) and (height <= 46rem) {
-    .cabecera-juego {
+    /* Solo reserva espacio si hay algún botón visible en la barra fija; si
+       ambos están ocultos (antes de elegir modo, o ya conectado en remoto)
+       no hay nada que solapar y el título no debe truncarse de más. */
+    body:has(#modal-jugadores-abrir:not([hidden]), #boton-jugar-por-internet:not([hidden]))
+      .cabecera-juego {
       padding-right: 14.5rem;
     }
   }

@@ -119,9 +119,15 @@
   // se salta este modal). Sin este listener, modoYaElegido seguía en false
   // mientras se espera la conexión, y reabrir las reglas con "?" y volver a
   // pulsar "¡Jugar!" repetía el flujo de modo, cerrando la sala en espera.
-  document.addEventListener('abrir-modal-remoto', () => {
+  // Modo que había guardado antes de intentar "remoto", para poder
+  // restaurarlo si cancela sin conectar (en vez de borrar una preferencia
+  // 'local' previa que el usuario nunca tocó).
+  let modoPrevioAntesDeRemoto: ReturnType<typeof getModoGuardado> = null;
+
+  document.addEventListener('abrir-modal-remoto', ((evento: CustomEvent<{ modoPrevio?: ReturnType<typeof getModoGuardado> }>) => {
     modoYaElegido = true;
-  });
+    modoPrevioAntesDeRemoto = evento.detail?.modoPrevio ?? null;
+  }) as EventListener);
 
   document.addEventListener('modal-remoto-cancelado', () => {
     if (tableroVisible) return;
@@ -130,8 +136,10 @@
     // vez que SÍ conecte). Si cancela sin haber conectado, hay que deshacer
     // ese guardado: si no, la próxima visita a cualquier juego saltaría
     // directo al flujo de sala aunque el usuario haya cancelado, sin volver
-    // a preguntar nunca.
-    olvidarModo();
+    // a preguntar nunca. Si ya había un modo guardado de antes (p. ej.
+    // 'local'), se restaura en vez de perderlo.
+    if (modoPrevioAntesDeRemoto) guardarModo(modoPrevioAntesDeRemoto);
+    else olvidarModo();
     modoYaElegido = false;
     modal.hidden = false;
   });
@@ -162,7 +170,8 @@
   botonRemoto.addEventListener('click', () => {
     modoYaElegido = true;
     modal.hidden = true;
+    const modoPrevio = getModoGuardado();
     guardarModo('remoto');
-    document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
+    document.dispatchEvent(new CustomEvent('abrir-modal-remoto', { detail: { modoPrevio } }));
   });
 </script>

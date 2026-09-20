@@ -125,7 +125,13 @@ const { title, slug } = Astro.props;
 </style>
 
 <script>
-  import { guardarModo, haVistoReglas, marcarReglasVistas, olvidarReglasVistas } from '../lib/entrada';
+  import {
+    getModoGuardado,
+    guardarModo,
+    haVistoReglas,
+    marcarReglasVistas,
+    olvidarReglasVistas,
+  } from '../lib/entrada';
 
   const modal = document.getElementById('modal-instrucciones')!;
   const cerrar = document.getElementById('modal-instrucciones-cerrar')!;
@@ -137,7 +143,7 @@ const { title, slug } = Astro.props;
   // El deep-link ?sala=CODIGO (ModalJuegoRemoto) controla su propio arranque
   // y ya deja este modal oculto: no hay que decidir nada de reglas/modo aquí,
   // para no competir con esa lógica.
-  const enFlujoSala = new URLSearchParams(location.search).has('sala');
+  const enFlujoSala = !!new URLSearchParams(location.search).get('sala');
 
   function aplicarNoMostrar(): void {
     // Simétrico: si el usuario destildó "No volver a mostrar" (típicamente
@@ -199,8 +205,11 @@ const { title, slug } = Astro.props;
     // como haber leído las reglas, si no se hace se muestran de nuevo la
     // próxima vez aunque el jugador ya las haya visto.
     aplicarNoMostrar();
+    // Se guarda el modo previo para poder restaurarlo si se cancela el
+    // flujo de sala sin llegar a conectar (ver ModalModoJuego).
+    const modoPrevio = getModoGuardado();
     guardarModo('remoto');
-    document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
+    document.dispatchEvent(new CustomEvent('abrir-modal-remoto', { detail: { modoPrevio } }));
   });
 
   abrir.addEventListener('click', () => {
