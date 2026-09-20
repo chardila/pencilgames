@@ -84,6 +84,12 @@
   // elegir modo otra vez.
   let modoYaElegido = false;
 
+  // Distingue el cancelar de "por internet" ANTES de que el tablero esté a
+  // la vista (había que dejar elegir modo otra vez) del cancelar del atajo
+  // de mitad de partida en ModalJugadores (el tablero ya está en pantalla:
+  // no hay que taparlo con "¿Cómo van a jugar?" de nuevo).
+  let tableroVisible = false;
+
   document.addEventListener('instrucciones-cerradas', () => {
     if (modoYaElegido) return;
 
@@ -95,6 +101,7 @@
     const modoGuardado = getModoGuardado();
     if (modoGuardado === 'local') {
       modoYaElegido = true;
+      tableroVisible = true;
       document.dispatchEvent(new CustomEvent('modo-elegido-local'));
       return;
     }
@@ -108,6 +115,7 @@
   });
 
   document.addEventListener('modal-remoto-cancelado', () => {
+    if (tableroVisible) return;
     modoYaElegido = false;
     modal.hidden = false;
   });
@@ -123,11 +131,13 @@
   // el modo se guarda en el click de "por internet", no aquí.
   document.addEventListener('canal-remoto-listo', () => {
     modoYaElegido = true;
+    tableroVisible = true;
     modal.hidden = true;
   });
 
   botonLocal.addEventListener('click', () => {
     modoYaElegido = true;
+    tableroVisible = true;
     modal.hidden = true;
     guardarModo('local');
     document.dispatchEvent(new CustomEvent('modo-elegido-local'));
