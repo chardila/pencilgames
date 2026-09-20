@@ -128,5 +128,10 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
     // de mitad de partida en modo local), tocarlo de nuevo abriría un
     // segundo flujo de sala encima de la conexión activa.
     botonPorInternet.hidden = true;
+    // Si se llegó aquí desde el atajo de mitad de partida en modo local,
+    // "Cambiar nombres" quedó visible de esa etapa: en remoto ya no aplica
+    // (gameSession ignora ese guardado en cuanto hay asiento asignado), así
+    // que sería un botón visible que no hace nada.
+    botonCambiarNombres.hidden = true;
   });
 </script>
