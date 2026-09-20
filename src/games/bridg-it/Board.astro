@@ -200,6 +200,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
     onDesconectar: () => {
       for (const slot of slots) slot.disabled = true;
     },
+    onDeshacer: snapshot => {
+      state = snapshot as BridgItState;
+      render();
+    },
   });
 
   function jugar(edge: Edge, emitirRemoto = true): void {
@@ -208,6 +212,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     // `esMiTurno` sería falso y los descartaría en silencio.
     if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
     if (!puedeJugar(state, edge)) return;
+    sesion.guardarParaDeshacer(state);
     state = playMove(state, edge);
     render();
     if (emitirRemoto) {
@@ -301,6 +306,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[ganador]}!`,
         detalle: ganador === 1 ? 'Conexión Norte - Sur completada' : 'Conexión Oeste - Este completada',
+        ganador,
       });
     }
   }

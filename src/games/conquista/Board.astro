@@ -163,6 +163,13 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     onDesconectar: () => {
       for (const g of gruposPunto) g.dataset.interactivo = 'false';
     },
+    onDeshacer: snapshot => {
+      const s = snapshot as { state: ConquistaState; repiteTurno: boolean };
+      state = s.state;
+      repiteTurno = s.repiteTurno;
+      limpiarSeleccion();
+      render();
+    },
   });
 
   function puntoDe(row: number, col: number): SVGGElement {
@@ -227,6 +234,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
   }
 
   function jugar(fence: Fence, emitirRemoto = true): void {
+    sesion.guardarParaDeshacer({ state, repiteTurno });
     const prevRegionsCount = state.regions.length;
     state = jugarFence(state, fence);
     const nuevasRegiones = state.regions.length - prevRegionsCount;
@@ -293,6 +301,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
         detalle: `${sesion.nombres[1]} ${state.scores[1].toFixed(1)} · ${
           sesion.nombres[2]
         } ${state.scores[2].toFixed(1)}`,
+        ganador,
       });
     }
   }

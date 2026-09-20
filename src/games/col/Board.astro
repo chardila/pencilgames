@@ -179,6 +179,10 @@ import { MAPAS } from './maps';
       btnAleatorio.disabled = true;
       pathsPorId.forEach(p => (p.style.pointerEvents = 'none'));
     },
+    onDeshacer: snapshot => {
+      state = snapshot as ColState;
+      render();
+    },
   });
 
   function construirSvgDelMapa(mapaId: number): void {
@@ -247,6 +251,7 @@ import { MAPAS } from './maps';
       const simbolo = state.winner === 1 ? '●' : '▲';
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]} (${simbolo})! 🖍️`,
+        ganador: state.winner,
       });
     }
   }
@@ -254,6 +259,7 @@ import { MAPAS } from './maps';
   function jugar(move: ColMove, emitirRemoto = true): void {
     const nuevo = playMove(state, move);
     if (nuevo === state) return;
+    sesion.guardarParaDeshacer(state);
     state = nuevo;
     if (nuevo.status === 'won' && nuevo.winner) {
       jugadorInicialSiguiente = nuevo.winner === 1 ? 2 : 1;

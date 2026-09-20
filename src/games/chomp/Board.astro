@@ -117,6 +117,10 @@ const casillas = Array.from({ length: TOTAL }, (_, i) => i);
     onDesconectar: () => {
       casillas.forEach(casilla => (casilla.disabled = true));
     },
+    onDeshacer: snapshot => {
+      state = snapshot as ChompState;
+      render();
+    },
   });
 
   function render(): void {
@@ -145,11 +149,13 @@ const casillas = Array.from({ length: TOTAL }, (_, i) => i);
     } else if (state.status === 'won') {
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]}! 🍫`,
+        ganador: state.winner,
       });
     }
   }
 
   function jugar(indice: number, emitirRemoto = true): void {
+    sesion.guardarParaDeshacer(state);
     state = playMove(state, indice);
     render();
     if (emitirRemoto) {

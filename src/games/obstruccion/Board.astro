@@ -91,6 +91,10 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
     onDesconectar: () => {
       casillas.forEach(casilla => (casilla.disabled = true));
     },
+    onDeshacer: snapshot => {
+      state = snapshot as ObstruccionState;
+      render();
+    },
   });
 
   function render(): void {
@@ -122,11 +126,13 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]} (${FICHAS[state.winner!]})!`,
         detalle: `${sesion.nombres[perdedor]} se quedó sin casillas`,
+        ganador: state.winner,
       });
     }
   }
 
   function jugar(indice: number, emitirRemoto = true): void {
+    sesion.guardarParaDeshacer(state);
     state = playMove(state, indice);
     render();
     if (emitirRemoto) {

@@ -89,6 +89,10 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
     onDesconectar: () => {
       casillas.forEach(casilla => (casilla.disabled = true));
     },
+    onDeshacer: snapshot => {
+      state = snapshot as GomokuState;
+      render();
+    },
   });
 
   function render(): void {
@@ -120,13 +124,15 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
     } else if (state.status === 'won') {
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]} (${FICHAS[state.winner!]})!`,
+        ganador: state.winner,
       });
     } else {
-      sesion.mostrarFinDeJuego({ titulo: '🤝 ¡Empate!' });
+      sesion.mostrarFinDeJuego({ titulo: '🤝 ¡Empate!', ganador: null });
     }
   }
 
   function jugar(indice: number, emitirRemoto = true): void {
+    sesion.guardarParaDeshacer(state);
     state = playMove(state, indice);
     render();
     if (emitirRemoto) {

@@ -144,6 +144,12 @@ const FLECHAS = [
       casillas.forEach(c => (c.disabled = true));
       flechas.forEach(f => (f.disabled = true));
     },
+    onDeshacer: snapshot => {
+      const s = snapshot as { state: EstampidaState; rivalSaltado: boolean };
+      state = s.state;
+      rivalSaltado = s.rivalSaltado;
+      render();
+    },
   });
 
   function render(): void {
@@ -178,12 +184,14 @@ const FLECHAS = [
         sesion.mostrarFinDeJuego({
           titulo: '🤝 ¡Empate!',
           detalle: `${puntajes[1]} casillas cada uno`,
+          ganador: null,
         });
       } else {
         const perdedor = state.winner === 1 ? 2 : 1;
         sesion.mostrarFinDeJuego({
           titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner]} (${FICHAS[state.winner]})!`,
           detalle: `${puntajes[state.winner]} casillas a ${puntajes[perdedor]}`,
+          ganador: state.winner,
         });
       }
       return;
@@ -203,8 +211,10 @@ const FLECHAS = [
 
   function jugar(move: Move, emitirRemoto = true): void {
     const prev = state;
+    const rivalSaltadoPrevio = rivalSaltado;
     state = playMove(state, move);
     if (state === prev) return; // rechazado → no renderiza ni emite
+    sesion.guardarParaDeshacer({ state: prev, rivalSaltado: rivalSaltadoPrevio });
     // Una estampida normal siempre cambia de turno o termina la partida; mismo
     // jugador y sigue en juego ⟹ el rival no podía avanzar y se le saltó.
     rivalSaltado =
