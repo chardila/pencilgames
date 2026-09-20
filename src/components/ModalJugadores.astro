@@ -108,6 +108,20 @@
   .modal-jugadores__abrir[hidden] {
     display: none;
   }
+
+  /* R5 — en horizontal con poca altura, este botón se superpone a la
+     cabecera en vez de ocupar su propia fila, para no robarle esos ~44 px
+     de alto al tablero. */
+  @media (orientation: landscape) and (height <= 46rem) {
+    .modal-jugadores__abrir {
+      position: fixed;
+      top: 0.25rem;
+      right: 0.5rem;
+      z-index: 5;
+      padding: 0.35rem 0.6rem;
+      font-size: 0.8rem;
+    }
+  }
 </style>
 
 <script>

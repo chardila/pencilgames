@@ -5,7 +5,7 @@ const TAMANO = 9;
 const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
 ---
 
-<TableroJuego class="tablero-gomoku">
+<TableroJuego class="tablero-gomoku" n={TAMANO}>
   <div id="tablero" class="tablero" role="grid" aria-label="Tablero de Gomoku, 9 por 9">
     {casillas.map(i => (
       <button
@@ -21,16 +21,14 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
 <style>
   .tablero {
     display: grid;
-    grid-template-columns: repeat(9, 1fr);
-    width: min(92vw, 34rem);
-    aspect-ratio: 1;
-    gap: 0.25rem;
+    grid-template-columns: repeat(9, var(--celda));
+    grid-template-rows: repeat(9, var(--celda));
+    gap: var(--gap);
     margin: 0 auto;
     touch-action: manipulation;
   }
 
   .casilla {
-    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -41,6 +39,8 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
     border: 2px solid #ddd;
     border-radius: 8px;
     padding: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .casilla[data-valor='1'] {

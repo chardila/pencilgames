@@ -53,8 +53,8 @@ const SIZE = 4;
 <style>
   .tablero-pyc {
     display: grid;
-    grid-template-columns: 14px minmax(2.75rem, 1fr) 14px minmax(2.75rem, 1fr) 14px minmax(2.75rem, 1fr) 14px;
-    grid-template-rows: 14px minmax(2.75rem, 1fr) 14px minmax(2.75rem, 1fr) 14px minmax(2.75rem, 1fr) 14px;
+    grid-template-columns: 14px minmax(3rem, 1fr) 14px minmax(3rem, 1fr) 14px minmax(3rem, 1fr) 14px;
+    grid-template-rows: 14px minmax(3rem, 1fr) 14px minmax(3rem, 1fr) 14px minmax(3rem, 1fr) 14px;
     width: min(92vw, 26rem);
     aspect-ratio: 1;
     margin: 0 auto;
@@ -80,7 +80,10 @@ const SIZE = 4;
   .linea--h {
     align-self: center;
     width: 100%;
-    min-height: 2.75rem;
+    /* R7 — zona tocable ≥48px aunque el trazo visible siga siendo de 6px. */
+    min-height: 3rem;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     z-index: 2;
   }
 
@@ -104,7 +107,10 @@ const SIZE = 4;
   .linea--v {
     justify-self: center;
     height: 100%;
-    min-width: 2.75rem;
+    /* R7 — zona tocable ≥48px aunque el trazo visible siga siendo de 6px. */
+    min-width: 3rem;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .linea--v::before {

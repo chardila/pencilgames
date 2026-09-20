@@ -5,7 +5,7 @@ const TAMANO = 8;
 const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
 ---
 
-<TableroJuego class="tablero-domineering">
+<TableroJuego class="tablero-domineering" n={TAMANO}>
   <div class="tablero-wrap">
     <div
       id="tablero"
@@ -29,30 +29,30 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
 <style>
   .tablero-wrap {
     position: relative;
-    width: min(100%, 34rem);
+    width: fit-content;
     margin: 0 auto;
   }
 
   .tablero,
   .capa-dominos {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 0.2rem;
+    grid-template-columns: repeat(8, var(--celda));
+    grid-template-rows: repeat(8, var(--celda));
+    gap: var(--gap);
   }
 
   .tablero {
     touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .capa-dominos {
-    grid-template-rows: repeat(8, 1fr);
     position: absolute;
     inset: 0;
     pointer-events: none;
   }
 
   .casilla {
-    aspect-ratio: 1;
     min-width: 0;
     background: var(--color-surface);
     border: 2px solid #ddd;
