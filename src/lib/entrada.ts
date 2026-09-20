@@ -9,12 +9,21 @@ const MODO_KEY = 'pencilgames:modo';
 
 export type Modo = 'local' | 'remoto';
 
+function parseArray(raw: string | null): unknown[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export function haVistoReglas(slug: string): boolean {
   try {
     const raw = localStorage.getItem(REGLAS_VISTAS_KEY);
-    if (!raw) return false;
-    const vistos = JSON.parse(raw);
-    return Array.isArray(vistos) && vistos.includes(slug);
+    const vistos = parseArray(raw);
+    return vistos.includes(slug);
   } catch {
     return false;
   }
@@ -23,8 +32,7 @@ export function haVistoReglas(slug: string): boolean {
 export function marcarReglasVistas(slug: string): void {
   try {
     const raw = localStorage.getItem(REGLAS_VISTAS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const vistos: unknown[] = Array.isArray(parsed) ? parsed : [];
+    const vistos = parseArray(raw);
     if (!vistos.includes(slug)) vistos.push(slug);
     localStorage.setItem(REGLAS_VISTAS_KEY, JSON.stringify(vistos));
   } catch {
@@ -36,9 +44,8 @@ export function olvidarReglasVistas(slug: string): void {
   try {
     const raw = localStorage.getItem(REGLAS_VISTAS_KEY);
     if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return;
-    localStorage.setItem(REGLAS_VISTAS_KEY, JSON.stringify(parsed.filter(s => s !== slug)));
+    const vistos = parseArray(raw);
+    localStorage.setItem(REGLAS_VISTAS_KEY, JSON.stringify(vistos.filter(s => s !== slug)));
   } catch {
     // localStorage no disponible: no persiste, no rompe el flujo.
   }

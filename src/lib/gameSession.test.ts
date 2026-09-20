@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { iniciarSesionJuego } from './gameSession';
+import { obtenerMarcador } from './marcador';
 import type { MoveChannel, MensajeJuego, EstadoConexion } from './remoto/types';
 import {
   solicitarWakeLock,
@@ -207,6 +208,7 @@ describe('gameSession', () => {
   });
 
   it('al pasar de partida local con jugadas a canal remoto, reinicia el tablero y limpia la sesión', () => {
+    vi.stubGlobal('location', { pathname: '/juegos/transition-test', reload: vi.fn() });
     const onAplicarReinicio = vi.fn();
     const onRender = vi.fn();
     const sesion = iniciarSesionJuego<number>({
@@ -216,9 +218,11 @@ describe('gameSession', () => {
       onRender,
     });
 
-    // Jugadas locales previas
+    // Jugadas locales previas y marcador acumulado
     sesion.guardarParaDeshacer({ estado: 'previo' });
     sesion.enviarMovimiento(42);
+    sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 1!', ganador: 1 });
+    expect(obtenerMarcador('transition-test')).toEqual({ 1: 1, 2: 0 });
 
     expect(onAplicarReinicio).not.toHaveBeenCalled();
 
@@ -238,8 +242,10 @@ describe('gameSession', () => {
     );
 
     // Debe reiniciar el tablero para que la partida remota empiece limpia
+    // y resetear el marcador acumulado a 0-0
     expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
     expect(sesion.miAsiento).toBe(1);
+    expect(obtenerMarcador('transition-test')).toEqual({ 1: 0, 2: 0 });
 
     sesion.destruir();
   });

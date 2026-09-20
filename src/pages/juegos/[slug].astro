@@ -108,6 +108,12 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  @media (orientation: landscape) and (height <= 46rem) {
+    .cabecera-juego {
+      padding-right: 14.5rem;
+    }
+  }
 </style>
 
 <script>

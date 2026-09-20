@@ -80,6 +80,12 @@ describe('reglas vistas', () => {
     expect(JSON.parse(localStorage.getItem('pencilgames:reglas-vistas')!)).toEqual(['gomoku']);
   });
 
+  it('si el JSON guardado tiene sintaxis corrupta, marcarReglasVistas se recupera y guarda el array', () => {
+    localStorage.setItem('pencilgames:reglas-vistas', '{sintaxis rota');
+    marcarReglasVistas('gomoku');
+    expect(JSON.parse(localStorage.getItem('pencilgames:reglas-vistas')!)).toEqual(['gomoku']);
+  });
+
   it('olvidarReglasVistas revierte una marca previa, dejando el resto intacto', () => {
     marcarReglasVistas('gomoku');
     marcarReglasVistas('hex');
