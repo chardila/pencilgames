@@ -60,3 +60,11 @@ export function guardarModo(modo: Modo): void {
     // localStorage no disponible: no persiste, no rompe el flujo.
   }
 }
+
+export function olvidarModo(): void {
+  try {
+    localStorage.removeItem(MODO_KEY);
+  } catch {
+    // localStorage no disponible: no persiste, no rompe el flujo.
+  }
+}

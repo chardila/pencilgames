@@ -71,7 +71,7 @@
 </style>
 
 <script>
-  import { getModoGuardado, guardarModo } from '../lib/entrada';
+  import { getModoGuardado, guardarModo, olvidarModo } from '../lib/entrada';
 
   const modal = document.getElementById('modal-modo-juego')!;
   const botonLocal = document.getElementById('modal-modo-juego-local')!;
@@ -116,6 +116,13 @@
 
   document.addEventListener('modal-remoto-cancelado', () => {
     if (tableroVisible) return;
+    // guardarModo('remoto') se llama al pulsar "por internet", antes de
+    // confirmar conexión (para poder saltar el modal de modo la próxima
+    // vez que SÍ conecte). Si cancela sin haber conectado, hay que deshacer
+    // ese guardado: si no, la próxima visita a cualquier juego saltaría
+    // directo al flujo de sala aunque el usuario haya cancelado, sin volver
+    // a preguntar nunca.
+    olvidarModo();
     modoYaElegido = false;
     modal.hidden = false;
   });

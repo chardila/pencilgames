@@ -4,6 +4,7 @@ import {
   guardarModo,
   haVistoReglas,
   marcarReglasVistas,
+  olvidarModo,
   olvidarReglasVistas,
 } from './entrada';
 
@@ -123,6 +124,17 @@ describe('modo guardado', () => {
 
   it('si el valor guardado no es un modo válido, devuelve null', () => {
     localStorage.setItem('pencilgames:modo', 'lo-que-sea');
+    expect(getModoGuardado()).toBeNull();
+  });
+
+  it('olvidarModo revierte un modo guardado', () => {
+    guardarModo('remoto');
+    olvidarModo();
+    expect(getModoGuardado()).toBeNull();
+  });
+
+  it('olvidarModo sin nada guardado no lanza', () => {
+    expect(() => olvidarModo()).not.toThrow();
     expect(getModoGuardado()).toBeNull();
   });
 });
