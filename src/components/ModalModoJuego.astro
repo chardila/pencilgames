@@ -114,6 +114,15 @@
     modal.hidden = false;
   });
 
+  // El botón "por internet" de ModalInstrucciones también dispara este
+  // evento, pero directamente, sin pasar por 'instrucciones-cerradas' (así
+  // se salta este modal). Sin este listener, modoYaElegido seguía en false
+  // mientras se espera la conexión, y reabrir las reglas con "?" y volver a
+  // pulsar "¡Jugar!" repetía el flujo de modo, cerrando la sala en espera.
+  document.addEventListener('abrir-modal-remoto', () => {
+    modoYaElegido = true;
+  });
+
   document.addEventListener('modal-remoto-cancelado', () => {
     if (tableroVisible) return;
     // guardarModo('remoto') se llama al pulsar "por internet", antes de
