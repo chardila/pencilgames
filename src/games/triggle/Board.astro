@@ -256,6 +256,11 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
       puntosEl.forEach(el => (el.dataset.deshabilitado = 'true'));
       render();
     },
+    onDeshacer: snapshot => {
+      state = snapshot as TriggleState;
+      seleccion = null;
+      render();
+    },
   });
 
   function claveP(p: { q: number; r: number }): string {
@@ -311,12 +316,14 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
         sesion.mostrarFinDeJuego({
           titulo: '🤝 ¡Empate!',
           detalle: `${c[1]} triángulos cada uno`,
+          ganador: null,
         });
       } else {
         const perdedor = state.winner === 1 ? 2 : 1;
         sesion.mostrarFinDeJuego({
           titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner]} (${SIMBOLOS[state.winner]})!`,
           detalle: `${c[state.winner]} triángulos a ${c[perdedor]}`,
+          ganador: state.winner,
         });
       }
       return;
@@ -338,6 +345,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
     const prev = state;
     state = playMove(state, move);
     if (state === prev) return;
+    sesion.guardarParaDeshacer(prev);
     seleccion = null;
     render();
     if (emitirRemoto) sesion.enviarMovimiento(move);

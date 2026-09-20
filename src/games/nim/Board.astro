@@ -156,6 +156,12 @@ const FILAS_INICIALES = [1, 3, 5, 7];
       estrellas.forEach(e => (e.disabled = true));
       barra.hidden = true;
     },
+    onDeshacer: snapshot => {
+      state = snapshot as NimState;
+      seleccion = null;
+      limpiarPreview();
+      render();
+    },
   });
 
   function filaPos(e: HTMLButtonElement): { fila: number; pos: number } {
@@ -202,6 +208,7 @@ const FILAS_INICIALES = [1, 3, 5, 7];
     } else if (state.status === 'won') {
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]}! ⭐`,
+        ganador: state.winner,
       });
     }
   }
@@ -209,6 +216,7 @@ const FILAS_INICIALES = [1, 3, 5, 7];
   function jugar(move: NimMove, emitirRemoto = true): void {
     const nuevo = playMove(state, move);
     if (nuevo === state) return;
+    sesion.guardarParaDeshacer(state);
     state = nuevo;
     seleccion = null;
     limpiarPreview();

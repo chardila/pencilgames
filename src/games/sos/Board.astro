@@ -231,6 +231,12 @@ const SIZE = 6;
       for (const casilla of casillas) casilla.disabled = true;
       for (const btn of botonesLetra) btn.disabled = true;
     },
+    onDeshacer: snapshot => {
+      const s = snapshot as { state: SOSState; repiteTurno: boolean };
+      state = s.state;
+      repiteTurno = s.repiteTurno;
+      render();
+    },
   });
 
   function render(): void {
@@ -295,11 +301,13 @@ const SIZE = 6;
       sesion.mostrarFinDeJuego({
         titulo,
         detalle: `${sesion.nombres[1]} ${state.scores[1]} · ${sesion.nombres[2]} ${state.scores[2]}`,
+        ganador: state.winner === 1 || state.winner === 2 ? state.winner : null,
       });
     }
   }
 
   function jugar(move: Move, emitirRemoto = true): void {
+    sesion.guardarParaDeshacer({ state, repiteTurno });
     const prevLinesCount = state.completedLines.length;
     state = playMove(state, move);
     const newLinesCount = state.completedLines.length - prevLinesCount;

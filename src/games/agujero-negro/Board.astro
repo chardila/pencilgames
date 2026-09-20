@@ -90,6 +90,10 @@ function idsDeFila(row: number): number[] {
     onDesconectar: () => {
       for (const boton of posiciones) boton.disabled = true;
     },
+    onDeshacer: snapshot => {
+      state = snapshot as AgujeroNegroState;
+      render();
+    },
   });
 
   function render(): void {
@@ -122,11 +126,13 @@ function idsDeFila(row: number): number[] {
       sesion.mostrarFinDeJuego({
         titulo: ganador ? `🎉 ¡Ganó ${sesion.nombres[ganador]}!` : '🤝 ¡Empate!',
         detalle: `${sesion.nombres[1]}: ${state.scores[1]} puntos · ${sesion.nombres[2]}: ${state.scores[2]} puntos`,
+        ganador,
       });
     }
   }
 
   function jugar(id: number, emitirRemoto = true): void {
+    sesion.guardarParaDeshacer(state);
     state = placeNumber(state, id);
     render();
     if (emitirRemoto) {

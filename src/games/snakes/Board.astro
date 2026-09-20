@@ -150,6 +150,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
         (g.querySelector('.snakes-hit') as SVGRectElement).style.pointerEvents = 'none';
       });
     },
+    onDeshacer: snapshot => {
+      state = snapshot as SnakesState;
+      render();
+    },
   });
 
   function construirTablero(): void {
@@ -308,6 +312,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[state.winner!]} (${FICHAS[state.winner!]})!`,
         detalle: `${sesion.nombres[perdedor]} se quedó sin espacio para avanzar`,
+        ganador: state.winner,
       });
     }
   }
@@ -321,6 +326,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     const antes = state;
     state = playMove(state, indice);
     if (state === antes) return; // jugada ilegal: no re-render ni emisión
+    sesion.guardarParaDeshacer(antes);
     render();
     if (emitirRemoto) {
       sesion.enviarMovimiento(indice);

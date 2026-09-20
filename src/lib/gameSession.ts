@@ -15,6 +15,13 @@ import {
   hideWinnerBanner,
   type WinnerBannerOptions,
 } from './winnerBanner';
+import {
+  formatearMarcador,
+  limpiarMarcador,
+  obtenerMarcador,
+  registrarVictoria,
+  type Marcador,
+} from './marcador';
 
 export interface GameSessionConfig<TMovimiento> {
   indicadorTurnoEl?: HTMLElement | null;
@@ -24,7 +31,16 @@ export interface GameSessionConfig<TMovimiento> {
   onAplicarReinicio: () => void;
   onRender: () => void;
   onDesconectar?: () => void;
+  /**
+   * Restaura un snapshot devuelto por `guardarParaDeshacer` (spec 02).
+   * Sin esta función el botón Deshacer de la barra de controles queda
+   * siempre deshabilitado: sin ella la sesión no tiene forma de aplicar el
+   * estado anterior.
+   */
+  onDeshacer?: (snapshot: unknown) => void;
 }
+
+const PROFUNDIDAD_DESHACER = 10;
 
 export interface MostrarTurnoOptions {
   jugador: Player;
@@ -35,6 +51,12 @@ export interface MostrarTurnoOptions {
   simbolos?: Record<Player, string>;
 }
 
+export interface MostrarFinDeJuegoOptions
+  extends Omit<WinnerBannerOptions, 'onReiniciar' | 'textoReiniciar'> {
+  /** Quién ganó, para el marcador acumulado (spec 02, R4). `null` = empate. */
+  ganador?: Player | null;
+}
+
 export interface GameSession<TMovimiento> {
   nombres: PlayerNames;
   miAsiento: Player | null;
@@ -42,9 +64,14 @@ export interface GameSession<TMovimiento> {
   enviarMovimiento: (movimiento: TMovimiento) => void;
   reiniciar: () => void;
   mostrarTurno: (opciones: MostrarTurnoOptions) => void;
-  mostrarFinDeJuego: (
-    opciones: Omit<WinnerBannerOptions, 'onReiniciar'>
-  ) => void;
+  mostrarFinDeJuego: (opciones: MostrarFinDeJuegoOptions) => void;
+  /**
+   * Guarda una copia (`structuredClone`) del snapshot antes de aplicar una
+   * jugada local. Llamar justo antes de mutar el estado, solo cuando la
+   * jugada de verdad se aplicó (no en un intento rechazado). No hace nada en
+   * modo remoto: deshacer no existe ahí (spec 02, fuera de alcance).
+   */
+  guardarParaDeshacer: (snapshot: unknown) => void;
   destruir: () => void;
 }
 
@@ -55,7 +82,26 @@ export function iniciarSesionJuego<TMovimiento>(
     config.indicadorTurnoEl ?? document.getElementById('indicador-turno');
   const getBannerGanador = () =>
     config.bannerGanadorEl ?? document.getElementById('banner-ganador');
+  const getControlDeshacer = () =>
+    document.getElementById('control-deshacer') as HTMLButtonElement | null;
+  const getControlReiniciar = () =>
+    document.getElementById('control-reiniciar') as HTMLButtonElement | null;
+  const getConfirmarReinicio = () => document.getElementById('confirmar-reinicio');
+  const getConfirmarReinicioSi = () =>
+    document.getElementById('confirmar-reinicio-si') as HTMLButtonElement | null;
+  const getConfirmarReinicioNo = () =>
+    document.getElementById('confirmar-reinicio-no') as HTMLButtonElement | null;
+  const getMarcadorEl = () => document.getElementById('marcador-partida');
 
+  // El slug sale de la URL (/juegos/<slug>) en vez de pedírselo a cada
+  // juego: así el marcador acumulado (spec 02, R4) no requiere tocar la
+  // configuración de los 21 juegos.
+  function obtenerSlug(): string {
+    const partes = (location.pathname || '').split('/').filter(Boolean);
+    return partes[partes.length - 1] ?? '';
+  }
+
+  const slug = obtenerSlug();
   const nombres: PlayerNames = getPlayerNames();
   let canal: MoveChannel | null = null;
   let miAsiento: Player | null = null;
@@ -71,11 +117,93 @@ export function iniciarSesionJuego<TMovimiento>(
   let desincronizado = false;
   const TIMEOUT_SYNC_MS = 3000;
 
+  let pilaDeshacer: unknown[] = [];
+  let marcador: Marcador = obtenerMarcador(slug);
+  // Se une a la próxima frase que arme mostrarTurno, para que "Jugada
+  // deshecha"/"Partida reiniciada" llegue al mismo cambio de texto del
+  // role="status" (spec 02, R6) en vez de un cambio aparte que el lector de
+  // pantalla podría no alcanzar a anunciar.
+  let anuncioPendiente: string | null = null;
+
+  function actualizarBotonDeshacer(): void {
+    const boton = getControlDeshacer();
+    if (!boton) return;
+    // En remoto, deshacer no existe (fuera de alcance de la spec 02): se
+    // oculta en vez de solo deshabilitarse.
+    boton.hidden = miAsiento !== null;
+    boton.disabled = pilaDeshacer.length === 0;
+  }
+
+  function actualizarMarcadorUI(): void {
+    const el = getMarcadorEl();
+    if (!el) return;
+    el.textContent = formatearMarcador(marcador, nombres);
+  }
+
+  function guardarParaDeshacer(snapshot: unknown): void {
+    if (miAsiento !== null) return; // sin pila propia en modo remoto
+    pilaDeshacer.push(structuredClone(snapshot));
+    if (pilaDeshacer.length > PROFUNDIDAD_DESHACER) pilaDeshacer.shift();
+    actualizarBotonDeshacer();
+  }
+
+  function pedirConfirmacionReinicio(): Promise<boolean> {
+    const dialogo = getConfirmarReinicio();
+    const si = getConfirmarReinicioSi();
+    const no = getConfirmarReinicioNo();
+    if (!dialogo || !si || !no) return Promise.resolve(true);
+    return new Promise(resolve => {
+      dialogo.hidden = false;
+      const limpiar = () => {
+        dialogo.hidden = true;
+        si.removeEventListener('click', onSi);
+        no.removeEventListener('click', onNo);
+      };
+      const onSi = () => {
+        limpiar();
+        resolve(true);
+      };
+      const onNo = () => {
+        limpiar();
+        resolve(false);
+      };
+      si.addEventListener('click', onSi);
+      no.addEventListener('click', onNo);
+    });
+  }
+
+  async function alClicControlReiniciar(): Promise<void> {
+    const confirmado = await pedirConfirmacionReinicio();
+    if (!confirmado) return;
+    anuncioPendiente = 'Partida reiniciada.';
+    reiniciar();
+  }
+
+  function alClicControlDeshacer(): void {
+    if (miAsiento !== null || pilaDeshacer.length === 0) return;
+    const snapshot = pilaDeshacer.pop();
+    actualizarBotonDeshacer();
+    anuncioPendiente = 'Jugada deshecha.';
+    config.onDeshacer?.(snapshot);
+  }
+
+  // El link "← Juegos" de la cabecera y el "← Juegos" de la barra de
+  // controles llevan los dos a "/": cualquier clic en un enlace con ese
+  // destino cuenta como salir a la lista y limpia el marcador (spec 02, R4).
+  function alClicPosibleVolverALista(evento: Event): void {
+    const objetivo = evento.target as HTMLElement | null;
+    const link = objetivo?.closest?.('a[href="/"]');
+    if (link) limpiarMarcador(slug);
+  }
+
   function alActualizarNombresLocales(evento: Event): void {
     const customEvent = evento as CustomEvent<PlayerNames>;
     if (customEvent.detail && miAsiento === null) {
       nombres[1] = customEvent.detail[1];
       nombres[2] = customEvent.detail[2];
+      limpiarMarcador(slug);
+      marcador = obtenerMarcador(slug);
+      actualizarMarcadorUI();
       config.onRender();
     }
   }
@@ -96,6 +224,8 @@ export function iniciarSesionJuego<TMovimiento>(
 
     canal.alCambiarEstado(manejarCambioEstado);
 
+    actualizarBotonDeshacer();
+    actualizarMarcadorUI();
     config.onRender();
   }
 
@@ -196,6 +326,7 @@ export function iniciarSesionJuego<TMovimiento>(
       titulo: '⚠️ La partida se desincronizó',
       detalle: 'Reinicien para volver a empezar con el mismo rival.',
       onReiniciar: reiniciar,
+      textoReiniciar: 'Reintentar',
     });
   }
 
@@ -228,6 +359,8 @@ export function iniciarSesionJuego<TMovimiento>(
       epoca = msg.epoca;
       registro = [];
       desincronizado = false;
+      pilaDeshacer = [];
+      actualizarBotonDeshacer();
       config.onAplicarReinicio();
       aplicarLote(msg.movimientos);
       return;
@@ -293,6 +426,8 @@ export function iniciarSesionJuego<TMovimiento>(
       epoca++;
       registro = [];
       desincronizado = false;
+      pilaDeshacer = [];
+      actualizarBotonDeshacer();
       config.onAplicarReinicio();
     } else if (mensaje.tipo === 'sync-hola') {
       manejarSyncHola(mensaje);
@@ -350,6 +485,7 @@ export function iniciarSesionJuego<TMovimiento>(
         showWinnerBanner(ban, {
           titulo: '📡 Tu rival se desconectó',
           onReiniciar: () => location.reload(),
+          textoReiniciar: 'Recargar',
         });
       }
       config.onDesconectar?.();
@@ -361,6 +497,12 @@ export function iniciarSesionJuego<TMovimiento>(
     alActualizarNombresLocales
   );
   document.addEventListener('canal-remoto-listo', alCanalRemotoListo);
+  document.addEventListener('click', alClicPosibleVolverALista);
+
+  getControlDeshacer()?.addEventListener('click', alClicControlDeshacer);
+  getControlReiniciar()?.addEventListener('click', alClicControlReiniciar);
+  actualizarBotonDeshacer();
+  actualizarMarcadorUI();
 
   function esMiTurno(jugadorActual: Player): boolean {
     if (estadoConexion === 'reconectando' || estadoConexion === 'reconectando-rival') return false;
@@ -376,6 +518,8 @@ export function iniciarSesionJuego<TMovimiento>(
     epoca++;
     registro = [];
     desincronizado = false;
+    pilaDeshacer = [];
+    actualizarBotonDeshacer();
     config.onAplicarReinicio();
     canal?.enviar({ tipo: 'reiniciar' });
   }
@@ -416,18 +560,27 @@ export function iniciarSesionJuego<TMovimiento>(
       estadoReconexion,
     });
 
+    if (anuncioPendiente) {
+      const prosa = ind.querySelector<HTMLElement>('.indicador-turno__prosa');
+      if (prosa) prosa.textContent = `${anuncioPendiente} ${prosa.textContent}`;
+      anuncioPendiente = null;
+    }
+
     if (ban && !desincronizado) hideWinnerBanner(ban);
   }
 
-  function mostrarFinDeJuego(
-    opciones: Omit<WinnerBannerOptions, 'onReiniciar'>
-  ): void {
+  function mostrarFinDeJuego(opciones: MostrarFinDeJuegoOptions): void {
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
     if (ind) ocultarTurnIndicator(ind);
+    if (opciones.ganador !== undefined) {
+      marcador = registrarVictoria(slug, opciones.ganador);
+      actualizarMarcadorUI();
+    }
     if (ban) {
       showWinnerBanner(ban, {
-        ...opciones,
+        titulo: opciones.titulo,
+        detalle: opciones.detalle,
         onReiniciar: reiniciar,
       });
     }
@@ -447,6 +600,9 @@ export function iniciarSesionJuego<TMovimiento>(
       alActualizarNombresLocales
     );
     document.removeEventListener('canal-remoto-listo', alCanalRemotoListo);
+    document.removeEventListener('click', alClicPosibleVolverALista);
+    getControlDeshacer()?.removeEventListener('click', alClicControlDeshacer);
+    getControlReiniciar()?.removeEventListener('click', alClicControlReiniciar);
   }
 
   return {
@@ -461,6 +617,7 @@ export function iniciarSesionJuego<TMovimiento>(
     reiniciar,
     mostrarTurno,
     mostrarFinDeJuego,
+    guardarParaDeshacer,
     destruir,
   };
 }

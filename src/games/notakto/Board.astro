@@ -104,6 +104,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
     onDesconectar: () => {
       casillas.forEach(casilla => (casilla.disabled = true));
     },
+    onDeshacer: snapshot => {
+      state = snapshot as NotaktoState;
+      render();
+    },
   });
 
   function render(): void {
@@ -146,11 +150,13 @@ import TableroJuego from '../../components/TableroJuego.astro';
     } else {
       sesion.mostrarFinDeJuego({
         titulo: `💀 ¡Perdió ${sesion.nombres[state.loser!]}! Ganó ${sesion.nombres[state.winner!]}`,
+        ganador: state.winner,
       });
     }
   }
 
   function jugar(move: Move, emitirRemoto = true): void {
+    sesion.guardarParaDeshacer(state);
     state = playMove(state, move);
     render();
     if (emitirRemoto) {

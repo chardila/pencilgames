@@ -172,6 +172,10 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
       puntosEl.forEach(el => (el.dataset.deshabilitado = 'true'));
       render();
     },
+    onDeshacer: snapshot => {
+      state = snapshot as MetaSquaresState;
+      render();
+    },
   });
 
   function ordenarEnCiclo(corners: readonly number[]): number[] {
@@ -213,6 +217,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
         sesion.mostrarFinDeJuego({
           titulo: '🤝 ¡Empate!',
           detalle: `${state.scores[1]} cuadrados cada uno`,
+          ganador: null,
         });
       } else if (state.status.kind === 'won') {
         const w: Player = state.status.winner;
@@ -220,6 +225,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
         sesion.mostrarFinDeJuego({
           titulo: `🎉 ¡Ganó ${sesion.nombres[w]} (${SIMBOLOS[w]})!`,
           detalle: `${state.scores[w]} cuadrados a ${state.scores[p]}`,
+          ganador: w,
         });
       }
       return;
@@ -239,6 +245,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
     const prev = state;
     state = playMove(state, move);
     if (state === prev) return;
+    sesion.guardarParaDeshacer(prev);
     render();
     if (emitirRemoto) sesion.enviarMovimiento(move);
   }

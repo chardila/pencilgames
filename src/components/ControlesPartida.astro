@@ -1,0 +1,169 @@
+---
+---
+
+<div id="controles-partida" class="controles-partida">
+  <div id="marcador-partida" class="marcador-partida" aria-hidden="true"></div>
+  <div class="controles-partida__botones">
+    <button type="button" id="control-deshacer" class="controles-partida__boton" disabled>
+      <span aria-hidden="true">↩︎</span> Deshacer
+    </button>
+    <button type="button" id="control-reiniciar" class="controles-partida__boton">
+      <span aria-hidden="true">↻</span> Reiniciar
+    </button>
+    <a href="/" id="control-juegos" class="controles-partida__boton">
+      <span aria-hidden="true">←</span> Juegos
+    </a>
+  </div>
+</div>
+
+<div
+  id="confirmar-reinicio"
+  class="confirmar-reinicio"
+  role="alertdialog"
+  aria-modal="true"
+  aria-labelledby="confirmar-reinicio-titulo"
+  hidden
+>
+  <div class="confirmar-reinicio__contenido">
+    <p id="confirmar-reinicio-titulo">¿Empezar de nuevo?</p>
+    <div class="confirmar-reinicio__acciones">
+      <button type="button" id="confirmar-reinicio-si" class="boton-primario">Sí</button>
+      <button type="button" id="confirmar-reinicio-no" class="boton-secundario">No</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .controles-partida {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 12;
+    background: var(--color-surface);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 0.4rem var(--spacing) calc(0.4rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .marcador-partida {
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    opacity: 0.7;
+    min-height: 1.1rem;
+  }
+
+  .marcador-partida:empty {
+    display: none;
+  }
+
+  .controles-partida__botones {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .controles-partida__boton {
+    flex: 1;
+    min-height: 3.5rem; /* 56px: R1 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: inherit;
+    text-decoration: none;
+    background: var(--color-bg);
+    border: 2px solid transparent;
+    border-radius: var(--radius);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .controles-partida__boton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  #control-deshacer[hidden] {
+    display: none;
+  }
+
+  .confirmar-reinicio {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    padding: var(--spacing);
+  }
+
+  .confirmar-reinicio[hidden] {
+    display: none;
+  }
+
+  .confirmar-reinicio__contenido {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    text-align: center;
+    max-width: 20rem;
+  }
+
+  .confirmar-reinicio__contenido p {
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  .confirmar-reinicio__acciones {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .confirmar-reinicio .boton-primario,
+  .confirmar-reinicio .boton-secundario {
+    min-width: var(--tap-target-min);
+    min-height: var(--tap-target-min);
+    padding: 0.5rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 8px;
+    border: 2px solid var(--color-accent);
+  }
+
+  .confirmar-reinicio .boton-secundario {
+    background: var(--color-surface);
+    color: inherit;
+  }
+
+  .confirmar-reinicio .boton-primario {
+    background: var(--color-accent);
+    color: var(--color-text);
+  }
+
+  /* R1 depende de la spec 01: en horizontal con poca altura, la barra deja
+     de ser una franja fija abajo (le costaría los mismos ~70px verticales
+     que la spec 01 ya recuperó del marcador) y pasa a apilarse junto al
+     indicador de turno, en la columna lateral que crea
+     TableroJuego.astro. */
+  @media (orientation: landscape) and (height <= 46rem) {
+    .controles-partida {
+      position: static;
+      border-top: none;
+      padding: 0;
+      background: transparent;
+    }
+
+    .controles-partida__botones {
+      flex-direction: column;
+    }
+
+    .controles-partida__boton {
+      font-size: 0.85rem;
+    }
+  }
+</style>

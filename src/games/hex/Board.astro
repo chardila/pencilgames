@@ -202,6 +202,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
       });
       botonesTamano.forEach(btn => (btn.disabled = true));
     },
+    onDeshacer: snapshot => {
+      state = snapshot as HexState;
+      render();
+    },
   });
 
   const R = 28; // Radio del hexágono
@@ -358,6 +362,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     // sería falso y los descartaría en silencio (boards desincronizados).
     if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
 
+    sesion.guardarParaDeshacer(state);
     state = playMove(state, indice);
     render();
     if (emitirRemoto) {
@@ -445,6 +450,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       sesion.mostrarFinDeJuego({
         titulo: `🎉 ¡Ganó ${sesion.nombres[ganador]} (${simbolo})!`,
         detalle: ganador === 1 ? 'Conexión Norte - Sur completada' : 'Conexión Oeste - Este completada',
+        ganador,
       });
     }
   }

@@ -1,4 +1,6 @@
 ---
+import ControlesPartida from './ControlesPartida.astro';
+
 interface Props {
   id?: string;
   class?: string;
@@ -16,12 +18,15 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
   class={`tablero-juego ${className}`.trim()}
   style={`--n:${n};--filas:${filas}`}
 >
-  <div
-    id="indicador-turno"
-    class="indicador-turno"
-    data-jugador="1"
-    hidden
-  ></div>
+  <div class="tablero-juego__lateral">
+    <div
+      id="indicador-turno"
+      class="indicador-turno"
+      data-jugador="1"
+      hidden
+    ></div>
+    <ControlesPartida />
+  </div>
   <slot />
   <div id="banner-ganador" class="banner-ganador" hidden></div>
 </div>
@@ -32,7 +37,10 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
     --gap: 0.25rem;
     --celda-min: 3.5rem;
     --celda-max: 5rem;
-    --cromo: 8rem;
+    /* 8rem de cabecera/respiro + ~5.5rem de la barra fija de controles
+       (spec 02, R1): en horizontal se redefine más abajo, porque ahí la
+       barra deja de ser fija y pasa a la columna lateral. */
+    --cromo: 13.5rem;
 
     /* R2 — el lado del tablero sale del menor entre ancho y alto disponibles.
        Nota: no se usa `100%` aquí — el ancho de .tablero-juego depende del
@@ -74,6 +82,14 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
     /* Con el marcador visible al costado, le resta su ancho al tablero. */
     .tablero-juego:has(.indicador-turno:not([hidden])) {
       --ancho-disp: calc(94vw - 9rem - 0.5rem);
+    }
+
+    .tablero-juego__lateral {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex-shrink: 0;
+      width: 9rem;
     }
 
     .indicador-turno {
@@ -245,5 +261,38 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
     border-radius: var(--radius);
     padding: 1.5rem;
     text-align: center;
+  }
+
+  .banner-ganador :global(.banner-ganador__acciones) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .banner-ganador :global(.banner-ganador__reiniciar),
+  .banner-ganador :global(.banner-ganador__otro-juego) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--tap-target-min);
+    min-height: var(--tap-target-min);
+    padding: 0.5rem 1.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 8px;
+    border: 2px solid var(--color-accent);
+    text-decoration: none;
+  }
+
+  .banner-ganador :global(.banner-ganador__reiniciar) {
+    background: var(--color-accent);
+    color: var(--color-text);
+  }
+
+  .banner-ganador :global(.banner-ganador__otro-juego) {
+    background: var(--color-surface);
+    color: inherit;
   }
 </style>
