@@ -69,7 +69,7 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
     <a href="/" class="cabecera-juego__volver">← Juegos</a>
     <h1 class="cabecera-juego__titulo">{juego.data.title}</h1>
   </header>
-  <ModalInstrucciones title={juego.data.title}>
+  <ModalInstrucciones title={juego.data.title} slug={juego.id}>
     <Content />
   </ModalInstrucciones>
   <ModalModoJuego />
@@ -113,10 +113,13 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
 <script>
   const contenedorTablero = document.getElementById('contenedor-tablero')!;
   const botonCambiarNombres = document.getElementById('modal-jugadores-abrir')!;
+  const botonPorInternet = document.getElementById('boton-jugar-por-internet')!;
 
   document.addEventListener('modo-elegido-local', () => {
     contenedorTablero.hidden = false;
     botonCambiarNombres.hidden = false;
+    // Solo tiene sentido en modo local: ya en remoto no hay a dónde cambiar.
+    botonPorInternet.hidden = false;
   });
 
   document.addEventListener('canal-remoto-listo', () => {

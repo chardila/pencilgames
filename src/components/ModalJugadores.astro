@@ -25,9 +25,15 @@
   </div>
 </div>
 
-<button type="button" id="modal-jugadores-abrir" class="modal-jugadores__abrir" hidden>
-  ✏️ Cambiar nombres
-</button>
+<div class="barra-superior-juego">
+  <button type="button" id="modal-jugadores-abrir" class="modal-jugadores__abrir" hidden>
+    ✏️ Cambiar nombres
+  </button>
+
+  <button type="button" id="boton-jugar-por-internet" class="modal-jugadores__abrir" hidden>
+    🌐 Por internet
+  </button>
+</div>
 
 <style>
   .modal-jugadores {
@@ -93,6 +99,14 @@
     min-width: var(--tap-target-min);
   }
 
+  .barra-superior-juego {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0 var(--spacing);
+  }
+
   .modal-jugadores__abrir {
     display: inline-flex;
     align-items: center;
@@ -109,15 +123,21 @@
     display: none;
   }
 
-  /* R5 — en horizontal con poca altura, este botón se superpone a la
-     cabecera en vez de ocupar su propia fila, para no robarle esos ~44 px
-     de alto al tablero. */
+  /* R5 — en horizontal con poca altura, la barra se superpone a la cabecera
+     en vez de ocupar su propia fila, para no robarle esos ~44 px de alto al
+     tablero. Los botones van dentro de un solo contenedor fijo, en fila, en
+     vez de fijar cada botón por separado (eso los hacía superponerse). */
   @media (orientation: landscape) and (height <= 46rem) {
-    .modal-jugadores__abrir {
+    .barra-superior-juego {
       position: fixed;
       top: 0.25rem;
       right: 0.5rem;
       z-index: 5;
+      padding: 0;
+      gap: 0.35rem;
+    }
+
+    .modal-jugadores__abrir {
       padding: 0.35rem 0.6rem;
       font-size: 0.8rem;
     }
@@ -129,6 +149,7 @@
 
   const modal = document.getElementById('modal-jugadores')!;
   const abrir = document.getElementById('modal-jugadores-abrir')!;
+  const botonPorInternet = document.getElementById('boton-jugar-por-internet')!;
   const guardar = document.getElementById('modal-jugadores-guardar')!;
   const inputJugador1 = document.getElementById('input-jugador-1') as HTMLInputElement;
   const inputJugador2 = document.getElementById('input-jugador-2') as HTMLInputElement;
@@ -146,6 +167,21 @@
   abrir.addEventListener('click', () => {
     cargarInputs();
     modal.hidden = false;
+  });
+
+  // R4: camino visible a "Por internet" en la barra superior, junto a
+  // "Cambiar nombres", ya sin depender de que reaparezca el modal
+  // "¿Cómo van a jugar?" (que ahora se salta si ya hay un modo guardado).
+  // Dispara el mismo evento que el botón del modal de modo.
+  botonPorInternet.addEventListener('click', () => {
+    // A diferencia de los botones "por internet" del modal de reglas y del
+    // modal de modo (que eligen el modo antes de que haya uno activo), este
+    // es un atajo a mitad de partida en modo local: no persiste 'remoto'
+    // aquí, porque si el usuario cancela la conexión, ModalModoJuego no
+    // tiene ocasión de sobrescribirlo con 'local' de nuevo (ya no se
+    // muestra ese paso una vez el modo está elegido) y el valor se quedaría
+    // pegado en 'remoto' para todas las entradas futuras a cualquier juego.
+    document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
   });
 
   guardar.addEventListener('click', () => {

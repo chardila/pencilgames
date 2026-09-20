@@ -71,6 +71,8 @@
 </style>
 
 <script>
+  import { getModoGuardado, guardarModo } from '../lib/entrada';
+
   const modal = document.getElementById('modal-modo-juego')!;
   const botonLocal = document.getElementById('modal-modo-juego-local')!;
   const botonRemoto = document.getElementById('modal-modo-juego-remoto')!;
@@ -84,6 +86,24 @@
 
   document.addEventListener('instrucciones-cerradas', () => {
     if (modoYaElegido) return;
+
+    // R3: si ya hay un modo guardado de una visita anterior, nos lo saltamos
+    // en vez de mostrar "¿Cómo van a jugar?" — se dispara el mismo evento
+    // que dispararía el botón correspondiente. Para "remoto" eso abre el
+    // modal de sala (crear/unirse), no el tablero directo: conectarse sigue
+    // siendo una acción explícita.
+    const modoGuardado = getModoGuardado();
+    if (modoGuardado === 'local') {
+      modoYaElegido = true;
+      document.dispatchEvent(new CustomEvent('modo-elegido-local'));
+      return;
+    }
+    if (modoGuardado === 'remoto') {
+      modoYaElegido = true;
+      document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
+      return;
+    }
+
     modal.hidden = false;
   });
 
@@ -97,6 +117,10 @@
   // modoYaElegido seguiría en false. Sin este listener, reabrir las
   // instrucciones ("?") durante esa partida remota y cerrarlas de nuevo
   // volvería a mostrar "¿Cómo van a jugar?" encima de la partida en curso.
+  //
+  // Ojo: este evento también se dispara al unirse por deep-link, que no es
+  // una elección real de modo (nadie tocó un botón "por internet"). Por eso
+  // el modo se guarda en el click de "por internet", no aquí.
   document.addEventListener('canal-remoto-listo', () => {
     modoYaElegido = true;
     modal.hidden = true;
@@ -105,12 +129,14 @@
   botonLocal.addEventListener('click', () => {
     modoYaElegido = true;
     modal.hidden = true;
+    guardarModo('local');
     document.dispatchEvent(new CustomEvent('modo-elegido-local'));
   });
 
   botonRemoto.addEventListener('click', () => {
     modoYaElegido = true;
     modal.hidden = true;
+    guardarModo('remoto');
     document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
   });
 </script>
