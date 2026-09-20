@@ -139,6 +139,25 @@ const { title, slug } = Astro.props;
   // para no competir con esa lógica.
   const enFlujoSala = new URLSearchParams(location.search).has('sala');
 
+  function aplicarNoMostrar(): void {
+    // Simétrico: si el usuario destildó "No volver a mostrar" (típicamente
+    // reabriendo con "?" tras haberlas marcado como vistas antes), hay que
+    // deshacer esa marca para que vuelvan a aparecer la próxima vez.
+    if (noMostrar.checked) marcarReglasVistas(slug);
+    else olvidarReglasVistas(slug);
+  }
+
+  // Una vez el modo ya quedó decidido y el tablero está a la vista, el
+  // botón "por internet" de este modal ya no tiene sentido: reabrir las
+  // reglas con "?" y tocarlo por error abriría un segundo flujo de sala
+  // encima de una partida remota ya conectada (o local en curso).
+  document.addEventListener('modo-elegido-local', () => {
+    botonRemoto.hidden = true;
+  });
+  document.addEventListener('canal-remoto-listo', () => {
+    botonRemoto.hidden = true;
+  });
+
   if (!enFlujoSala) {
     if (haVistoReglas(slug)) {
       // Ya se leyeron las reglas de este juego: no se muestran de nuevo, pero
@@ -158,11 +177,7 @@ const { title, slug } = Astro.props;
 
   cerrar.addEventListener('click', () => {
     modal.hidden = true;
-    // Simétrico: si el usuario destildó "No volver a mostrar" (típicamente
-    // reabriendo con "?" tras haberlas marcado como vistas antes), hay que
-    // deshacer esa marca para que vuelvan a aparecer la próxima vez.
-    if (noMostrar.checked) marcarReglasVistas(slug);
-    else olvidarReglasVistas(slug);
+    aplicarNoMostrar();
     document.dispatchEvent(new CustomEvent('instrucciones-cerradas'));
   });
 
@@ -171,8 +186,7 @@ const { title, slug } = Astro.props;
     // Mismo criterio que "¡Jugar!": elegir "por internet" también cuenta
     // como haber leído las reglas, si no se hace se muestran de nuevo la
     // próxima vez aunque el jugador ya las haya visto.
-    if (noMostrar.checked) marcarReglasVistas(slug);
-    else olvidarReglasVistas(slug);
+    aplicarNoMostrar();
     guardarModo('remoto');
     document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
   });

@@ -124,5 +124,9 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
 
   document.addEventListener('canal-remoto-listo', () => {
     contenedorTablero.hidden = false;
+    // Ya conectado (venga de elegir "remoto" desde el arranque o del atajo
+    // de mitad de partida en modo local), tocarlo de nuevo abriría un
+    // segundo flujo de sala encima de la conexión activa.
+    botonPorInternet.hidden = true;
   });
 </script>
