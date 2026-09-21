@@ -179,7 +179,9 @@ const { title, slug } = Astro.props;
     botonRemoto.hidden = true;
   });
   document.addEventListener('modal-remoto-cancelado', () => {
-    if (!tableroVisible) {
+    // enFlujoSala mantiene el botón oculto siempre (ver arriba): cancelar un
+    // join por deep-link no debe revelarlo.
+    if (!tableroVisible && !enFlujoSala) {
       botonRemoto.hidden = false;
     }
   });

@@ -107,7 +107,9 @@
     }
     if (modoGuardado === 'remoto') {
       modoYaElegido = true;
-      document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
+      // 'remoto' ya estaba guardado antes de este intento: si se cancela,
+      // hay que restaurarlo a sí mismo, no borrarlo (ver modoPrevioAntesDeRemoto).
+      document.dispatchEvent(new CustomEvent('abrir-modal-remoto', { detail: { modoPrevio: modoGuardado } }));
       return;
     }
 
