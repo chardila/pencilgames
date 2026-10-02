@@ -1,9 +1,10 @@
 ---
 interface Props {
   title: string;
+  slug: string;
 }
 
-const { title } = Astro.props;
+const { title, slug } = Astro.props;
 ---
 
 <div
@@ -12,14 +13,23 @@ const { title } = Astro.props;
   role="dialog"
   aria-modal="true"
   aria-labelledby="modal-instrucciones-titulo"
+  data-slug={slug}
+  hidden
 >
   <div class="modal-instrucciones__contenido">
     <h2 id="modal-instrucciones-titulo">Cómo se juega {title}</h2>
     <div class="modal-instrucciones__cuerpo">
       <slot />
     </div>
+    <label class="modal-instrucciones__no-mostrar">
+      <input type="checkbox" id="modal-instrucciones-no-mostrar" checked />
+      No volver a mostrar
+    </label>
     <button type="button" id="modal-instrucciones-cerrar" class="modal-instrucciones__jugar">
       ¡Jugar!
+    </button>
+    <button type="button" id="modal-instrucciones-remoto" class="modal-instrucciones__remoto">
+      🌐 Jugar por internet
     </button>
   </div>
 </div>
@@ -58,14 +68,42 @@ const { title } = Astro.props;
     overflow-y: auto;
   }
 
-  .modal-instrucciones__jugar {
+  .modal-instrucciones__no-mostrar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     margin-top: 1rem;
+    font-weight: 700;
+    min-height: var(--tap-target-min);
+  }
+
+  .modal-instrucciones__no-mostrar input {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .modal-instrucciones__jugar {
+    margin-top: 0.5rem;
     width: 100%;
     padding: 0.75rem;
     border: none;
     border-radius: var(--radius);
     background: var(--color-accent);
     font-size: 1.1rem;
+    font-weight: 700;
+    min-height: var(--tap-target-min);
+    min-width: var(--tap-target-min);
+  }
+
+  .modal-instrucciones__remoto {
+    margin-top: 0.5rem;
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: 0.95rem;
     font-weight: 700;
     min-height: var(--tap-target-min);
     min-width: var(--tap-target-min);
@@ -87,16 +125,105 @@ const { title } = Astro.props;
 </style>
 
 <script>
+  import {
+    getModoGuardado,
+    guardarModo,
+    haVistoReglas,
+    marcarReglasVistas,
+    olvidarReglasVistas,
+  } from '../lib/entrada';
+
   const modal = document.getElementById('modal-instrucciones')!;
   const cerrar = document.getElementById('modal-instrucciones-cerrar')!;
   const abrir = document.getElementById('modal-instrucciones-abrir')!;
+  const botonRemoto = document.getElementById('modal-instrucciones-remoto')!;
+  const noMostrar = document.getElementById('modal-instrucciones-no-mostrar') as HTMLInputElement;
+  const slug = modal.dataset.slug!;
+
+  // El deep-link ?sala=CODIGO (ModalJuegoRemoto) controla su propio arranque
+  // y ya deja este modal oculto: no hay que decidir nada de reglas/modo aquí,
+  // para no competir con esa lógica.
+  const enFlujoSala = !!new URLSearchParams(location.search).get('sala');
+
+  // El botón "por internet" no debe estar disponible mientras el deep-link
+  // ?sala=CODIGO controla su propio arranque: como ese flujo nunca dispara
+  // 'abrir-modal-remoto', el botón no se ocultaba solo, y reabrir las reglas
+  // con "?" y tocarlo secuestraba el join-por-código en curso (reseteaba
+  // ModalJuegoRemoto a "Crear sala / Unirse con código", perdiendo el
+  // código precargado).
+  if (enFlujoSala) botonRemoto.hidden = true;
+
+  function aplicarNoMostrar(): void {
+    // Simétrico: si el usuario destildó "No volver a mostrar" (típicamente
+    // reabriendo con "?" tras haberlas marcado como vistas antes), hay que
+    // deshacer esa marca para que vuelvan a aparecer la próxima vez.
+    if (noMostrar.checked) marcarReglasVistas(slug);
+    else olvidarReglasVistas(slug);
+  }
+
+  // Una vez el modo ya quedó decidido, o se abrió el flujo de sala remota,
+  // el botón "por internet" de este modal ya no tiene sentido: reabrir las
+  // reglas con "?" y tocarlo por error abriría un segundo flujo de sala
+  // encima de una sala ya en espera, o de una partida ya conectada (o local en curso).
+  let tableroVisible = false;
+
+  document.addEventListener('modo-elegido-local', () => {
+    tableroVisible = true;
+    botonRemoto.hidden = true;
+  });
+  document.addEventListener('abrir-modal-remoto', () => {
+    botonRemoto.hidden = true;
+  });
+  document.addEventListener('canal-remoto-listo', () => {
+    tableroVisible = true;
+    botonRemoto.hidden = true;
+  });
+  document.addEventListener('modal-remoto-cancelado', () => {
+    // enFlujoSala mantiene el botón oculto siempre (ver arriba): cancelar un
+    // join por deep-link no debe revelarlo.
+    if (!tableroVisible && !enFlujoSala) {
+      botonRemoto.hidden = false;
+    }
+  });
+
+  if (!enFlujoSala) {
+    if (haVistoReglas(slug)) {
+      // Ya se leyeron las reglas de este juego: no se muestran de nuevo, pero
+      // hay que avisar al resto del flujo (elegir modo, mostrar tablero) como
+      // si se hubiera pulsado "¡Jugar!". Se difiere con setTimeout porque los
+      // demás módulos (p. ej. ModalModoJuego) todavía no han registrado sus
+      // listeners cuando este script corre — son scripts de módulo separados
+      // que se ejecutan en orden, uno después de otro, antes de que termine
+      // este "tick".
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent('instrucciones-cerradas'));
+      }, 0);
+    } else {
+      modal.hidden = false;
+    }
+  }
 
   cerrar.addEventListener('click', () => {
     modal.hidden = true;
+    aplicarNoMostrar();
     document.dispatchEvent(new CustomEvent('instrucciones-cerradas'));
   });
 
+  botonRemoto.addEventListener('click', () => {
+    modal.hidden = true;
+    // Mismo criterio que "¡Jugar!": elegir "por internet" también cuenta
+    // como haber leído las reglas, si no se hace se muestran de nuevo la
+    // próxima vez aunque el jugador ya las haya visto.
+    aplicarNoMostrar();
+    // Se guarda el modo previo para poder restaurarlo si se cancela el
+    // flujo de sala sin llegar a conectar (ver ModalModoJuego).
+    const modoPrevio = getModoGuardado();
+    guardarModo('remoto');
+    document.dispatchEvent(new CustomEvent('abrir-modal-remoto', { detail: { modoPrevio } }));
+  });
+
   abrir.addEventListener('click', () => {
+    noMostrar.checked = haVistoReglas(slug);
     modal.hidden = false;
   });
 </script>
