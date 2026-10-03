@@ -49,13 +49,15 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       </div>
     </div>
 
-    <div id="controles-colocacion" class="controles-colocacion" hidden>
-      <button type="button" id="barajar" class="boton-secundario">Barajar</button>
-      <button type="button" id="confirmar" class="boton-primario">Confirmar flota</button>
-    </div>
+    <div class="zona-pie">
+      <div id="controles-colocacion" class="controles-colocacion" hidden>
+        <button type="button" id="barajar" class="boton-secundario">Barajar</button>
+        <button type="button" id="confirmar" class="boton-primario">Confirmar flota</button>
+      </div>
 
-    <p id="resumen-flota" class="resumen-flota" hidden></p>
-    <p id="mensaje-disparo" class="mensaje-disparo" hidden></p>
+      <p id="resumen-flota" class="resumen-flota" hidden></p>
+      <p id="mensaje-disparo" class="mensaje-disparo" hidden></p>
+    </div>
   </div>
 </TableroJuego>
 
@@ -190,6 +192,17 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
   .casilla[data-estado='hundido'] {
     box-shadow: inset 0 0 0 3px var(--color-accent);
+  }
+
+  /* Spec 04 R1 — el pie (botones de colocación, o resumen + último disparo)
+     reserva un alto fijo: cambiar de fase o escribir el aviso del disparo
+     rival no mueve el tablero. */
+  .zona-pie {
+    min-height: 6rem;
+  }
+
+  .mensaje-disparo {
+    min-height: 1.5em;
   }
 
   .controles-colocacion {
