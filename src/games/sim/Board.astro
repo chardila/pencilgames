@@ -27,7 +27,7 @@ const allEdges = getAllEdges().map(edge => {
 });
 ---
 
-<TableroJuego class="tablero-sim">
+<TableroJuego class="tablero-sim" ladoMin={25} ladoMax={34}>
   <div id="tablero" class="tablero-sim__container">
     <svg
       id="svg-sim"
@@ -99,7 +99,7 @@ const allEdges = getAllEdges().map(edge => {
 
 <style>
   .tablero-sim__container {
-    width: min(92vw, 28rem);
+    width: var(--lado);
     aspect-ratio: 1;
     margin: 0 auto;
     display: flex;
@@ -139,7 +139,7 @@ const allEdges = getAllEdges().map(edge => {
   /* Zonas de toque invisible */
   .arista-hitbox {
     stroke: transparent;
-    stroke-width: 32px;
+    stroke-width: 48px; /* 48 unidades del viewBox de 400 = ≥48px con lado ≥ 25rem */
     stroke-linecap: round;
     cursor: pointer;
     pointer-events: stroke;

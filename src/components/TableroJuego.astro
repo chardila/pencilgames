@@ -8,15 +8,23 @@ interface Props {
   n?: number;
   /** Número de filas, si es distinto de `n` (p. ej. Chomp: 7 columnas × 4 filas). */
   filas?: number;
+  /** Lado mínimo (rem) del tablero SVG: el que da ≥48px a la zona tocable más pequeña. */
+  ladoMin?: number;
+  /** Lado máximo (rem) del tablero SVG en pantallas grandes. */
+  ladoMax?: number;
 }
 
-const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.props;
+const { id = 'tablero-juego', class: className = '', n = 3,
+  filas = n,
+  ladoMin = 20,
+  ladoMax = 36,
+} = Astro.props;
 ---
 
 <div
   id={id}
   class={`tablero-juego ${className}`.trim()}
-  style={`--n:${n};--filas:${filas}`}
+  style={`--n:${n};--filas:${filas};--lado-min:${ladoMin}rem;--lado-max:${ladoMax}rem`}
 >
   <div class="tablero-juego__lateral">
     <div
@@ -56,6 +64,15 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
       var(--celda-min),
       min(var(--celda-por-ancho), var(--celda-por-alto)),
       var(--celda-max)
+    );
+
+    /* Spec 01 R7 — lado del tablero SVG: el menor entre ancho y alto
+       disponibles, acotado por el piso táctil de cada juego (--lado-min,
+       que da ≥48px a su zona tocable más pequeña) y por --lado-max. */
+    --lado: clamp(
+      var(--lado-min),
+      min(var(--ancho-disp), var(--alto-disp)),
+      var(--lado-max)
     );
 
     display: flex;
