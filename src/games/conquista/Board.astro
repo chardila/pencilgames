@@ -7,7 +7,7 @@ const MARGIN = 50;
 const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
 ---
 
-<TableroJuego class="tablero-conquista">
+<TableroJuego class="tablero-conquista" ladoMin={23.5} ladoMax={34}>
   <svg
     id="tablero-svg"
     class="tablero-svg"
@@ -31,7 +31,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
             <circle
               cx={MARGIN + col * STEP}
               cy={MARGIN + row * STEP}
-              r="24"
+              r="32"
               class="punto-hitbox"
             />
             <circle
@@ -49,7 +49,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
 
 <style>
   .tablero-svg {
-    width: min(92vw, 32rem);
+    width: var(--lado);
     height: auto;
     aspect-ratio: 1;
     touch-action: manipulation;

@@ -4,7 +4,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 const FILAS_INICIALES = [1, 3, 5, 7];
 ---
 
-<TableroJuego class="tablero-nim">
+<TableroJuego class="tablero-nim" ladoMin={26} ladoMax={32}>
   <div id="tablero" class="tablero" role="grid" aria-label="Pirámide de estrellas de Nim: filas de 1, 3, 5 y 7">
     {FILAS_INICIALES.map((cantidad, fila) => (
       <div class="tablero__fila" role="row">
@@ -35,7 +35,7 @@ const FILAS_INICIALES = [1, 3, 5, 7];
     flex-direction: column;
     align-items: center;
     gap: 0.5rem;
-    width: min(92vw, 30rem);
+    width: var(--lado);
     margin: 0 auto;
     padding: 1rem;
     touch-action: manipulation;
@@ -49,7 +49,7 @@ const FILAS_INICIALES = [1, 3, 5, 7];
 
   .estrella {
     aspect-ratio: 1;
-    width: clamp(2rem, 10vw, 3rem);
+    width: clamp(3rem, calc(var(--lado) / 9), 4.25rem); /* piso táctil 48px */
     display: flex;
     align-items: center;
     justify-content: center;
