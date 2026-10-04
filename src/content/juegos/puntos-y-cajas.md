@@ -1,7 +1,6 @@
 ---
 title: "Puntos y cajas"
 description: "Une puntos con líneas y cierra cajas para sumar puntos."
-icono: "🔲"
 minJugadores: 2
 maxJugadores: 2
 duracion: medio

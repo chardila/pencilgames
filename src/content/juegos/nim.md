@@ -1,7 +1,6 @@
 ---
 title: "Nim"
 description: "Retira estrellas por turnos. Gana quien se lleva la última."
-icono: "⭐"
 minJugadores: 2
 maxJugadores: 2
 duracion: rapido

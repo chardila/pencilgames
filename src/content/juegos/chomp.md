@@ -1,7 +1,6 @@
 ---
 title: "Chomp"
 description: "Muerde la barra de chocolate y obliga a tu rival a quedarse con la onza envenenada."
-icono: "🍫"
 minJugadores: 2
 maxJugadores: 2
 duracion: rapido

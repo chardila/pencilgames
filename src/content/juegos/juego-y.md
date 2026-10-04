@@ -1,7 +1,6 @@
 ---
 title: "Juego Y"
 description: "Conecta los tres lados del tablero triangular con una sola cadena de fichas antes que tu rival."
-icono: "🔺"
 minJugadores: 2
 maxJugadores: 2
 duracion: medio

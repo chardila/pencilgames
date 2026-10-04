@@ -1,7 +1,6 @@
 ---
 title: "Obstrucción"
 description: "Bloquea el tablero: gana quien coloca la última ficha antes de que no quepan más."
-icono: "🚧"
 minJugadores: 2
 maxJugadores: 2
 duracion: rapido

@@ -7,10 +7,11 @@ import {
   type Duracion,
   type Tipo,
 } from '../lib/catalogo';
+import IconoJuego from './IconoJuego.astro';
 
 interface Props {
   href: string;
-  icono: string;
+  slug: string;
   title: string;
   description: string;
   duracion: Duracion;
@@ -18,7 +19,7 @@ interface Props {
   tipo: Tipo;
 }
 
-const { href, icono, title, description, duracion, edad, tipo } = Astro.props;
+const { href, slug, title, description, duracion, edad, tipo } = Astro.props;
 
 const etiquetas = [
   DURACION_INFO[duracion],
@@ -28,7 +29,7 @@ const etiquetas = [
 ---
 
 <a class="game-card" href={href}>
-  <span class="game-card__icono" aria-hidden="true">{icono}</span>
+  <IconoJuego slug={slug} />
   <span class="game-card__title">{title}</span>
   <span class="game-card__description">{description}</span>
   <span class="game-card__etiquetas">
@@ -56,10 +57,6 @@ const etiquetas = [
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     min-height: var(--tap-target-min);
     height: 100%;
-  }
-
-  .game-card__icono {
-    font-size: 2.5rem;
   }
 
   .game-card__title {

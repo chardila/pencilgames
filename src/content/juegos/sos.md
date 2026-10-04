@@ -1,7 +1,6 @@
 ---
 title: "SOS"
 description: "Coloca letras S u O en una cuadrícula de 6×6 y suma puntos completando secuencias S-O-S."
-icono: "🆘"
 minJugadores: 2
 maxJugadores: 2
 duracion: medio

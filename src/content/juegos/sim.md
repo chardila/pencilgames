@@ -1,7 +1,6 @@
 ---
 title: "Sim"
 description: "Traza líneas entre 6 puntos por turnos. ¡Pierde quien primero complete un triángulo de su propio color!"
-icono: "🔺"
 minJugadores: 2
 maxJugadores: 2
 duracion: rapido
