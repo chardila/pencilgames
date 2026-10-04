@@ -3,7 +3,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 import { MAPAS } from './maps';
 ---
 
-<TableroJuego class="tablero-col">
+<TableroJuego class="tablero-col" ladoMin={22} ladoMax={36}>
   <div id="col-selector" class="col-selector">
     <p class="col-selector__titulo">Elige un mapa</p>
     <div class="col-selector__mapas">
@@ -103,7 +103,7 @@ import { MAPAS } from './maps';
   }
 
   .col-tablero {
-    width: min(92vw, 34rem);
+    width: var(--lado);
   }
 
   #col-svg {

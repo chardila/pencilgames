@@ -62,8 +62,16 @@ import TableroJuego from '../../components/TableroJuego.astro';
   }
 
   .hex-tablero-wrapper {
-    width: min(94vw, 36rem);
+    /* Spec 01 R7 — --lado-min y --ratio los fija el script según el tamaño del
+       tablero: el piso da ≥48px a cada hexágono; el alto descuenta ~4rem del
+       selector de tamaño. */
+    width: clamp(
+      var(--lado-min-hex, 20rem),
+      min(var(--ancho-disp), calc((var(--alto-disp) - 4rem) * var(--ratio, 1))),
+      36rem
+    );
     margin: 0 auto;
+    flex-shrink: 0; /* en horizontal el padre es flex en fila: no encoger bajo el piso táctil */
     touch-action: manipulation;
   }
 
@@ -236,6 +244,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
     const totalWidth = MARGIN * 2 + (size - 1 + (size - 1) * 0.5) * W + 2 * R;
     const totalHeight = MARGIN * 2 + (size - 1) * (1.5 * R) + 2 * R;
     svg.setAttribute('viewBox', `0 0 ${totalWidth.toFixed(1)} ${totalHeight.toFixed(1)}`);
+    const wrapper = svg.parentElement as HTMLElement;
+    wrapper.style.setProperty('--ratio', (totalWidth / totalHeight).toFixed(3));
+    // Piso táctil: el hexágono (ancho W unidades) debe medir ≥48px.
+    wrapper.style.setProperty('--lado-min-hex', `${Math.ceil((totalWidth * 48) / W)}px`);
 
     // Capa de bordes perimetrales de color
     const gBordes = document.createElementNS(SVG_NS, 'g');

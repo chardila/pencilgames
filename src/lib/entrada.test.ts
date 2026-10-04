@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getModoGuardado,
   guardarModo,
+  alTerminarDeCargarScripts,
   haVistoReglas,
   marcarReglasVistas,
   olvidarModo,
@@ -142,5 +143,33 @@ describe('modo guardado', () => {
   it('olvidarModo sin nada guardado no lanza', () => {
     expect(() => olvidarModo()).not.toThrow();
     expect(getModoGuardado()).toBeNull();
+  });
+});
+
+describe('alTerminarDeCargarScripts', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('no ejecuta fn hasta DOMContentLoaded, ni siquiera tras un tick de timers', async () => {
+    vi.stubGlobal('document', new EventTarget());
+    const fn = vi.fn();
+    alTerminarDeCargarScripts(fn);
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(fn).not.toHaveBeenCalled();
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('ejecuta fn una sola vez', () => {
+    vi.stubGlobal('document', new EventTarget());
+    const fn = vi.fn();
+    alTerminarDeCargarScripts(fn);
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 });
