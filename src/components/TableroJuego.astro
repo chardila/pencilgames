@@ -127,7 +127,8 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     /* El panel lateral mide 9rem: ahí los avisos sí pueden ocupar varias
        líneas, porque crecen en el panel y no empujan el tablero. */
     .indicador-turno :global(.indicador-turno__badge),
-    .indicador-turno :global(.indicador-turno__detalle) {
+    .indicador-turno :global(.indicador-turno__detalle),
+    .indicador-turno :global(.indicador-turno__frase) {
       white-space: normal;
       text-overflow: clip;
     }
@@ -190,7 +191,16 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     border-radius: 9999px;
     font-weight: 700;
     background: var(--color-surface);
-    transition: background-color 0.3s ease, transform 0.3s ease;
+    opacity: 0.45;
+    /* R3 — rebote corto al entrar; scale() no cambia la altura de la franja. */
+    transition:
+      background-color 0.18s ease,
+      opacity 0.18s ease,
+      transform 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .indicador-turno :global(.ficha-turno[data-activo='true']) {
+    opacity: 1;
   }
 
   .indicador-turno :global(.ficha-turno[data-jugador='1']) {
@@ -207,16 +217,16 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     background: var(--color-player-1);
     border-color: var(--color-player-1);
     color: #ffffff;
-    transform: scale(1.03);
-    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-player-1) 40%, transparent);
+    transform: scale(1.15);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--color-player-1) 55%, transparent);
   }
 
   .indicador-turno :global(.ficha-turno[data-jugador='2'][data-activo='true']) {
     background: var(--color-player-2);
     border-color: var(--color-player-2);
     color: #ffffff;
-    transform: scale(1.03);
-    box-shadow: 0 4px 12px color-mix(in srgb, var(--color-player-2) 40%, transparent);
+    transform: scale(1.15);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--color-player-2) 55%, transparent);
   }
 
   .indicador-turno :global(.ficha-turno__nombre) {
@@ -234,10 +244,27 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     text-align: center;
   }
 
-  .indicador-turno :global(.ficha-turno__estado) {
-    font-size: 0.8rem;
-    font-weight: 800;
-    letter-spacing: 0.03em;
+  /* R1 — frase completa, grande, con el nombre en el color del jugador.
+     Línea reservada propia: su alto no depende del texto (spec 04). */
+  .indicador-turno :global(.indicador-turno__frase) {
+    margin: 0;
+    font-size: clamp(1.25rem, 4vw, 1.75rem);
+    font-weight: 900;
+    line-height: 1.3;
+    min-height: 1.3em;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: badgePopIn 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .indicador-turno :global(.indicador-turno__frase[data-jugador='1'] .indicador-turno__frase-nombre) {
+    color: var(--color-player-1);
+  }
+
+  .indicador-turno :global(.indicador-turno__frase[data-jugador='2'] .indicador-turno__frase-nombre) {
+    color: var(--color-player-2);
   }
 
   .indicador-turno :global(.ficha-turno__tu) {
@@ -296,8 +323,13 @@ const { id = 'tablero-juego', class: className = '', n = 3,
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .indicador-turno :global(.indicador-turno__badge) {
+    .indicador-turno :global(.indicador-turno__badge),
+    .indicador-turno :global(.indicador-turno__frase) {
       animation: none;
+    }
+
+    .indicador-turno :global(.ficha-turno) {
+      transition: none;
     }
   }
 

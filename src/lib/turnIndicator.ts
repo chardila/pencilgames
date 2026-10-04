@@ -16,10 +16,14 @@ export interface TurnIndicatorOptions {
 
 const FORMA: Record<1 | 2, string> = { 1: '●', 2: '▲' };
 
-function textoEstado(jugador: 1 | 2, miAsiento: 1 | 2 | null | undefined): string {
-  if (miAsiento == null) return '← VA';
-  if (miAsiento === jugador) return '← TE TOCA';
-  return '← su turno';
+/** Frase visible y completa: sin abreviaturas que un niño no pueda leer. */
+function fraseTurno(
+  jugador: 1 | 2,
+  fichas: Record<1 | 2, FichaJugador>,
+  miAsiento: 1 | 2 | null | undefined
+): { prefijo: string; nombre: string } {
+  if (miAsiento === jugador) return { prefijo: 'Te toca a ', nombre: 'ti' };
+  return { prefijo: 'Le toca a ', nombre: fichas[jugador].nombre };
 }
 
 function textoReconexion(estadoReconexion: string): string {
@@ -71,11 +75,11 @@ function plantilla(): string {
           <span class="ficha-turno__nombre"></span>
           <span class="ficha-turno__tu"></span>
           <span class="ficha-turno__puntaje"></span>
-          <span class="ficha-turno__estado"></span>
         </div>`
         )
         .join('')}
     </div>
+    <p class="indicador-turno__frase" aria-hidden="true"><span class="indicador-turno__frase-prefijo"></span><span class="indicador-turno__frase-nombre"></span></p>
     <span class="indicador-turno__detalle" aria-hidden="true" hidden></span>
     <span class="indicador-turno__espera" aria-hidden="true"></span>
     <span class="indicador-turno__prosa" role="status" aria-live="polite"></span>
@@ -160,14 +164,21 @@ export function renderTurnIndicator(
       puntajeEl.textContent = '';
     }
 
-    const estadoEl = fichaEl.querySelector<HTMLElement>('.ficha-turno__estado')!;
-    if (n === jugador) {
-      estadoEl.hidden = false;
-      estadoEl.textContent = textoEstado(jugador, miAsiento);
-    } else {
-      estadoEl.hidden = true;
-      estadoEl.textContent = '';
-    }
+  }
+
+  const frase = fraseTurno(jugador, fichas, miAsiento);
+  const fraseEl = container.querySelector<HTMLElement>('.indicador-turno__frase')!;
+  const prefijoEl = container.querySelector<HTMLElement>('.indicador-turno__frase-prefijo')!;
+  const nombreEl = container.querySelector<HTMLElement>('.indicador-turno__frase-nombre')!;
+  const cambioTurno = fraseEl.dataset.jugador !== String(jugador);
+  fraseEl.dataset.jugador = String(jugador);
+  prefijoEl.textContent = frase.prefijo;
+  nombreEl.textContent = frase.nombre;
+  if (cambioTurno) {
+    // Reinicia badgePopIn para que el cambio de turno se perciba.
+    fraseEl.style.animation = 'none';
+    void fraseEl.offsetWidth;
+    fraseEl.style.animation = '';
   }
 
   const detalleEl = container.querySelector<HTMLElement>('.indicador-turno__detalle')!;
@@ -178,7 +189,9 @@ export function renderTurnIndicator(
     ? 'esperando…'
     : '';
 
-  container.querySelector<HTMLElement>('.indicador-turno__prosa')!.textContent = prosaAccesible(
+  // R6 — reescribir el mismo texto en una región viva puede reanunciarlo.
+  const prosaEl = container.querySelector<HTMLElement>('.indicador-turno__prosa')!;
+  const prosa = prosaAccesible(
     jugador,
     fichas,
     miAsiento,
@@ -187,6 +200,7 @@ export function renderTurnIndicator(
     motivoRepeticion,
     estadoReconexion
   );
+  if (prosaEl.textContent !== prosa) prosaEl.textContent = prosa;
 }
 
 export function ocultarTurnIndicator(container: HTMLElement): void {

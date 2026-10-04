@@ -36,6 +36,14 @@ class MockElement {
   }
 }
 
+function frase(c: MockElement) {
+  return {
+    prefijo: c.querySelector<MockElement>('.indicador-turno__frase-prefijo')!.textContent,
+    nombre: c.querySelector<MockElement>('.indicador-turno__frase-nombre')!.textContent,
+    jugador: c.querySelector<MockElement>('.indicador-turno__frase')!.dataset.jugador,
+  };
+}
+
 const fichasBase = {
   1: { nombre: 'Ana' },
   2: { nombre: 'Beto' },
@@ -47,7 +55,7 @@ describe('turnIndicator', () => {
     container = new MockElement();
   });
 
-  it('pasar-la-tableta: ficha activa muestra "← VA" y ninguna ficha muestra "(tú)"', () => {
+  it('pasar-la-tableta: la frase dice "Le toca a Ana" y ninguna ficha muestra "(tú)"', () => {
     renderTurnIndicator(container as unknown as HTMLElement, {
       jugador: 1,
       fichas: fichasBase,
@@ -65,9 +73,7 @@ describe('turnIndicator', () => {
     expect(f1.querySelector<MockElement>('.ficha-turno__nombre')!.textContent).toBe('Ana');
     expect(f1.querySelector<MockElement>('.ficha-turno__forma')!.textContent).toBe('●');
     expect(f2.querySelector<MockElement>('.ficha-turno__forma')!.textContent).toBe('▲');
-    expect(f1.querySelector<MockElement>('.ficha-turno__estado')!.textContent).toBe('← VA');
-    expect(f1.querySelector<MockElement>('.ficha-turno__estado')!.hidden).toBe(false);
-    expect(f2.querySelector<MockElement>('.ficha-turno__estado')!.hidden).toBe(true);
+    expect(frase(container)).toEqual({ prefijo: 'Le toca a ', nombre: 'Ana', jugador: '1' });
     expect(f1.querySelector<MockElement>('.ficha-turno__tu')!.hidden).toBe(true);
     expect(f2.querySelector<MockElement>('.ficha-turno__tu')!.hidden).toBe(true);
     expect(container.querySelector<MockElement>('.indicador-turno__prosa')!.textContent).toBe(
@@ -75,7 +81,7 @@ describe('turnIndicator', () => {
     );
   });
 
-  it('remoto, es mi asiento: ficha activa muestra "← TE TOCA" y "(tú)" en mi ficha', () => {
+  it('remoto, es mi asiento: la frase dice "Te toca a ti" y "(tú)" en mi ficha', () => {
     renderTurnIndicator(container as unknown as HTMLElement, {
       jugador: 2,
       fichas: fichasBase,
@@ -86,7 +92,7 @@ describe('turnIndicator', () => {
     expect(container.dataset.miAsiento).toBe('2');
     const f1 = container.querySelector<MockElement>('.ficha-turno[data-jugador="1"]')!;
     const f2 = container.querySelector<MockElement>('.ficha-turno[data-jugador="2"]')!;
-    expect(f2.querySelector<MockElement>('.ficha-turno__estado')!.textContent).toBe('← TE TOCA');
+    expect(frase(container)).toEqual({ prefijo: 'Te toca a ', nombre: 'ti', jugador: '2' });
     expect(f2.querySelector<MockElement>('.ficha-turno__tu')!.hidden).toBe(false);
     expect(f1.querySelector<MockElement>('.ficha-turno__tu')!.hidden).toBe(true);
     expect(container.querySelector<MockElement>('.indicador-turno__espera')).toBeTruthy();
@@ -97,15 +103,14 @@ describe('turnIndicator', () => {
     );
   });
 
-  it('remoto, turno del rival: ficha activa muestra "← su turno" + "esperando…"', () => {
+  it('remoto, turno del rival: la frase nombra al rival + "esperando…"', () => {
     renderTurnIndicator(container as unknown as HTMLElement, {
       jugador: 1,
       fichas: fichasBase,
       miAsiento: 2,
     });
 
-    const f1 = container.querySelector<MockElement>('.ficha-turno[data-jugador="1"]')!;
-    expect(f1.querySelector<MockElement>('.ficha-turno__estado')!.textContent).toBe('← su turno');
+    expect(frase(container)).toEqual({ prefijo: 'Le toca a ', nombre: 'Ana', jugador: '1' });
     expect(container.querySelector<MockElement>('.indicador-turno__espera')!.textContent).toBe(
       'esperando…'
     );
@@ -252,7 +257,7 @@ describe('turnIndicator', () => {
     expect(html).toContain('data-jugador="2"');
     expect(html).toContain('ficha-turno__forma');
     expect(html).toContain('ficha-turno__nombre');
-    expect(html).toContain('ficha-turno__estado');
+    expect(html).toContain('indicador-turno__frase');
     // la prosa es la región viva; las partes visuales quedan ocultas al lector
     expect(html).toContain('class="indicador-turno__prosa" role="status" aria-live="polite"');
     expect(html).toContain('class="fichas-turno" aria-hidden="true"');
@@ -379,5 +384,36 @@ describe('turnIndicator', () => {
     });
     ocultarTurnIndicator(container as unknown as HTMLElement);
     expect(container.dataset.reconexion).toBeUndefined();
+  });
+
+  it('la frase nunca usa abreviaturas ni flechas', () => {
+    for (const miAsiento of [null, 1, 2] as const) {
+      renderTurnIndicator(container as unknown as HTMLElement, {
+        jugador: 1,
+        fichas: fichasBase,
+        miAsiento,
+      });
+      const f = frase(container);
+      expect(f.prefijo + f.nombre).not.toMatch(/VA\b|←/);
+    }
+  });
+
+  it('la prosa accesible no se reescribe si el turno no cambió (R6)', () => {
+    const opciones = { jugador: 1 as const, fichas: fichasBase, miAsiento: null };
+    renderTurnIndicator(container as unknown as HTMLElement, opciones);
+    const prosaEl = container.querySelector<MockElement>('.indicador-turno__prosa')!;
+    let escrituras = 0;
+    let valor = prosaEl.textContent;
+    Object.defineProperty(prosaEl, 'textContent', {
+      get: () => valor,
+      set: (v: string) => {
+        escrituras++;
+        valor = v;
+      },
+    });
+    renderTurnIndicator(container as unknown as HTMLElement, opciones);
+    expect(escrituras).toBe(0);
+    renderTurnIndicator(container as unknown as HTMLElement, { ...opciones, jugador: 2 });
+    expect(escrituras).toBe(1);
   });
 });
