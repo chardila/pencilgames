@@ -8,15 +8,23 @@ interface Props {
   n?: number;
   /** Número de filas, si es distinto de `n` (p. ej. Chomp: 7 columnas × 4 filas). */
   filas?: number;
+  /** Lado mínimo (rem) del tablero SVG: el que da ≥48px a la zona tocable más pequeña. */
+  ladoMin?: number;
+  /** Lado máximo (rem) del tablero SVG en pantallas grandes. */
+  ladoMax?: number;
 }
 
-const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.props;
+const { id = 'tablero-juego', class: className = '', n = 3,
+  filas = n,
+  ladoMin = 20,
+  ladoMax = 36,
+} = Astro.props;
 ---
 
 <div
   id={id}
   class={`tablero-juego ${className}`.trim()}
-  style={`--n:${n};--filas:${filas}`}
+  style={`--n:${n};--filas:${filas};--lado-min:${ladoMin}rem;--lado-max:${ladoMax}rem`}
 >
   <div class="tablero-juego__lateral">
     <div
@@ -37,10 +45,14 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
     --gap: 0.25rem;
     --celda-min: 3.5rem;
     --celda-max: 5rem;
-    /* 8rem de cabecera/respiro + ~5.5rem de la barra fija de controles
-       (spec 02, R1): en horizontal se redefine más abajo, porque ahí la
-       barra deja de ser fija y pasa a la columna lateral. */
-    --cromo: 13.5rem;
+    /* Lo que el tablero no puede usar en vertical: cabecera (~2.8rem) +
+       barra superior (~2.75rem) + indicador con su hueco (~3.25rem) +
+       relleno superior (1rem) + relleno inferior que reserva la barra fija
+       de controles (--reserva-barra + 1rem). En horizontal se redefine más
+       abajo, porque ahí la barra deja de ser fija y pasa a la columna
+       lateral. */
+    --reserva-barra: 6.5rem;
+    --cromo: 18rem;
 
     /* R2 — el lado del tablero sale del menor entre ancho y alto disponibles.
        Nota: no se usa `100%` aquí — el ancho de .tablero-juego depende del
@@ -58,12 +70,23 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
       var(--celda-max)
     );
 
+    /* Spec 01 R7 — lado del tablero SVG: el menor entre ancho y alto
+       disponibles, acotado por el piso táctil de cada juego (--lado-min,
+       que da ≥48px a su zona tocable más pequeña) y por --lado-max. */
+    --lado: clamp(
+      var(--lado-min),
+      min(var(--ancho-disp), var(--alto-disp)),
+      var(--lado-max)
+    );
+
     display: flex;
     flex-direction: column;
     align-items: safe center;
     justify-content: safe center;
     gap: 1rem;
     padding: var(--spacing);
+    /* La barra de controles es fija: sin esta reserva tapa la fila final. */
+    padding-bottom: calc(var(--spacing) + var(--reserva-barra));
     /* R3 — el piso táctil gana: si no cabe, el tablero desborda con scroll */
     overflow: auto;
     overscroll-behavior: contain;
@@ -100,6 +123,14 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
     .indicador-turno :global(.fichas-turno) {
       flex-direction: column;
     }
+
+    /* El panel lateral mide 9rem: ahí los avisos sí pueden ocupar varias
+       líneas, porque crecen en el panel y no empujan el tablero. */
+    .indicador-turno :global(.indicador-turno__badge),
+    .indicador-turno :global(.indicador-turno__detalle) {
+      white-space: normal;
+      text-overflow: clip;
+    }
   }
 
   .indicador-turno {
@@ -124,6 +155,24 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
     color: var(--color-text);
     animation: badgePopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     letter-spacing: 0.02em;
+    /* Spec 04 R1/R2 — franja reservada de una línea, siempre en el flujo:
+       sin aviso queda invisible pero ocupa su alto, así el tablero nunca
+       se mueve cuando aparece o desaparece. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    box-sizing: border-box;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .indicador-turno :global(.indicador-turno__badge[hidden]) {
+    display: flex;
+    visibility: hidden;
+    animation: none;
   }
 
   .indicador-turno :global(.fichas-turno) {
@@ -180,6 +229,9 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
   .indicador-turno :global(.ficha-turno__puntaje) {
     font-weight: 800;
     font-variant-numeric: tabular-nums;
+    /* Spec 04 R4 — reserva ancho para tres dígitos (o "12.5" en Conquista). */
+    min-width: 4ch;
+    text-align: center;
   }
 
   .indicador-turno :global(.ficha-turno__estado) {
@@ -198,18 +250,30 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
     display: none;
   }
 
+  /* Spec 04 R1 — detalle y "esperando…" también reservan su línea. */
   .indicador-turno :global(.indicador-turno__detalle) {
+    display: block;
+    line-height: 1.4;
+    min-height: 1.4em;
+    max-width: 100%;
     font-size: 0.95rem;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .indicador-turno :global(.indicador-turno__detalle[hidden]) {
+    display: block;
+    visibility: hidden;
   }
 
   .indicador-turno :global(.indicador-turno__espera) {
+    display: block;
+    line-height: 1.4;
+    min-height: 1.4em;
     font-size: 0.85rem;
     opacity: 0.7;
-  }
-
-  .indicador-turno :global(.indicador-turno__espera:empty) {
-    display: none;
   }
 
   .indicador-turno :global(.indicador-turno__prosa) {
@@ -228,6 +292,12 @@ const { id = 'tablero-juego', class: className = '', n = 3, filas = n } = Astro.
     .indicador-turno :global(.fichas-turno) {
       flex-direction: column;
       align-items: center;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .indicador-turno :global(.indicador-turno__badge) {
+      animation: none;
     }
   }
 

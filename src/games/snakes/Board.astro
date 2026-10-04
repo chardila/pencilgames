@@ -2,7 +2,7 @@
 import TableroJuego from '../../components/TableroJuego.astro';
 ---
 
-<TableroJuego class="tablero-snakes">
+<TableroJuego class="tablero-snakes" ladoMin={22} ladoMax={32}>
   <div class="snakes-wrapper">
     <svg
       id="snakes-svg"
@@ -22,7 +22,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
   }
 
   .snakes-wrapper {
-    width: min(92vw, 30rem);
+    width: var(--lado);
     margin: 0 auto;
     touch-action: manipulation;
   }

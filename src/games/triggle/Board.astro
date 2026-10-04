@@ -40,7 +40,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
 });
 ---
 
-<TableroJuego class="tablero-triggle">
+<TableroJuego class="tablero-triggle" ladoMin={23.5} ladoMax={34}>
   <div id="tablero" class="tablero-triggle__container">
     <svg
       id="svg-triggle"
@@ -89,7 +89,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
             role="button"
             aria-label={`Punto columna ${p.q}, fila ${p.r}`}
           >
-            <circle class="punto__halo" cx={p.x} cy={p.y} r="20" />
+            <circle class="punto__halo" cx={p.x} cy={p.y} r="26" />
             <circle class="punto__circulo" cx={p.x} cy={p.y} r="6" />
           </g>
         ))}
@@ -100,7 +100,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
 
 <style>
   .tablero-triggle__container {
-    width: min(94vw, 32rem);
+    width: var(--lado);
     aspect-ratio: 1;
     margin: 0 auto;
     display: flex;

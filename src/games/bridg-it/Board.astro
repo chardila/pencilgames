@@ -2,7 +2,7 @@
 import TableroJuego from '../../components/TableroJuego.astro';
 ---
 
-<TableroJuego class="tablero-bridgit-contenedor">
+<TableroJuego class="tablero-bridgit-contenedor" ladoMin={34} ladoMax={40}>
   <div id="bridgit-tablero" class="bridgit-tablero">
     {/* Puntos rojos: 5 columnas × 6 filas (30), conectan fila 0 con fila 5. */}
     {Array.from({ length: 6 }).map((_, r) => (
@@ -73,11 +73,11 @@ import TableroJuego from '../../components/TableroJuego.astro';
   }
 
   .bridgit-tablero {
-    --celda: minmax(1.6rem, 2.6rem);
+    --celda: 1fr; /* 11 celdas ≥ 3rem (48px) con ladoMin=34rem */
     display: grid;
     grid-template-columns: repeat(11, var(--celda));
     grid-template-rows: repeat(11, var(--celda));
-    width: min(94vw, 32rem);
+    width: var(--lado);
     aspect-ratio: 1;
     margin: 0 auto;
     padding: 0.5rem;

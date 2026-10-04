@@ -4,7 +4,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 const SIZE = 4;
 ---
 
-<TableroJuego class="tablero-puntos-y-cajas">
+<TableroJuego class="tablero-puntos-y-cajas" ladoMin={16} ladoMax={30}>
   <div id="tablero" class="tablero-pyc">
     {Array.from({ length: SIZE }).map((_, r) => (
       <Fragment>
@@ -55,9 +55,10 @@ const SIZE = 4;
     display: grid;
     grid-template-columns: 14px minmax(3rem, 1fr) 14px minmax(3rem, 1fr) 14px minmax(3rem, 1fr) 14px;
     grid-template-rows: 14px minmax(3rem, 1fr) 14px minmax(3rem, 1fr) 14px minmax(3rem, 1fr) 14px;
-    width: min(92vw, 26rem);
+    width: var(--lado);
     aspect-ratio: 1;
-    margin: 0 auto;
+    /* las zonas tocables de 48px de las líneas del borde sobresalen ~17px */
+    margin: 1.1rem auto;
   }
 
   .punto {
