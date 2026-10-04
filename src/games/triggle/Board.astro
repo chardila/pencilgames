@@ -214,6 +214,12 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
     0%, 100% { opacity: 0.85; }
     50% { opacity: 0.35; }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .punto.seleccionado .punto__halo {
+      animation: none;
+    }
+  }
 </style>
 
 <script>
@@ -342,10 +348,16 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
     if (state.status !== 'playing') return;
     // El guard de turno solo aplica a la entrada local; los movimientos
     // remotos llegan cuando currentPlayer es el asiento del rival.
-    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
     const prev = state;
     state = playMove(state, move);
-    if (state === prev) return;
+    if (state === prev) {
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
     sesion.guardarParaDeshacer(prev);
     seleccion = null;
     render();
@@ -353,7 +365,10 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
   }
 
   function manejarClickPunto(p: Punto): void {
-    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
 
     if (seleccion === null) {
       seleccion = p;

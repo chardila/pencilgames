@@ -244,6 +244,14 @@ const allEdges = getAllEdges().map(edge => {
     0%, 100% { stroke-width: 4.5px; }
     50% { stroke-width: 7.5px; filter: drop-shadow(0 0 8px currentColor); }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nodo.seleccionado .nodo__circulo-halo,
+    .triangulo-fatal.visible--p1,
+    .triangulo-fatal.visible--p2 {
+      animation: none;
+    }
+  }
 </style>
 
 <script>
@@ -398,10 +406,16 @@ const allEdges = getAllEdges().map(edge => {
     // llegan cuando `currentPlayer` es el asiento del rival, así que `esMiTurno`
     // sería falso y los descartaría en silencio (boards desincronizados).
     if (state.status !== 'playing') return;
-    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
     const prevState = state;
     state = playMove(state, edge);
-    if (state === prevState) return;
+    if (state === prevState) {
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
     sesion.guardarParaDeshacer(prevState);
 
     selectedVertex = null;
@@ -416,7 +430,10 @@ const allEdges = getAllEdges().map(edge => {
   // Interacción en aristas (hitboxes directas)
   for (const hitbox of hitboxes) {
     hitbox.addEventListener('click', () => {
-      if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+      if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) {
+        sesion.jugadaInvalida();
+        return;
+      }
       const u = Number(hitbox.dataset.u) as Vertex;
       const v = Number(hitbox.dataset.v) as Vertex;
       jugar({ u, v });
@@ -434,7 +451,10 @@ const allEdges = getAllEdges().map(edge => {
 
   // Interacción en nodos (flujo nodo-a-nodo)
   function manejarClickNodo(idx: Vertex): void {
-    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
 
     if (selectedVertex === null) {
       selectedVertex = idx;

@@ -214,7 +214,11 @@ const FLECHAS = [
     const prev = state;
     const rivalSaltadoPrevio = rivalSaltado;
     state = playMove(state, move);
-    if (state === prev) return; // rechazado → no renderiza ni emite
+    if (state === prev) {
+      // rechazado → no renderiza ni emite
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
     sesion.guardarParaDeshacer({ state: prev, rivalSaltado: rivalSaltadoPrevio });
     // Una estampida normal siempre cambia de turno o termina la partida; mismo
     // jugador y sigue en juego ⟹ el rival no podía avanzar y se le saltó.

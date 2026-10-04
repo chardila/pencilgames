@@ -242,10 +242,16 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
 
   function jugar(move: Move, emitirRemoto = true): void {
     if (state.status.kind !== 'playing') return;
-    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
     const prev = state;
     state = playMove(state, move);
-    if (state === prev) return;
+    if (state === prev) {
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
     sesion.guardarParaDeshacer(prev);
     render();
     if (emitirRemoto) sesion.enviarMovimiento(move);

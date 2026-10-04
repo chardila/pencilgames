@@ -146,6 +146,7 @@
 
 <script>
   import { DEFAULTS, getPlayerNames, nombresColisionan, savePlayerNames } from '../lib/players';
+  import { desbloquearAudio } from '../lib/feedback';
 
   const modal = document.getElementById('modal-jugadores')!;
   const abrir = document.getElementById('modal-jugadores-abrir')!;
@@ -185,6 +186,9 @@
   });
 
   guardar.addEventListener('click', () => {
+    // Gesto real del niño: el único momento en que el navegador deja
+    // arrancar el AudioContext (spec 09, R3).
+    desbloquearAudio();
     // Mismo trim+fallback que aplica savePlayerNames al persistir — se
     // compara sobre los nombres ya resueltos para que dos campos vacíos
     // (que caen a defaults distintos) nunca cuenten como colisión.

@@ -9,6 +9,19 @@ import {
   registrarReactivacionWakeLock,
 } from './wakeLock';
 
+vi.mock('./feedback', async orig => ({
+  ...(await orig<typeof import('./feedback')>()),
+  emitirSenal: vi.fn(),
+  desbloquearAudio: vi.fn(),
+}));
+import { emitirSenal, desbloquearAudio } from './feedback';
+
+vi.mock('./confeti', () => ({
+  lanzarConfeti: vi.fn(),
+  retirarConfeti: vi.fn(),
+}));
+import { lanzarConfeti, retirarConfeti } from './confeti';
+
 vi.mock('./wakeLock', () => {
   const mockLimpiar = vi.fn();
   return {
@@ -1784,5 +1797,226 @@ describe('gameSession', () => {
       sesionB.destruir();
       vi.stubGlobal('document', new MockDocument() as unknown as Document);
     });
+  });
+});
+
+describe('gameSession — señales de feedback (spec 09)', () => {
+  let mockDoc: MockDocument;
+
+  function montar() {
+    return iniciarSesionJuego<number>({
+      validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+    });
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockDoc = new MockDocument();
+    vi.stubGlobal('document', mockDoc as unknown as Document);
+    vi.stubGlobal('localStorage', new MemoryStorage() as unknown as Storage);
+    vi.stubGlobal('location', { pathname: '/juegos/senales-test', reload: vi.fn() });
+    mockDoc.getElementById('banner-ganador')!.hidden = true;
+    vi.mocked(emitirSenal).mockClear();
+    vi.mocked(desbloquearAudio).mockClear();
+    vi.mocked(lanzarConfeti).mockClear();
+    vi.mocked(retirarConfeti).mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('una jugada local suena toque después del render', () => {
+    const sesion = montar();
+    sesion.guardarParaDeshacer({ n: 1 });
+    expect(emitirSenal).not.toHaveBeenCalled();
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledTimes(1);
+    expect(emitirSenal).toHaveBeenCalledWith('toque');
+    sesion.destruir();
+  });
+
+  it('jugada con repiteTurno suena punto', () => {
+    const sesion = montar();
+    sesion.guardarParaDeshacer({ n: 1 });
+    sesion.mostrarTurno({ jugador: 1, repiteTurno: true });
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledTimes(1);
+    expect(emitirSenal).toHaveBeenCalledWith('punto');
+    sesion.destruir();
+  });
+
+  it('subida de puntaje suena punto; sin subida, toque', () => {
+    const sesion = montar();
+    sesion.mostrarTurno({ jugador: 1, puntajes: { 1: 0, 2: 0 } });
+    sesion.guardarParaDeshacer({ n: 1 });
+    sesion.mostrarTurno({ jugador: 2, puntajes: { 1: 1, 2: 0 } });
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenLastCalledWith('punto');
+    vi.mocked(emitirSenal).mockClear();
+    sesion.guardarParaDeshacer({ n: 2 });
+    sesion.mostrarTurno({ jugador: 1, puntajes: { 1: 1, 2: 0 } });
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenLastCalledWith('toque');
+    sesion.destruir();
+  });
+
+  it('jugada ganadora suena una sola vez, victoria', () => {
+    const sesion = montar();
+    sesion.guardarParaDeshacer({ n: 1 });
+    sesion.mostrarTurno({ jugador: 1, repiteTurno: true });
+    sesion.mostrarFinDeJuego({ titulo: 'gana', ganador: 1 });
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledTimes(1);
+    expect(emitirSenal).toHaveBeenCalledWith('victoria');
+    sesion.destruir();
+  });
+
+  it('mostrarTurno / mostrarFinDeJuego sin jugada previa no suenan (restaurar partida)', () => {
+    const sesion = montar();
+    sesion.mostrarTurno({ jugador: 1, repiteTurno: true });
+    sesion.mostrarFinDeJuego({ titulo: 'gana', ganador: 2 });
+    vi.runAllTimers();
+    expect(emitirSenal).not.toHaveBeenCalled();
+    sesion.destruir();
+  });
+
+  it('un movimiento remoto suena toque', () => {
+    let recibir: ((m: MensajeJuego) => void) | null = null;
+    const canal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: cb => {
+        recibir = cb;
+      },
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+    const sesion = montar();
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', { detail: { channel: canal, miNombre: 'Yo' } })
+    );
+    vi.runAllTimers();
+    vi.mocked(emitirSenal).mockClear();
+    recibir!({ tipo: 'movimiento', payload: 3 });
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledTimes(1);
+    expect(emitirSenal).toHaveBeenCalledWith('toque');
+    sesion.destruir();
+  });
+
+  it('un empate suena punto, no victoria', () => {
+    const sesion = montar();
+    sesion.guardarParaDeshacer({ n: 1 });
+    sesion.mostrarFinDeJuego({ titulo: 'empate', ganador: null });
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledWith('punto');
+    expect(emitirSenal).not.toHaveBeenCalledWith('victoria');
+    sesion.destruir();
+  });
+
+  it('desbloquea el audio en pointerup (el pointerdown táctil no da activación) y deja de intentarlo al lograrlo', () => {
+    vi.mocked(desbloquearAudio).mockReturnValue(true);
+    const sesion = montar();
+    document.dispatchEvent(new Event('pointerdown'));
+    expect(desbloquearAudio).not.toHaveBeenCalled();
+    document.dispatchEvent(new Event('pointerup'));
+    document.dispatchEvent(new Event('pointerup'));
+    expect(desbloquearAudio).toHaveBeenCalledTimes(1);
+    sesion.destruir();
+  });
+
+  it('si el contexto sigue suspendido, reintenta en el siguiente toque', () => {
+    vi.mocked(desbloquearAudio).mockReturnValue(false);
+    const sesion = montar();
+    document.dispatchEvent(new Event('pointerup'));
+    document.dispatchEvent(new Event('pointerup'));
+    expect(desbloquearAudio).toHaveBeenCalledTimes(2);
+    vi.mocked(desbloquearAudio).mockReturnValue(true);
+    document.dispatchEvent(new Event('pointerup'));
+    document.dispatchEvent(new Event('pointerup'));
+    expect(desbloquearAudio).toHaveBeenCalledTimes(3);
+    sesion.destruir();
+  });
+
+  it('jugadaInvalida suena error después del siguiente tick', () => {
+    const sesion = montar();
+    sesion.jugadaInvalida();
+    expect(emitirSenal).not.toHaveBeenCalled();
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledWith('error');
+    sesion.destruir();
+  });
+
+  it('tras el fin de partida, jugadaInvalida no suena', () => {
+    const sesion = montar();
+    sesion.guardarParaDeshacer({ n: 1 });
+    sesion.mostrarFinDeJuego({ titulo: 'gana', ganador: 1 });
+    vi.runAllTimers();
+    vi.mocked(emitirSenal).mockClear();
+    sesion.jugadaInvalida();
+    vi.runAllTimers();
+    expect(emitirSenal).not.toHaveBeenCalled();
+    sesion.destruir();
+  });
+
+  it('mostrarTurno reabre la partida: jugadaInvalida vuelve a sonar', () => {
+    const sesion = montar();
+    sesion.guardarParaDeshacer({ n: 1 });
+    sesion.mostrarFinDeJuego({ titulo: 'gana', ganador: 1 });
+    sesion.mostrarTurno({ jugador: 1 });
+    vi.runAllTimers();
+    vi.mocked(emitirSenal).mockClear();
+    sesion.jugadaInvalida();
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledWith('error');
+    sesion.destruir();
+  });
+
+  it('pointerdown sobre una casilla deshabilitada suena error', () => {
+    const sesion = montar();
+    const casilla = { closest: (s: string) => (s.includes('.casilla:disabled') ? casilla : null) };
+    const ev = new Event('pointerdown');
+    Object.defineProperty(ev, 'target', { value: casilla });
+    document.dispatchEvent(ev);
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledWith('error');
+    sesion.destruir();
+  });
+
+  it('pointerdown fuera de una casilla deshabilitada no suena error', () => {
+    const sesion = montar();
+    const otro = { closest: () => null };
+    const ev = new Event('pointerdown');
+    Object.defineProperty(ev, 'target', { value: otro });
+    document.dispatchEvent(ev);
+    vi.runAllTimers();
+    expect(emitirSenal).not.toHaveBeenCalledWith('error');
+    sesion.destruir();
+  });
+
+  it('una victoria lanza el confeti; un empate no', () => {
+    const sesion = montar();
+    sesion.guardarParaDeshacer({ n: 1 });
+    sesion.mostrarFinDeJuego({ titulo: 'gana', ganador: 1 });
+    expect(lanzarConfeti).toHaveBeenCalledTimes(1);
+    vi.mocked(lanzarConfeti).mockClear();
+    sesion.mostrarFinDeJuego({ titulo: 'empate', ganador: null });
+    expect(lanzarConfeti).not.toHaveBeenCalled();
+    sesion.destruir();
+  });
+
+  it('reiniciar (revancha) y mostrarTurno retiran el confeti', () => {
+    const sesion = montar();
+    sesion.reiniciar();
+    expect(retirarConfeti).toHaveBeenCalledTimes(1);
+    sesion.mostrarTurno({ jugador: 1 });
+    expect(retirarConfeti).toHaveBeenCalledTimes(2);
+    sesion.destruir();
   });
 });

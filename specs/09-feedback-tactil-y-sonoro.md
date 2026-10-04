@@ -41,7 +41,8 @@ archivos de audio: cero peso, cero peticiones.
 usuario para arrancar el `AudioContext`. Crearlo o reanudarlo en el primer toque
 real (por ejemplo al pulsar `¡Jugar!`), no al cargar la página.
 
-**R4 — Interruptor visible.** Un botón de sonido (🔊 / 🔇) en la barra superior,
+**R4 — Interruptor visible.** Un botón de sonido (🔊 / 🔇) en la barra de
+controles de la partida (la barra inferior de la spec 02, no una superior),
 persistido en `pencilgames:sonido`. **Por defecto: activado**, pero un solo toque
 debe silenciarlo — la tableta se usa también a la hora de dormir.
 

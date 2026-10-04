@@ -192,6 +192,12 @@ const SIZE = 6;
   .casilla.casilla--ultima {
     box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--color-text) 30%, transparent);
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tablero-sos__lineas :global(.linea-sos) {
+      animation: none;
+    }
+  }
 </style>
 
 <script>

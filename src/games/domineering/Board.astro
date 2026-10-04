@@ -229,10 +229,17 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
   }
 
   function seleccionarAncla(i: number): void {
-    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) return;
-    if (state.board[i] !== null) return;
+    if (state.status !== 'playing' || !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
+    if (state.board[i] !== null) {
+      sesion.jugadaInvalida();
+      return;
+    }
     const opciones = dominosLegalesEn(state.board, state.currentPlayer, i);
     if (opciones.length === 0) {
+      sesion.jugadaInvalida();
       limpiarSeleccion();
       render();
       return;
