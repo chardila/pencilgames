@@ -126,6 +126,7 @@ const { title, slug } = Astro.props;
 
 <script>
   import {
+    alTerminarDeCargarScripts,
     getModoGuardado,
     guardarModo,
     haVistoReglas,
@@ -190,14 +191,15 @@ const { title, slug } = Astro.props;
     if (haVistoReglas(slug)) {
       // Ya se leyeron las reglas de este juego: no se muestran de nuevo, pero
       // hay que avisar al resto del flujo (elegir modo, mostrar tablero) como
-      // si se hubiera pulsado "¡Jugar!". Se difiere con setTimeout porque los
-      // demás módulos (p. ej. ModalModoJuego) todavía no han registrado sus
-      // listeners cuando este script corre — son scripts de módulo separados
-      // que se ejecutan en orden, uno después de otro, antes de que termine
-      // este "tick".
-      setTimeout(() => {
+      // si se hubiera pulsado "¡Jugar!". Los demás módulos (ModalModoJuego y
+      // el script de la página, que muestra el tablero) todavía no han
+      // registrado sus listeners cuando este script corre: cada uno es un
+      // <script type="module"> aparte y puede descargarse más tarde, así que
+      // un setTimeout(0) no basta (issue #61). Se espera a DOMContentLoaded,
+      // que ocurre después de todos los módulos deferred.
+      alTerminarDeCargarScripts(() => {
         document.dispatchEvent(new CustomEvent('instrucciones-cerradas'));
-      }, 0);
+      });
     } else {
       modal.hidden = false;
     }

@@ -75,3 +75,16 @@ export function olvidarModo(): void {
     // localStorage no disponible: no persiste, no rompe el flujo.
   }
 }
+
+/**
+ * Ejecuta `fn` cuando ya corrieron todos los scripts de módulo de la página.
+ * Cada componente Astro se emite como un `<script type="module">` aparte, y
+ * cada uno corre en su propia tarea: un `setTimeout(0)` puede disparar entre
+ * dos de ellos, antes de que los demás registren sus listeners (issue #61).
+ * Los módulos son deferred, así que siempre terminan antes de
+ * `DOMContentLoaded`; por eso no se comprueba `readyState` (durante la
+ * ejecución de módulos ya es "interactive" y llamaría `fn` demasiado pronto).
+ */
+export function alTerminarDeCargarScripts(fn: () => void): void {
+  document.addEventListener('DOMContentLoaded', fn, { once: true });
+}
