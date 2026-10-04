@@ -45,10 +45,14 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     --gap: 0.25rem;
     --celda-min: 3.5rem;
     --celda-max: 5rem;
-    /* 8rem de cabecera/respiro + ~5.5rem de la barra fija de controles
-       (spec 02, R1): en horizontal se redefine más abajo, porque ahí la
-       barra deja de ser fija y pasa a la columna lateral. */
-    --cromo: 13.5rem;
+    /* Lo que el tablero no puede usar en vertical: cabecera (~2.8rem) +
+       barra superior (~2.75rem) + indicador con su hueco (~3.25rem) +
+       relleno superior (1rem) + relleno inferior que reserva la barra fija
+       de controles (--reserva-barra + 1rem). En horizontal se redefine más
+       abajo, porque ahí la barra deja de ser fija y pasa a la columna
+       lateral. */
+    --reserva-barra: 6.5rem;
+    --cromo: 18rem;
 
     /* R2 — el lado del tablero sale del menor entre ancho y alto disponibles.
        Nota: no se usa `100%` aquí — el ancho de .tablero-juego depende del
@@ -81,6 +85,8 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     justify-content: safe center;
     gap: 1rem;
     padding: var(--spacing);
+    /* La barra de controles es fija: sin esta reserva tapa la fila final. */
+    padding-bottom: calc(var(--spacing) + var(--reserva-barra));
     /* R3 — el piso táctil gana: si no cabe, el tablero desborda con scroll */
     overflow: auto;
     overscroll-behavior: contain;
