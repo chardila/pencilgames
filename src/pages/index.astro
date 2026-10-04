@@ -32,6 +32,9 @@ const juegos = (await getCollection('juegos')).sort((a, b) =>
               icono={juego.data.icono}
               title={juego.data.title}
               description={juego.data.description}
+              duracion={juego.data.duracion}
+              edad={juego.data.edad}
+              tipo={juego.data.tipo}
             />
           </div>
         ))

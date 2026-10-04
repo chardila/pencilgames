@@ -1,18 +1,46 @@
 ---
+import {
+  DURACION_INFO,
+  ICONO_EDAD,
+  TIPO_INFO,
+  textoEdad,
+  type Duracion,
+  type Tipo,
+} from '../lib/catalogo';
+
 interface Props {
   href: string;
   icono: string;
   title: string;
   description: string;
+  duracion: Duracion;
+  edad: number;
+  tipo: Tipo;
 }
 
-const { href, icono, title, description } = Astro.props;
+const { href, icono, title, description, duracion, edad, tipo } = Astro.props;
+
+const etiquetas = [
+  DURACION_INFO[duracion],
+  { icono: ICONO_EDAD, texto: textoEdad(edad) },
+  TIPO_INFO[tipo],
+];
 ---
 
 <a class="game-card" href={href}>
   <span class="game-card__icono" aria-hidden="true">{icono}</span>
   <span class="game-card__title">{title}</span>
   <span class="game-card__description">{description}</span>
+  <span class="game-card__etiquetas">
+    {
+      etiquetas.map(e => (
+        <span class="game-card__etiqueta">
+          <span aria-hidden="true">{e.icono}</span>
+          {e.texto}
+        </span>
+      ))
+    }
+  </span>
 </a>
 
 <style>
@@ -27,6 +55,7 @@ const { href, icono, title, description } = Astro.props;
     color: var(--color-text);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     min-height: var(--tap-target-min);
+    height: 100%;
   }
 
   .game-card__icono {
@@ -41,5 +70,25 @@ const { href, icono, title, description } = Astro.props;
   .game-card__description {
     font-size: 0.95rem;
     opacity: 0.8;
+  }
+
+  .game-card__etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: auto;
+    padding-top: 0.25rem;
+  }
+
+  .game-card__etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
   }
 </style>
