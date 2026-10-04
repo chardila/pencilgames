@@ -1,7 +1,6 @@
 ---
 title: "Bridg-It"
 description: "Traza puentes en tu retícula de puntos para conectar tus dos bordes antes que tu rival."
-icono: "🌉"
 minJugadores: 2
 maxJugadores: 2
 duracion: medio

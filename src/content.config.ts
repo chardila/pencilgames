@@ -7,7 +7,6 @@ const juegos = defineCollection({
   schema: z.object({
     title: z.string(),
     description: z.string(),
-    icono: z.string(),
     minJugadores: z.number().int().min(1),
     maxJugadores: z.number().int().min(1),
     duracion: z.enum(DURACIONES),

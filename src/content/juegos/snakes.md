@@ -1,7 +1,6 @@
 ---
 title: "Serpientes"
 description: "Haz crecer tu serpiente punto a punto. Pierde quien se queda sin espacio para avanzar."
-icono: "🐍"
 minJugadores: 2
 maxJugadores: 2
 duracion: medio

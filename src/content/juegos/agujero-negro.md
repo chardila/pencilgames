@@ -1,7 +1,6 @@
 ---
 title: "Agujero Negro"
 description: "Coloca tus números del 1 al 10 y evita quedar junto al agujero negro."
-icono: "🕳️"
 minJugadores: 2
 maxJugadores: 2
 duracion: rapido

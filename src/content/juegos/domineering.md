@@ -1,7 +1,6 @@
 ---
 title: "Domineering"
 description: "Coloca dominós y bloquea al rival: pierde quien no puede colocar."
-icono: "▦"
 minJugadores: 2
 maxJugadores: 2
 duracion: medio

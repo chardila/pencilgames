@@ -1,7 +1,6 @@
 ---
 title: "Hex"
 description: "Conecta tus dos lados opuestos del tablero con una cadena ininterrumpida de hexágonos."
-icono: "🔷"
 minJugadores: 2
 maxJugadores: 2
 duracion: medio
