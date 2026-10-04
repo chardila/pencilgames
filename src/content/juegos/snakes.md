@@ -4,6 +4,9 @@ description: "Haz crecer tu serpiente punto a punto. Pierde quien se queda sin e
 icono: "🐍"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 7
+tipo: bloquear
 ---
 
 1. El tablero es una retícula de 7×7 puntos. Cada jugador tiene una serpiente con un punto de salida fijo: el Jugador 1 (`●`) arriba a la izquierda, el Jugador 2 (`▲`) abajo a la derecha.

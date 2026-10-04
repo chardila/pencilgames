@@ -4,6 +4,9 @@ description: "Conecta los tres lados del tablero triangular con una sola cadena 
 icono: "🔺"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 9
+tipo: conectar
 ---
 
 1. El tablero es un triángulo de casillas hexagonales.

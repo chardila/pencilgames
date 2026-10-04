@@ -4,6 +4,9 @@ description: "Coloca tu flota, dispara a las aguas del rival y húndele todos lo
 icono: "🚢"
 minJugadores: 2
 maxJugadores: 2
+duracion: largo
+edad: 7
+tipo: adivinar
 ---
 
 1. El tablero es de 8×8 casillas. Cada jugador tiene una flota de 4 barcos: uno de 4 casillas, dos de 3 y uno de 2.

@@ -4,6 +4,9 @@ description: "Muerde la barra de chocolate y obliga a tu rival a quedarse con la
 icono: "🍫"
 minJugadores: 2
 maxJugadores: 2
+duracion: rapido
+edad: 7
+tipo: bloquear
 ---
 
 1. El tablero es una tableta de chocolate de 4 filas y 7 columnas (28 onzas).

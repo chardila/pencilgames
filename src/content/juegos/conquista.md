@@ -4,6 +4,9 @@ description: "Traza líneas entre puntos vecinos y cierra regiones para conquist
 icono: "🚩"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 9
+tipo: dibujar
 ---
 
 1. Por turnos, cada jugador traza una línea entre dos puntos de la cuadrícula: toca el punto de origen y luego el punto de destino. Los puntos válidos para tu línea quedan resaltados en cuanto eliges el origen.

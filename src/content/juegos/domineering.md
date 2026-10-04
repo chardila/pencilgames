@@ -4,6 +4,9 @@ description: "Coloca dominós y bloquea al rival: pierde quien no puede colocar.
 icono: "▦"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 7
+tipo: bloquear
 ---
 
 1. El tablero es de 8×8 casillas.

@@ -4,6 +4,9 @@ description: "Retira estrellas por turnos. Gana quien se lleva la última."
 icono: "⭐"
 minJugadores: 2
 maxJugadores: 2
+duracion: rapido
+edad: 7
+tipo: bloquear
 ---
 
 1. El tablero tiene cuatro filas de estrellas: 1, 3, 5 y 7.

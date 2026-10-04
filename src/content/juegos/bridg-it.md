@@ -4,6 +4,9 @@ description: "Traza puentes en tu retícula de puntos para conectar tus dos bord
 icono: "🌉"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 9
+tipo: conectar
 ---
 
 1. El tablero tiene dos retículas de puntos entrelazadas: rojos y azules.

@@ -4,6 +4,9 @@ description: "El clásico juego de ✕ y ●. Alinea tres para ganar."
 icono: "✕"
 minJugadores: 2
 maxJugadores: 2
+duracion: rapido
+edad: 5
+tipo: conectar
 ---
 
 1. Los jugadores se turnan para colocar su símbolo (✕ o ●) en una casilla vacía del tablero de 3x3.

@@ -4,6 +4,9 @@ description: "Elige una dirección y todas tus fichas se multiplican: gana quien
 icono: "🐾"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 7
+tipo: capturar
 ---
 
 1. El tablero es de 8×8 casillas.

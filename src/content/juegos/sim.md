@@ -4,6 +4,9 @@ description: "Traza líneas entre 6 puntos por turnos. ¡Pierde quien primero co
 icono: "🔺"
 minJugadores: 2
 maxJugadores: 2
+duracion: rapido
+edad: 7
+tipo: dibujar
 ---
 
 1. El juego se desarrolla sobre 6 puntos distribuidos en círculo, con 15 líneas posibles para conectar.

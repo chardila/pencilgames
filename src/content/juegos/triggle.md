@@ -4,6 +4,9 @@ description: "Traza líneas de 4 puntos en la malla triangular y conquista más 
 icono: "🔺"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 9
+tipo: dibujar
 ---
 
 1. El tablero es un **hexágono de 37 puntos** en malla triangular (filas de 4-5-6-7-6-5-4).
