@@ -203,7 +203,10 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
   function seleccionarOrigen(p: Point): void {
     limpiarSeleccion();
     const destinos = destinosLegalesDesde(p);
-    if (destinos.length === 0) return;
+    if (destinos.length === 0) {
+      sesion.jugadaInvalida();
+      return;
+    }
     origen = p;
     puntoDe(p.row, p.col).dataset.origen = 'true';
     for (const fence of destinos) {
@@ -214,7 +217,10 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
 
   function alTocarPunto(p: Point): void {
     const esMiTurno = sesion.esMiTurno(state.currentPlayer);
-    if (!esMiTurno || state.status !== 'playing') return;
+    if (!esMiTurno || state.status !== 'playing') {
+      sesion.jugadaInvalida();
+      return;
+    }
 
     if (origen === null) {
       seleccionarOrigen(p);

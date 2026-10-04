@@ -10,6 +10,15 @@
     <button type="button" id="control-reiniciar" class="controles-partida__boton">
       <span aria-hidden="true">↻</span> Reiniciar
     </button>
+    <button
+      type="button"
+      id="control-sonido"
+      class="controles-partida__boton controles-partida__boton--icono"
+      aria-pressed="true"
+      aria-label="Sonido activado"
+    >
+      <span id="control-sonido-icono" aria-hidden="true">🔊</span>
+    </button>
     <a href="/" id="control-juegos" class="controles-partida__boton">
       <span aria-hidden="true">←</span> Juegos
     </a>
@@ -78,6 +87,12 @@
     border-radius: var(--radius);
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Solo ícono: cabe junto a los otros tres botones a 600 px de ancho. */
+  .controles-partida__boton--icono {
+    flex: 0 0 3.5rem;
+    font-size: 1.4rem;
   }
 
   .controles-partida__boton:disabled {
@@ -165,5 +180,30 @@
     .controles-partida__boton {
       font-size: 0.85rem;
     }
+
+    .controles-partida__boton--icono {
+      font-size: 1.4rem;
+    }
   }
 </style>
+
+<script>
+  import { alternarSonido, desbloquearAudio, sonidoActivo } from '../lib/feedback';
+
+  const boton = document.getElementById('control-sonido');
+  const icono = document.getElementById('control-sonido-icono');
+
+  function pintar(): void {
+    const activo = sonidoActivo();
+    boton?.setAttribute('aria-pressed', String(activo));
+    boton?.setAttribute('aria-label', activo ? 'Sonido activado' : 'Sonido silenciado');
+    if (icono) icono.textContent = activo ? '🔊' : '🔇';
+  }
+
+  pintar();
+  boton?.addEventListener('click', () => {
+    desbloquearAudio();
+    alternarSonido();
+    pintar();
+  });
+</script>

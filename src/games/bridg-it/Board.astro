@@ -211,8 +211,14 @@ import TableroJuego from '../../components/TableroJuego.astro';
     // El guard de turno solo aplica a la entrada local: los movimientos
     // remotos llegan cuando `currentPlayer` es el asiento del rival, así que
     // `esMiTurno` sería falso y los descartaría en silencio.
-    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
-    if (!puedeJugar(state, edge)) return;
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
+    if (!puedeJugar(state, edge)) {
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
     sesion.guardarParaDeshacer(state);
     state = playMove(state, edge);
     render();

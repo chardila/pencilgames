@@ -155,6 +155,12 @@ import TableroJuego from '../../components/TableroJuego.astro';
       filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.9));
     }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.y-celda--ganadora) {
+      animation: none;
+    }
+  }
 </style>
 
 <script>
@@ -316,11 +322,18 @@ import TableroJuego from '../../components/TableroJuego.astro';
   }
 
   function jugar(indice: number, emitirRemoto = true): void {
-    if (state.board[indice] !== null || state.status !== 'playing') return;
+    if (state.status !== 'playing') return;
+    if (state.board[indice] !== null) {
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
     // El guard de turno solo aplica a la entrada local. Los movimientos remotos
     // llegan cuando `currentPlayer` es el asiento del rival, así que `esMiTurno`
     // sería falso y los descartaría en silencio (boards desincronizados).
-    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
 
     sesion.guardarParaDeshacer(state);
     state = playMove(state, indice);

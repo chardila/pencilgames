@@ -16,6 +16,9 @@ import {
   hideWinnerBanner,
   type WinnerBannerOptions,
 } from './winnerBanner';
+import { desbloquearAudio, emitirSenal } from './feedback';
+import { crearSenales } from './senales';
+import { lanzarConfeti, retirarConfeti } from './confeti';
 import {
   formatearMarcador,
   limpiarMarcador,
@@ -46,6 +49,11 @@ export interface GameSessionConfig<TMovimiento> {
    */
   obtenerSnapshot?: () => unknown;
 }
+
+// Elementos tocables de los tableros que se deshabilitan con `disabled`:
+// casillas de rejilla, líneas de Puntos y Cajas y posiciones de Agujero Negro.
+const SELECTOR_CASILLA_DESHABILITADA =
+  '.casilla:disabled, .linea:disabled, .posicion-an:disabled';
 
 const PROFUNDIDAD_DESHACER = 10;
 const DEBOUNCE_GUARDADO_MS = 300;
@@ -80,6 +88,14 @@ export interface GameSession<TMovimiento> {
    * modo remoto: deshacer no existe ahí (spec 02, fuera de alcance).
    */
   guardarParaDeshacer: (snapshot: unknown) => void;
+  /**
+   * El niño intentó una jugada ilegal (casilla ocupada, movimiento no
+   * permitido): vibra y suena distinto a una jugada válida (spec 09). Los
+   * juegos la llaman en el `return` de rechazo; las casillas `disabled` se
+   * cubren solas con un `pointerdown` delegado. Callada tras el fin de la
+   * partida.
+   */
+  jugadaInvalida: () => void;
   destruir: () => void;
 }
 
@@ -124,6 +140,10 @@ export function iniciarSesionJuego<TMovimiento>(
   let reintentoSyncHecho = false;
   let desincronizado = false;
   const TIMEOUT_SYNC_MS = 3000;
+
+  // Señales de vibración y sonido (spec 09): se juntan por tick y se
+  // disparan después de pintar la jugada (R7).
+  const senales = crearSenales(emitirSenal);
 
   let pilaDeshacer: unknown[] = [];
   let marcador: Marcador = obtenerMarcador(slug);
@@ -230,6 +250,7 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function guardarParaDeshacer(snapshot: unknown): void {
+    senales.marcar('toque');
     if (miAsiento !== null) return; // sin pila propia en modo remoto
     pilaDeshacer.push(structuredClone(snapshot));
     if (pilaDeshacer.length > PROFUNDIDAD_DESHACER) pilaDeshacer.shift();
@@ -444,6 +465,7 @@ export function iniciarSesionJuego<TMovimiento>(
         mostrarDesync();
         return;
       }
+      senales.marcar('toque');
       registro.push(payload);
       config.onMovimientoRemoto(payload);
     }
@@ -510,6 +532,7 @@ export function iniciarSesionJuego<TMovimiento>(
         // arregló los dos juegos (sim, hex) donde el guard de turno dentro
         // de jugar() descartaba movimientos remotos. Si un juego futuro
         // reintroduce ese patrón, el replay de reconexión se rompe.
+        senales.marcar('toque');
         registro.push(mensaje.payload);
         config.onMovimientoRemoto(mensaje.payload);
       } else {
@@ -612,6 +635,33 @@ export function iniciarSesionJuego<TMovimiento>(
     window.addEventListener('pagehide', alOcultarPagina);
   }
 
+  // Desbloqueo del audio (spec 09, R3). Se hace al soltar el dedo
+  // (`pointerup`): un `pointerdown` táctil no da activación de usuario y el
+  // AudioContext se quedaría suspendido. El listener sigue vivo hasta que el
+  // contexto está realmente en marcha.
+  // Tras mostrarFinDeJuego los toques sobre el tablero no son "errores": la
+  // partida terminó. mostrarTurno la reabre (revancha, deshacer).
+  let partidaTerminada = false;
+
+  function jugadaInvalida(): void {
+    if (partidaTerminada) return;
+    senales.marcar('error');
+  }
+
+  // Casillas deshabilitadas (ocupada, turno del rival): el botón no dispara
+  // `click`, pero sí `pointerdown` con el propio botón como target
+  // (comprobado en Chrome con ratón y toque).
+  function alTocarCasillaDeshabilitada(evento: Event): void {
+    const objetivo = evento.target as HTMLElement | null;
+    if (objetivo?.closest?.(SELECTOR_CASILLA_DESHABILITADA)) jugadaInvalida();
+  }
+  document.addEventListener('pointerdown', alTocarCasillaDeshabilitada);
+
+  function alPrimerToque(): void {
+    if (desbloquearAudio()) document.removeEventListener('pointerup', alPrimerToque);
+  }
+  document.addEventListener('pointerup', alPrimerToque);
+
   getControlDeshacer()?.addEventListener('click', alClicControlDeshacer);
   getControlReiniciar()?.addEventListener('click', alClicControlReiniciar);
   actualizarBotonDeshacer();
@@ -628,6 +678,7 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function reiniciar(): void {
+    retirarConfeti();
     epoca++;
     registro = [];
     desincronizado = false;
@@ -640,6 +691,20 @@ export function iniciarSesionJuego<TMovimiento>(
 
   function mostrarTurno(opciones: MostrarTurnoOptions): void {
     programarGuardado();
+    partidaTerminada = false;
+    retirarConfeti();
+    // Punto: la jugada repite turno o algún puntaje numérico subió. `mejorar`
+    // solo actúa si hubo una jugada en este tick, así restaurar, deshacer o
+    // reiniciar (que también pasan por aquí) no suenan.
+    const anterior = ultimoTurnoOpciones;
+    const anotoPunto =
+      opciones.repiteTurno === true ||
+      ([1, 2] as Player[]).some(j => {
+        const ahora = opciones.puntajes?.[j];
+        const antes = anterior?.puntajes?.[j];
+        return typeof ahora === 'number' && typeof antes === 'number' && ahora > antes;
+      });
+    if (anotoPunto) senales.mejorar('punto');
     ultimoTurnoOpciones = opciones;
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
@@ -686,6 +751,10 @@ export function iniciarSesionJuego<TMovimiento>(
 
   function mostrarFinDeJuego(opciones: MostrarFinDeJuegoOptions): void {
     descartarPartida();
+    partidaTerminada = true;
+    // Victoria con ganador; un empate se celebra más bajo (como un punto).
+    if (opciones.ganador === 1 || opciones.ganador === 2) senales.mejorar('victoria');
+    else if (opciones.ganador === null) senales.mejorar('punto');
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
     if (ind) ocultarTurnIndicator(ind);
@@ -700,6 +769,8 @@ export function iniciarSesionJuego<TMovimiento>(
         onReiniciar: reiniciar,
       });
     }
+    // Después de pintar el banner: la celebración nunca tapa el resultado.
+    if (opciones.ganador === 1 || opciones.ganador === 2) lanzarConfeti();
   }
 
   function destruir(): void {
@@ -709,6 +780,7 @@ export function iniciarSesionJuego<TMovimiento>(
       timeoutInicioSync = null;
     }
     cancelarGuardado();
+    retirarConfeti();
     document.removeEventListener('partida-restaurar', alRestaurarPartida);
     document.removeEventListener('visibilitychange', alCambiarVisibilidad);
     if (typeof window !== 'undefined') {
@@ -723,6 +795,8 @@ export function iniciarSesionJuego<TMovimiento>(
     );
     document.removeEventListener('canal-remoto-listo', alCanalRemotoListo);
     document.removeEventListener('click', alClicPosibleVolverALista);
+    document.removeEventListener('pointerup', alPrimerToque);
+    document.removeEventListener('pointerdown', alTocarCasillaDeshabilitada);
     getControlDeshacer()?.removeEventListener('click', alClicControlDeshacer);
     getControlReiniciar()?.removeEventListener('click', alClicControlReiniciar);
   }
@@ -740,6 +814,7 @@ export function iniciarSesionJuego<TMovimiento>(
     mostrarTurno,
     mostrarFinDeJuego,
     guardarParaDeshacer,
+    jugadaInvalida,
     destruir,
   };
 }

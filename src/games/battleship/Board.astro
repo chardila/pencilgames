@@ -351,7 +351,11 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       handoffPendiente,
     };
     state = playMove(state, move);
-    if (state === prev) return; // rechazado → no renderiza ni emite
+    if (state === prev) {
+      // rechazado → no renderiza ni emite
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
     sesion.guardarParaDeshacer(snapshotPrevio);
     // Si durante la colocación cambió el jugador que coloca, el nuevo debe
     // pasar por el interstitial "Empezar".

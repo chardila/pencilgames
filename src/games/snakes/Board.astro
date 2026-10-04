@@ -322,11 +322,18 @@ import TableroJuego from '../../components/TableroJuego.astro';
     if (state.status !== 'playing') return;
     // Guard de turno solo para la entrada local; los movimientos remotos
     // llegan cuando currentPlayer es el asiento del rival.
-    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) return;
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
 
     const antes = state;
     state = playMove(state, indice);
-    if (state === antes) return; // jugada ilegal: no re-render ni emisión
+    if (state === antes) {
+      // jugada ilegal: no re-render ni emisión
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
     sesion.guardarParaDeshacer(antes);
     render();
     if (emitirRemoto) {
