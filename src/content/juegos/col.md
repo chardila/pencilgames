@@ -4,6 +4,9 @@ description: "Colorea regiones del mapa, pero nunca dos de tu color pueden tocar
 icono: "🖍️"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 9
+tipo: bloquear
 ---
 
 1. Antes de empezar, elige uno de los 3 mapas (o pulsa "Mapa al azar").

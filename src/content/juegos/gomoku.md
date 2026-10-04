@@ -4,6 +4,9 @@ description: "Alinea cinco o más fichas en un tablero de 9×9 antes que tu riva
 icono: "⚫"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 7
+tipo: conectar
 ---
 
 1. El tablero es de 9×9 casillas.

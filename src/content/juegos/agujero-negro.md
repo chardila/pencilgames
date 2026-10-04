@@ -4,6 +4,9 @@ description: "Coloca tus números del 1 al 10 y evita quedar junto al agujero ne
 icono: "🕳️"
 minJugadores: 2
 maxJugadores: 2
+duracion: rapido
+edad: 7
+tipo: bloquear
 ---
 
 1. Hay un tablero triangular de 21 posiciones. Cada jugador tiene los números del 1 al 10.

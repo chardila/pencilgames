@@ -2,42 +2,96 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import GameCard from '../components/GameCard.astro';
 import { getCollection } from 'astro:content';
+import { DURACIONES, DURACION_INFO, TIPOS, TIPO_INFO } from '../lib/catalogo';
 
 const juegos = (await getCollection('juegos')).sort((a, b) =>
   a.data.title.localeCompare(b.data.title, 'es')
 );
+
+const grupos = [
+  {
+    id: 'duracion',
+    titulo: 'Cuánto dura',
+    opciones: DURACIONES.map(valor => ({ valor, ...DURACION_INFO[valor] })),
+  },
+  {
+    id: 'tipo',
+    titulo: 'Cómo se juega',
+    opciones: TIPOS.map(valor => ({ valor, ...TIPO_INFO[valor] })),
+  },
+];
 ---
 
 <BaseLayout title="Juegos">
   <main class="indice">
     <h1>Pencilgames</h1>
     <p>Juegos de lápiz y papel para jugar en familia, en una sola tableta.</p>
+
+    <section id="recientes" class="indice__recientes" aria-labelledby="recientes-titulo" hidden>
+      <h2 id="recientes-titulo">Seguir jugando</h2>
+      <div id="grid-recientes" class="indice__grid"></div>
+    </section>
+
+    <section class="indice__filtros" aria-label="Filtrar juegos">
+      {
+        grupos.map(grupo => (
+          <div class="indice__grupo" role="group" aria-label={grupo.titulo} data-grupo={grupo.id}>
+            <span class="indice__grupo-titulo" aria-hidden="true">
+              {grupo.titulo}
+            </span>
+            <button type="button" class="filtro" data-todos aria-pressed="true">
+              Todos
+            </button>
+            {grupo.opciones.map(op => (
+              <button type="button" class="filtro" data-valor={op.valor} aria-pressed="false">
+                <span aria-hidden="true">{op.icono}</span>
+                {op.texto}
+              </button>
+            ))}
+          </div>
+        ))
+      }
+    </section>
+
     <input
       type="search"
       id="buscador"
       class="indice__buscador"
-      placeholder="Buscar un juego..."
+      placeholder="Buscar por nombre..."
       aria-label="Buscar un juego"
     />
+
     <div id="grid-juegos" class="indice__grid">
       {
         juegos.map(juego => (
           <div
             class="indice__item"
+            data-slug={juego.id}
             data-nombre={juego.data.title.toLowerCase()}
             data-descripcion={juego.data.description.toLowerCase()}
+            data-duracion={juego.data.duracion}
+            data-tipo={juego.data.tipo}
           >
             <GameCard
               href={`/juegos/${juego.id}`}
               icono={juego.data.icono}
               title={juego.data.title}
               description={juego.data.description}
+              duracion={juego.data.duracion}
+              edad={juego.data.edad}
+              tipo={juego.data.tipo}
             />
           </div>
         ))
       }
     </div>
-    <p id="sin-resultados" hidden>No encontramos ningún juego con ese nombre.</p>
+
+    <div id="sin-resultados" class="indice__vacio" hidden>
+      <p>No encontramos ningún juego con eso. ¡Prueba con otros filtros!</p>
+      <button type="button" id="limpiar-filtros" class="filtro filtro--accion">
+        Limpiar filtros
+      </button>
+    </div>
   </main>
 </BaseLayout>
 
@@ -48,13 +102,75 @@ const juegos = (await getCollection('juegos')).sort((a, b) =>
     padding: var(--spacing);
   }
 
+  .indice__recientes {
+    margin: 1rem 0;
+  }
+
+  .indice__recientes[hidden] {
+    display: none;
+  }
+
+  .indice__recientes h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
+  }
+
+  .indice__filtros {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .indice__grupo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .indice__grupo-titulo {
+    flex-basis: 100%;
+    font-size: 0.85rem;
+    font-weight: 700;
+    opacity: 0.7;
+  }
+
+  .filtro {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 48px;
+    min-width: 48px;
+    padding: 0 1rem;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .filtro[aria-pressed='true'] {
+    background: var(--color-accent);
+    border-color: var(--color-text);
+  }
+
+  .filtro:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+  }
+
   .indice__buscador {
     width: 100%;
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
+    max-width: 24rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.95rem;
     border-radius: var(--radius);
     border: 1px solid #ddd;
-    margin: 1rem 0;
+    margin: 0 0 1rem;
     min-height: var(--tap-target-min);
   }
 
@@ -63,24 +179,111 @@ const juegos = (await getCollection('juegos')).sort((a, b) =>
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
     gap: 1rem;
   }
+
+  .indice__vacio {
+    text-align: center;
+    padding: 2rem 0;
+  }
+
+  .indice__vacio[hidden] {
+    display: none;
+  }
 </style>
 
 <script>
-  const buscador = document.getElementById('buscador') as HTMLInputElement;
-  const items = Array.from(document.querySelectorAll<HTMLElement>('.indice__item'));
-  const sinResultados = document.getElementById('sin-resultados')!;
+  import type { Duracion, Tipo } from '../lib/catalogo';
+  import { alternar, coincide } from '../lib/filtros';
+  import { obtenerRecientes } from '../lib/recientes';
 
-  buscador.addEventListener('input', () => {
-    const consulta = buscador.value.trim().toLowerCase();
+  const buscador = document.getElementById('buscador') as HTMLInputElement;
+  const items = Array.from(document.querySelectorAll<HTMLElement>('#grid-juegos .indice__item'));
+  const sinResultados = document.getElementById('sin-resultados')!;
+  const botonLimpiar = document.getElementById('limpiar-filtros')!;
+  const panelFiltros = document.querySelector<HTMLElement>('.indice__filtros')!;
+  const botones = Array.from(panelFiltros.querySelectorAll<HTMLButtonElement>('.filtro'));
+
+  let duraciones = new Set<Duracion>();
+  let tipos = new Set<Tipo>();
+
+  function grupoDe(boton: HTMLElement): string {
+    return boton.closest<HTMLElement>('[data-grupo]')!.dataset.grupo!;
+  }
+
+  function aplicar() {
+    const filtros = { duraciones, tipos, consulta: buscador.value };
     let visibles = 0;
 
     for (const item of items) {
-      const coincide =
-        item.dataset.nombre!.includes(consulta) || item.dataset.descripcion!.includes(consulta);
-      item.hidden = !coincide;
-      if (coincide) visibles++;
+      const visible = coincide(
+        {
+          nombre: item.dataset.nombre!,
+          descripcion: item.dataset.descripcion!,
+          duracion: item.dataset.duracion as Duracion,
+          tipo: item.dataset.tipo as Tipo,
+        },
+        filtros
+      );
+      item.hidden = !visible;
+      if (visible) visibles++;
     }
 
     sinResultados.hidden = visibles > 0;
+
+    for (const boton of botones) {
+      const conjunto: ReadonlySet<string> = grupoDe(boton) === 'duracion' ? duraciones : tipos;
+      const activo = boton.hasAttribute('data-todos')
+        ? conjunto.size === 0
+        : conjunto.has(boton.dataset.valor!);
+      boton.setAttribute('aria-pressed', String(activo));
+    }
+  }
+
+  panelFiltros.addEventListener('click', evento => {
+    const boton = (evento.target as HTMLElement).closest<HTMLButtonElement>('.filtro');
+    if (!boton) return;
+    const esTodos = boton.hasAttribute('data-todos');
+
+    if (grupoDe(boton) === 'duracion') {
+      duraciones = esTodos ? new Set() : alternar(duraciones, boton.dataset.valor as Duracion);
+    } else {
+      tipos = esTodos ? new Set() : alternar(tipos, boton.dataset.valor as Tipo);
+    }
+    aplicar();
+  });
+
+  buscador.addEventListener('input', aplicar);
+
+  botonLimpiar.addEventListener('click', () => {
+    duraciones = new Set();
+    tipos = new Set();
+    buscador.value = '';
+    aplicar();
+  });
+
+  const seccionRecientes = document.getElementById('recientes')!;
+  const gridRecientes = document.getElementById('grid-recientes')!;
+
+  // Clona las tarjetas ya renderizadas (siguen siendo <a href> reales) en el
+  // orden de recientes; un slug que ya no existe se ignora sin error.
+  function mostrarRecientes() {
+    const porSlug = new Map(items.map(item => [item.dataset.slug!, item]));
+    const tarjetas = obtenerRecientes()
+      .map(slug => porSlug.get(slug))
+      .filter((item): item is HTMLElement => item !== undefined)
+      .map(item => {
+        const copia = item.cloneNode(true) as HTMLElement;
+        copia.hidden = false;
+        return copia;
+      });
+    gridRecientes.replaceChildren(...tarjetas);
+    seccionRecientes.hidden = tarjetas.length === 0;
+  }
+
+  mostrarRecientes();
+
+  // Al volver con «atrás» la página puede salir de la caché del navegador
+  // (bfcache) sin volver a ejecutar el script: se refresca la fila.
+  window.addEventListener('pageshow', evento => {
+    if (evento.persisted) mostrarRecientes();
   });
 </script>

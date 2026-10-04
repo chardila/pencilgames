@@ -4,6 +4,9 @@ description: "Coloca letras S u O en una cuadrícula de 6×6 y suma puntos compl
 icono: "🆘"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 7
+tipo: capturar
 ---
 
 1. El juego se disputa sobre un tablero de 6×6 casillas.

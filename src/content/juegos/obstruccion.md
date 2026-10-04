@@ -4,6 +4,9 @@ description: "Bloquea el tablero: gana quien coloca la última ficha antes de qu
 icono: "🚧"
 minJugadores: 2
 maxJugadores: 2
+duracion: rapido
+edad: 5
+tipo: bloquear
 ---
 
 1. El tablero es de 6×6 casillas.

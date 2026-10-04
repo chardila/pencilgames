@@ -4,6 +4,9 @@ description: "Tres en raya neutral: ambos ponen ✕ y pierde quien complete la l
 icono: "❌"
 minJugadores: 2
 maxJugadores: 2
+duracion: rapido
+edad: 7
+tipo: bloquear
 ---
 
 1. Hay 3 tableros de 3×3. Por turnos, cada jugador coloca una ✕ en cualquier casilla vacía de cualquier tablero que siga vivo.

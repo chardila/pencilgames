@@ -4,6 +4,9 @@ description: "Conecta tus dos lados opuestos del tablero con una cadena ininterr
 icono: "🔷"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 9
+tipo: conectar
 ---
 
 1. El juego se disputa sobre un tablero de casillas hexagonales en forma de rombo.

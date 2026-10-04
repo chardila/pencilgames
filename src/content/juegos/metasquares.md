@@ -4,6 +4,9 @@ description: "Marca celdas y forma cuadrados perfectos con tus fichas: el primer
 icono: "🔷"
 minJugadores: 2
 maxJugadores: 2
+duracion: medio
+edad: 9
+tipo: conectar
 ---
 
 1. El tablero es una retícula de 7×7 celdas. El Jugador 1 usa ●, el Jugador 2 ▲.
