@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { codificarEstado, decodificarEstado } from './partidaGuardada';
 
 // Deshacer (spec 02) guarda snapshots con `structuredClone`. Si el estado de
 // algún juego incluyera algo no clonable (funciones, instancias de clase con
@@ -36,5 +37,19 @@ describe('el estado inicial de cada juego sobrevive a structuredClone', () => {
     const estado = mod.createInitialState();
     const clon = structuredClone(estado);
     expect(clon).toEqual(estado);
+  });
+});
+
+// La partida en curso (spec 06) se guarda como texto en localStorage con
+// `codificarEstado`, que conserva Map y Set (Conquista usa un Map). Lo que
+// ese codificador no pueda ir y volver (funciones, undefined, clases con
+// métodos) se perdería sin avisar al restaurar: este test lo detecta para
+// los 21 motores de una vez.
+describe('el estado inicial de cada juego sobrevive a codificarEstado (localStorage)', () => {
+  it.each(ENGINES)('%s', async juego => {
+    const mod: { createInitialState: (...args: never[]) => unknown } =
+      await import(`../games/${juego}/engine.ts`);
+    const estado = mod.createInitialState();
+    expect(decodificarEstado(codificarEstado(estado))).toEqual(estado);
   });
 });

@@ -337,6 +337,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       handoffPendiente = s.handoffPendiente;
       render();
     },
+    obtenerSnapshot: () => ({ state, flotaPrevia, listoParaColocar, handoffPendiente }),
   });
 
   function jugar(move: Move, emitirRemoto = true): void {

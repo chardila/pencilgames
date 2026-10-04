@@ -154,6 +154,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       state = snapshot as SnakesState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function construirTablero(): void {

@@ -93,6 +93,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
       state = snapshot as GomokuState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function render(): void {

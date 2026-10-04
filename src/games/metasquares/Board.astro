@@ -176,6 +176,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
       state = snapshot as MetaSquaresState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function ordenarEnCiclo(corners: readonly number[]): number[] {

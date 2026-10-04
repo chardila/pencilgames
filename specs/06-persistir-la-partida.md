@@ -44,12 +44,12 @@ basura.
 
 ## Criterios de aceptación
 
-- [ ] Jugar cinco movimientos en Gomoku, recargar, elegir `Continuar`: tablero,
+- [x] Jugar cinco movimientos en Gomoku, recargar, elegir `Continuar`: tablero,
       turno y marcador idénticos.
-- [ ] Elegir `Empezar de nuevo` borra la partida guardada.
-- [ ] Terminar una partida y recargar no ofrece continuar nada.
-- [ ] Una entrada guardada hace 25 h se ignora.
-- [ ] Una entrada con `v: 0` se descarta sin romper la aplicación.
+- [x] Elegir `Empezar de nuevo` borra la partida guardada.
+- [x] Terminar una partida y recargar no ofrece continuar nada.
+- [x] Una entrada guardada hace 25 h se ignora.
+- [x] Una entrada con `v: 0` se descarta sin romper la aplicación.
 
 ## Fuera de alcance
 

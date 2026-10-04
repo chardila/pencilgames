@@ -204,6 +204,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       state = snapshot as BridgItState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function jugar(edge: Edge, emitirRemoto = true): void {

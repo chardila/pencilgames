@@ -90,6 +90,15 @@
   // no hay que taparlo con "¿Cómo van a jugar?" de nuevo).
   let tableroVisible = false;
 
+  // El modo local también puede quedar decidido sin pasar por aquí (spec 06:
+  // "Continuar" una partida guardada salta reglas y modo). Sin esto, cancelar
+  // luego "por internet" tomaría el tablero por no visible y taparía la
+  // partida restaurada con "¿Cómo van a jugar?".
+  document.addEventListener('modo-elegido-local', () => {
+    modoYaElegido = true;
+    tableroVisible = true;
+  });
+
   document.addEventListener('instrucciones-cerradas', () => {
     if (modoYaElegido) return;
 
