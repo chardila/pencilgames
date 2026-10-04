@@ -261,6 +261,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
       seleccion = null;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function claveP(p: { q: number; r: number }): string {

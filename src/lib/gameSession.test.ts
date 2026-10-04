@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { iniciarSesionJuego } from './gameSession';
 import { obtenerMarcador } from './marcador';
+import { guardarPartida, leerPartida } from './partidaGuardada';
 import type { MoveChannel, MensajeJuego, EstadoConexion } from './remoto/types';
 import {
   solicitarWakeLock,
@@ -969,6 +970,321 @@ describe('gameSession', () => {
       expect(localStorage.getItem('pencilgames:marcador:volver-test')).toBeNull();
 
       sesion.destruir();
+    });
+  });
+
+  describe('persistencia de la partida (spec 06)', () => {
+    const CLAVE = 'pencilgames:partida:gomoku';
+
+    function configBase() {
+      return {
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      };
+    }
+
+    function ventanaFalsa() {
+      const ventana = new EventTarget();
+      vi.stubGlobal('window', ventana);
+      return ventana;
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.stubGlobal('location', { reload: vi.fn(), pathname: '/juegos/gomoku/' });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('guarda snapshot, pila y nombres tras una jugada, con debounce', () => {
+      let estado = { n: 0 };
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: vi.fn(),
+        obtenerSnapshot: () => estado,
+      });
+
+      sesion.guardarParaDeshacer(estado);
+      estado = { n: 1 };
+      sesion.mostrarTurno({ jugador: 1 });
+      expect(memoryStorage.getItem(CLAVE)).toBeNull(); // aún dentro del debounce
+
+      vi.advanceTimersByTime(300);
+      expect(JSON.parse(memoryStorage.getItem(CLAVE)!)).toMatchObject({
+        v: 1,
+        snapshot: { n: 1 },
+        pila: [{ n: 0 }],
+        nombres: { 1: 'Jugador 1', 2: 'Jugador 2' },
+      });
+      sesion.destruir();
+    });
+
+    it('con la pila vacía no guarda y el render inicial NO borra una partida guardada', () => {
+      guardarPartida('gomoku', {
+        nombres: { 1: 'Ana', 2: 'Beto' },
+        snapshot: { n: 5 },
+        pila: [{ n: 4 }],
+      });
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: vi.fn(),
+        obtenerSnapshot: () => ({ n: 0 }),
+      });
+
+      sesion.mostrarTurno({ jugador: 1 }); // render inicial del tablero
+      vi.advanceTimersByTime(1000);
+
+      expect(leerPartida('gomoku')!.snapshot).toEqual({ n: 5 });
+      sesion.destruir();
+    });
+
+    it('sin obtenerSnapshot no guarda nada', () => {
+      const sesion = iniciarSesionJuego<number>({ ...configBase(), onDeshacer: vi.fn() });
+      sesion.guardarParaDeshacer({ n: 0 });
+      sesion.mostrarTurno({ jugador: 1 });
+      vi.advanceTimersByTime(1000);
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+      sesion.destruir();
+    });
+
+    it('deshacer hasta dejar la pila vacía borra la entrada; con jugadas restantes la reescribe', () => {
+      let estado = { n: 0 };
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: snapshot => {
+          estado = snapshot as { n: number };
+          sesion.mostrarTurno({ jugador: 1 });
+        },
+        obtenerSnapshot: () => estado,
+      });
+      const deshacer = mockDoc.getElementById('control-deshacer')!;
+
+      for (let i = 0; i < 2; i++) {
+        sesion.guardarParaDeshacer(estado);
+        estado = { n: estado.n + 1 };
+        sesion.mostrarTurno({ jugador: 1 });
+      }
+      vi.advanceTimersByTime(300);
+      expect(leerPartida('gomoku')!.snapshot).toEqual({ n: 2 });
+
+      deshacer.dispatchEvent(new Event('click'));
+      vi.advanceTimersByTime(300);
+      expect(leerPartida('gomoku')!.snapshot).toEqual({ n: 1 });
+
+      deshacer.dispatchEvent(new Event('click'));
+      vi.advanceTimersByTime(300);
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+      sesion.destruir();
+    });
+
+    it('terminar la partida borra la entrada y cancela una escritura pendiente', () => {
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: vi.fn(),
+        obtenerSnapshot: () => ({ n: 1 }),
+      });
+      sesion.guardarParaDeshacer({ n: 0 });
+      sesion.mostrarTurno({ jugador: 1 });
+      vi.advanceTimersByTime(300);
+      expect(memoryStorage.getItem(CLAVE)).not.toBeNull();
+
+      // Jugada ganadora: programa escritura y enseguida termina la partida.
+      sesion.guardarParaDeshacer({ n: 1 });
+      sesion.mostrarTurno({ jugador: 1 });
+      sesion.mostrarFinDeJuego({ titulo: 'Ganó', ganador: 1 });
+      vi.advanceTimersByTime(1000);
+
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+      sesion.destruir();
+    });
+
+    it('reiniciar borra la entrada', () => {
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: vi.fn(),
+        obtenerSnapshot: () => ({ n: 1 }),
+      });
+      sesion.guardarParaDeshacer({ n: 0 });
+      sesion.mostrarTurno({ jugador: 1 });
+      vi.advanceTimersByTime(300);
+      expect(memoryStorage.getItem(CLAVE)).not.toBeNull();
+
+      sesion.reiniciar();
+      vi.advanceTimersByTime(1000);
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+      sesion.destruir();
+    });
+
+    it('vuelca la escritura pendiente en pagehide y al ocultarse la pestaña', () => {
+      const ventana = ventanaFalsa();
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: vi.fn(),
+        obtenerSnapshot: () => ({ n: 1 }),
+      });
+
+      sesion.guardarParaDeshacer({ n: 0 });
+      sesion.mostrarTurno({ jugador: 1 });
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+      ventana.dispatchEvent(new Event('pagehide'));
+      expect(leerPartida('gomoku')!.snapshot).toEqual({ n: 1 });
+
+      memoryStorage.removeItem(CLAVE);
+      sesion.guardarParaDeshacer({ n: 1 });
+      sesion.mostrarTurno({ jugador: 1 });
+      Object.defineProperty(mockDoc, 'visibilityState', {
+        value: 'hidden',
+        configurable: true,
+      });
+      mockDoc.dispatchEvent(new Event('visibilitychange'));
+      expect(leerPartida('gomoku')!.snapshot).toEqual({ n: 1 });
+
+      sesion.destruir();
+    });
+
+    it('pagehide sin escritura pendiente no escribe (p. ej. tras terminar la partida)', () => {
+      const ventana = ventanaFalsa();
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: vi.fn(),
+        obtenerSnapshot: () => ({ n: 1 }),
+      });
+      sesion.guardarParaDeshacer({ n: 0 });
+      sesion.mostrarTurno({ jugador: 1 });
+      sesion.mostrarFinDeJuego({ titulo: 'Ganó', ganador: 1 });
+      ventana.dispatchEvent(new Event('pagehide'));
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+      sesion.destruir();
+    });
+
+    it('en modo remoto no guarda y conectar el canal borra la entrada local', () => {
+      guardarPartida('gomoku', {
+        nombres: { 1: 'Ana', 2: 'Beto' },
+        snapshot: { n: 5 },
+        pila: [{ n: 4 }],
+      });
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: vi.fn(),
+        obtenerSnapshot: () => ({ n: 9 }),
+      });
+      const mockCanal: MoveChannel = {
+        asiento: 1,
+        estado: 'conectado',
+        enviar: vi.fn(),
+        alRecibir: vi.fn(),
+        alCambiarEstado: vi.fn(),
+        cerrar: vi.fn(),
+      };
+      document.dispatchEvent(
+        new CustomEvent('canal-remoto-listo', {
+          detail: { channel: mockCanal, miNombre: 'Yo' },
+        })
+      );
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+
+      sesion.guardarParaDeshacer({ n: 0 }); // no-op en remoto: pila vacía
+      sesion.mostrarTurno({ jugador: 1 });
+      vi.advanceTimersByTime(1000);
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+      sesion.destruir();
+    });
+
+    it('partida-restaurar repone snapshot, pila, nombres y marcador visible', () => {
+      guardarPartida('gomoku', {
+        nombres: { 1: 'Ana', 2: 'Beto' },
+        snapshot: { n: 2 },
+        pila: [{ n: 0 }, { n: 1 }],
+      });
+      const onDeshacer = vi.fn();
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer,
+        obtenerSnapshot: () => ({ n: 0 }),
+      });
+
+      document.dispatchEvent(new Event('partida-restaurar'));
+
+      expect(onDeshacer).toHaveBeenCalledWith({ n: 2 });
+      expect(sesion.nombres[1]).toBe('Ana');
+      expect(sesion.nombres[2]).toBe('Beto');
+      expect(JSON.parse(memoryStorage.getItem('pencilgames:jugadores')!)).toEqual({
+        1: 'Ana',
+        2: 'Beto',
+      });
+      expect(mockDoc.getElementById('marcador-partida')!.textContent).toBe(
+        'Ana 0 · Beto 0'
+      );
+      // La pila repuesta permite deshacer hasta el principio.
+      const deshacer = mockDoc.getElementById('control-deshacer')!;
+      expect(deshacer.disabled).toBe(false);
+      deshacer.dispatchEvent(new Event('click'));
+      expect(onDeshacer).toHaveBeenLastCalledWith({ n: 1 });
+      deshacer.dispatchEvent(new Event('click'));
+      expect(onDeshacer).toHaveBeenLastCalledWith({ n: 0 });
+      expect(deshacer.disabled).toBe(true);
+      sesion.destruir();
+    });
+
+    it('partida-restaurar sin entrada válida no hace nada ni lanza', () => {
+      memoryStorage.setItem(CLAVE, '{corrupto');
+      const onDeshacer = vi.fn();
+      const sesion = iniciarSesionJuego<number>({ ...configBase(), onDeshacer });
+      expect(() => document.dispatchEvent(new Event('partida-restaurar'))).not.toThrow();
+      expect(onDeshacer).not.toHaveBeenCalled();
+      sesion.destruir();
+    });
+
+    it('si el snapshot guardado hace fallar al juego al restaurar, se descarta y se reinicia el tablero', () => {
+      guardarPartida('gomoku', {
+        nombres: { 1: 'Ana', 2: 'Beto' },
+        snapshot: { formaAntigua: true },
+        pila: [{ n: 0 }],
+      });
+      const onAplicarReinicio = vi.fn();
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onAplicarReinicio,
+        onDeshacer: () => {
+          throw new Error('forma de estado incompatible');
+        },
+      });
+
+      expect(() => document.dispatchEvent(new Event('partida-restaurar'))).not.toThrow();
+
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+      expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
+      expect(mockDoc.getElementById('control-deshacer')!.disabled).toBe(true);
+      sesion.destruir();
+    });
+
+    it('destruir quita los listeners de persistencia y cancela la escritura pendiente', () => {
+      const ventana = ventanaFalsa();
+      const onDeshacer = vi.fn();
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer,
+        obtenerSnapshot: () => ({ n: 1 }),
+      });
+      sesion.guardarParaDeshacer({ n: 0 });
+      sesion.mostrarTurno({ jugador: 1 });
+      sesion.destruir();
+
+      vi.advanceTimersByTime(1000);
+      ventana.dispatchEvent(new Event('pagehide'));
+      expect(memoryStorage.getItem(CLAVE)).toBeNull();
+
+      guardarPartida('gomoku', {
+        nombres: { 1: 'A', 2: 'B' },
+        snapshot: { n: 1 },
+        pila: [],
+      });
+      document.dispatchEvent(new Event('partida-restaurar'));
+      expect(onDeshacer).not.toHaveBeenCalled();
     });
   });
 

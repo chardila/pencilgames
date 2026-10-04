@@ -1,4 +1,5 @@
-import { getPlayerNames, type Player, type PlayerNames } from './players';
+import { getPlayerNames, savePlayerNames, type Player, type PlayerNames } from './players';
+import { borrarPartida, guardarPartida, leerPartida } from './partidaGuardada';
 import type { EstadoConexion, MoveChannel, MensajeJuego } from './remoto/types';
 import {
   solicitarWakeLock,
@@ -38,9 +39,16 @@ export interface GameSessionConfig<TMovimiento> {
    * estado anterior.
    */
   onDeshacer?: (snapshot: unknown) => void;
+  /**
+   * Devuelve el snapshot ACTUAL del juego, con la misma forma que recibe
+   * `onDeshacer` (spec 06). Sin esta función el juego no persiste la
+   * partida en curso. Debe ser serializable a JSON.
+   */
+  obtenerSnapshot?: () => unknown;
 }
 
 const PROFUNDIDAD_DESHACER = 10;
+const DEBOUNCE_GUARDADO_MS = 300;
 
 export interface MostrarTurnoOptions {
   jugador: Player;
@@ -125,6 +133,87 @@ export function iniciarSesionJuego<TMovimiento>(
   // pantalla podría no alcanzar a anunciar.
   let anuncioPendiente: string | null = null;
 
+  // Persistencia de la partida local en curso (spec 06).
+  let timeoutGuardado: ReturnType<typeof setTimeout> | null = null;
+
+  function puedePersistir(): boolean {
+    return miAsiento === null && !!config.obtenerSnapshot;
+  }
+
+  function escribirPartida(): void {
+    timeoutGuardado = null;
+    if (!puedePersistir() || pilaDeshacer.length === 0) return;
+    guardarPartida(slug, {
+      nombres: { 1: nombres[1], 2: nombres[2] },
+      snapshot: config.obtenerSnapshot!(),
+      pila: pilaDeshacer,
+    });
+  }
+
+  // Con la pila vacía NO se borra: el render inicial del tablero ocurre
+  // antes de que el niño elija Continuar y no debe destruir la partida
+  // guardada. Solo borran deshacer-hasta-vacío, reiniciar, el fin de la
+  // partida y conectar en remoto.
+  function programarGuardado(): void {
+    if (!puedePersistir() || pilaDeshacer.length === 0) return;
+    if (timeoutGuardado !== null) clearTimeout(timeoutGuardado);
+    timeoutGuardado = setTimeout(escribirPartida, DEBOUNCE_GUARDADO_MS);
+  }
+
+  function cancelarGuardado(): void {
+    if (timeoutGuardado !== null) {
+      clearTimeout(timeoutGuardado);
+      timeoutGuardado = null;
+    }
+  }
+
+  // Cancelar antes de borrar: un timer pendiente reescribiría una partida
+  // que acaba de terminar o reiniciarse.
+  function descartarPartida(): void {
+    cancelarGuardado();
+    borrarPartida(slug);
+  }
+
+  // Chrome puede descartar la pestaña con un debounce a medias: se escribe
+  // de inmediato lo pendiente al ocultarse la página.
+  function volcarGuardadoPendiente(): void {
+    if (timeoutGuardado === null) return;
+    clearTimeout(timeoutGuardado);
+    escribirPartida();
+  }
+
+  function alOcultarPagina(): void {
+    volcarGuardadoPendiente();
+  }
+
+  function alCambiarVisibilidad(): void {
+    if (document.visibilityState === 'hidden') volcarGuardadoPendiente();
+  }
+
+  function alRestaurarPartida(): void {
+    if (miAsiento !== null || !config.onDeshacer) return;
+    const guardada = leerPartida(slug);
+    if (!guardada) return;
+    nombres[1] = guardada.nombres[1];
+    nombres[2] = guardada.nombres[2];
+    savePlayerNames(nombres);
+    pilaDeshacer = guardada.pila;
+    actualizarBotonDeshacer();
+    actualizarMarcadorUI();
+    try {
+      config.onDeshacer(guardada.snapshot);
+    } catch (error) {
+      // Un snapshot con la forma de una versión anterior del juego haría
+      // fallar el render en cada recarga durante 24 h: se descarta y se
+      // vuelve al tablero inicial.
+      console.warn('No se pudo restaurar la partida guardada:', error);
+      pilaDeshacer = [];
+      actualizarBotonDeshacer();
+      descartarPartida();
+      config.onAplicarReinicio();
+    }
+  }
+
   function actualizarBotonDeshacer(): void {
     const boton = getControlDeshacer();
     if (!boton) return;
@@ -183,6 +272,7 @@ export function iniciarSesionJuego<TMovimiento>(
     if (miAsiento !== null || pilaDeshacer.length === 0) return;
     const snapshot = pilaDeshacer.pop();
     actualizarBotonDeshacer();
+    if (pilaDeshacer.length === 0) descartarPartida();
     anuncioPendiente = 'Jugada deshecha.';
     config.onDeshacer?.(snapshot);
   }
@@ -221,6 +311,7 @@ export function iniciarSesionJuego<TMovimiento>(
     epoca = 0;
     limpiarMarcador(slug);
     marcador = obtenerMarcador(slug);
+    descartarPartida();
 
     // Si se venía de una partida local en curso (con jugadas en el registro
     // o en la pila de deshacer), se reinicia el tablero para que ambos
@@ -515,6 +606,11 @@ export function iniciarSesionJuego<TMovimiento>(
   );
   document.addEventListener('canal-remoto-listo', alCanalRemotoListo);
   document.addEventListener('click', alClicPosibleVolverALista);
+  document.addEventListener('partida-restaurar', alRestaurarPartida);
+  document.addEventListener('visibilitychange', alCambiarVisibilidad);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', alOcultarPagina);
+  }
 
   getControlDeshacer()?.addEventListener('click', alClicControlDeshacer);
   getControlReiniciar()?.addEventListener('click', alClicControlReiniciar);
@@ -537,11 +633,13 @@ export function iniciarSesionJuego<TMovimiento>(
     desincronizado = false;
     pilaDeshacer = [];
     actualizarBotonDeshacer();
+    descartarPartida();
     config.onAplicarReinicio();
     canal?.enviar({ tipo: 'reiniciar' });
   }
 
   function mostrarTurno(opciones: MostrarTurnoOptions): void {
+    programarGuardado();
     ultimoTurnoOpciones = opciones;
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
@@ -587,6 +685,7 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function mostrarFinDeJuego(opciones: MostrarFinDeJuegoOptions): void {
+    descartarPartida();
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
     if (ind) ocultarTurnIndicator(ind);
@@ -608,6 +707,12 @@ export function iniciarSesionJuego<TMovimiento>(
     if (timeoutInicioSync !== null) {
       clearTimeout(timeoutInicioSync);
       timeoutInicioSync = null;
+    }
+    cancelarGuardado();
+    document.removeEventListener('partida-restaurar', alRestaurarPartida);
+    document.removeEventListener('visibilitychange', alCambiarVisibilidad);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('pagehide', alOcultarPagina);
     }
     liberarWakeLock();
     limpiarVisibilidad?.();

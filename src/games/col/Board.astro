@@ -183,6 +183,7 @@ import { MAPAS } from './maps';
       state = snapshot as ColState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function construirSvgDelMapa(mapaId: number): void {

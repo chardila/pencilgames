@@ -121,6 +121,7 @@ const casillas = Array.from({ length: TOTAL }, (_, i) => i);
       state = snapshot as ChompState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function render(): void {

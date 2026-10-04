@@ -214,6 +214,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       state = snapshot as HexState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   const R = 28; // Radio del hexágono

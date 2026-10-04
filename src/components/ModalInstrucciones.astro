@@ -133,6 +133,7 @@ const { title, slug } = Astro.props;
     marcarReglasVistas,
     olvidarReglasVistas,
   } from '../lib/entrada';
+  import { hayPartidaGuardada } from '../lib/partidaGuardada';
 
   const modal = document.getElementById('modal-instrucciones')!;
   const cerrar = document.getElementById('modal-instrucciones-cerrar')!;
@@ -187,7 +188,10 @@ const { title, slug } = Astro.props;
     }
   });
 
-  if (!enFlujoSala) {
+  // `yaCargado`: se llega desde un clic (Empezar de nuevo), es decir, cuando
+  // DOMContentLoaded ya ocurrió y todos los listeners existen. Esperar a ese
+  // evento de nuevo no dispararía nunca y dejaría la pantalla en blanco.
+  function arrancarFlujoNormal(yaCargado = false): void {
     if (haVistoReglas(slug)) {
       // Ya se leyeron las reglas de este juego: no se muestran de nuevo, pero
       // hay que avisar al resto del flujo (elegir modo, mostrar tablero) como
@@ -197,11 +201,27 @@ const { title, slug } = Astro.props;
       // <script type="module"> aparte y puede descargarse más tarde, así que
       // un setTimeout(0) no basta (issue #61). Se espera a DOMContentLoaded,
       // que ocurre después de todos los módulos deferred.
-      alTerminarDeCargarScripts(() => {
+      const avisar = () =>
         document.dispatchEvent(new CustomEvent('instrucciones-cerradas'));
-      });
+      if (yaCargado) avisar();
+      else alTerminarDeCargarScripts(avisar);
     } else {
       modal.hidden = false;
+    }
+  }
+
+  if (!enFlujoSala) {
+    if (hayPartidaGuardada(slug)) {
+      // Spec 06: lo primero que se ve es Continuar / Empezar de nuevo; las
+      // reglas y el modo solo se recorren si se descarta la partida.
+      alTerminarDeCargarScripts(() => {
+        document.dispatchEvent(new CustomEvent('partida-guardada-encontrada'));
+      });
+      document.addEventListener('partida-descartada', () => arrancarFlujoNormal(true), {
+        once: true,
+      });
+    } else {
+      arrancarFlujoNormal();
     }
   }
 

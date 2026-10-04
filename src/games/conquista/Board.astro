@@ -170,6 +170,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
       limpiarSeleccion();
       render();
     },
+    obtenerSnapshot: () => ({ state, repiteTurno }),
   });
 
   function puntoDe(row: number, col: number): SVGGElement {

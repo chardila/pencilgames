@@ -108,6 +108,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       state = snapshot as NotaktoState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function render(): void {

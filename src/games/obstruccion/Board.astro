@@ -95,6 +95,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
       state = snapshot as ObstruccionState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function render(): void {

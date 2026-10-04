@@ -152,6 +152,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
       limpiarSeleccion();
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function limpiarSeleccion(): void {

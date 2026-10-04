@@ -67,6 +67,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       state = snapshot as TresEnRayaState;
       render();
     },
+    obtenerSnapshot: () => state,
   });
 
   function render(): void {

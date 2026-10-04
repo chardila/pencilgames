@@ -1,0 +1,97 @@
+---
+interface Props {
+  slug: string;
+}
+const { slug } = Astro.props;
+---
+<div
+  id="modal-continuar-partida"
+  class="modal-continuar"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-continuar-titulo"
+  data-slug={slug}
+  hidden
+>
+  <div class="modal-continuar__contenido">
+    <h2 id="modal-continuar-titulo">Tienes una partida a medias</h2>
+    <p>¿Quieres seguir jugándola?</p>
+    <button type="button" id="modal-continuar-si" class="modal-continuar__continuar">
+      Continuar
+    </button>
+    <button type="button" id="modal-continuar-no" class="modal-continuar__nueva">
+      Empezar de nuevo
+    </button>
+  </div>
+</div>
+
+<style>
+  .modal-continuar {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing);
+    z-index: 20;
+  }
+  .modal-continuar[hidden] {
+    display: none;
+  }
+  .modal-continuar__contenido {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 24rem;
+    width: 100%;
+  }
+  .modal-continuar__continuar,
+  .modal-continuar__nueva {
+    display: block;
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-height: 56px;
+  }
+  .modal-continuar__continuar {
+    border: none;
+    background: var(--color-accent);
+  }
+  .modal-continuar__nueva {
+    border: 1px solid #ddd;
+    background: var(--color-surface);
+  }
+</style>
+
+<script>
+  import { guardarModo } from '../lib/entrada';
+  import { borrarPartida } from '../lib/partidaGuardada';
+
+  const modal = document.getElementById('modal-continuar-partida')!;
+  const continuar = document.getElementById('modal-continuar-si')!;
+  const nueva = document.getElementById('modal-continuar-no')!;
+  const slug = modal.dataset.slug!;
+
+  document.addEventListener('partida-guardada-encontrada', () => {
+    modal.hidden = false;
+    continuar.focus();
+  });
+
+  continuar.addEventListener('click', () => {
+    modal.hidden = true;
+    // Una partida guardada solo existe en modo local: se salta reglas y modo.
+    guardarModo('local');
+    document.dispatchEvent(new CustomEvent('modo-elegido-local'));
+    document.dispatchEvent(new CustomEvent('partida-restaurar'));
+  });
+
+  nueva.addEventListener('click', () => {
+    modal.hidden = true;
+    borrarPartida(slug);
+    document.dispatchEvent(new CustomEvent('partida-descartada'));
+  });
+</script>

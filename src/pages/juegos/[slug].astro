@@ -5,6 +5,7 @@ import ModalInstrucciones from '../../components/ModalInstrucciones.astro';
 import ModalJuegoRemoto from '../../components/ModalJuegoRemoto.astro';
 import ModalModoJuego from '../../components/ModalModoJuego.astro';
 import ModalJugadores from '../../components/ModalJugadores.astro';
+import ModalContinuarPartida from '../../components/ModalContinuarPartida.astro';
 import TresEnRayaBoard from '../../games/tres-en-raya/Board.astro';
 import PuntosYCajasBoard from '../../games/puntos-y-cajas/Board.astro';
 import AgujeroNegroBoard from '../../games/agujero-negro/Board.astro';
@@ -75,6 +76,7 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
   <ModalModoJuego />
   <ModalJuegoRemoto />
   <ModalJugadores />
+  <ModalContinuarPartida slug={juego.id} />
   <div id="contenedor-tablero" hidden>
     <Board />
   </div>
