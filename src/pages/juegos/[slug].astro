@@ -77,7 +77,7 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
   <ModalJuegoRemoto />
   <ModalJugadores />
   <ModalContinuarPartida slug={juego.id} />
-  <div id="contenedor-tablero" hidden>
+  <div id="contenedor-tablero" data-slug={juego.id} hidden>
     <Board />
   </div>
 </BaseLayout>
@@ -123,7 +123,10 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
 </style>
 
 <script>
+  import { registrarReciente } from '../../lib/recientes';
+
   const contenedorTablero = document.getElementById('contenedor-tablero')!;
+  registrarReciente(contenedorTablero.dataset.slug!);
   const botonCambiarNombres = document.getElementById('modal-jugadores-abrir')!;
   const botonPorInternet = document.getElementById('boton-jugar-por-internet')!;
 

@@ -27,6 +27,11 @@ const grupos = [
     <h1>Pencilgames</h1>
     <p>Juegos de lápiz y papel para jugar en familia, en una sola tableta.</p>
 
+    <section id="recientes" class="indice__recientes" aria-labelledby="recientes-titulo" hidden>
+      <h2 id="recientes-titulo">Seguir jugando</h2>
+      <div id="grid-recientes" class="indice__grid"></div>
+    </section>
+
     <section class="indice__filtros" aria-label="Filtrar juegos">
       {
         grupos.map(grupo => (
@@ -95,6 +100,19 @@ const grupos = [
     max-width: 60rem;
     margin: 0 auto;
     padding: var(--spacing);
+  }
+
+  .indice__recientes {
+    margin: 1rem 0;
+  }
+
+  .indice__recientes[hidden] {
+    display: none;
+  }
+
+  .indice__recientes h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.25rem;
   }
 
   .indice__filtros {
@@ -175,6 +193,7 @@ const grupos = [
 <script>
   import type { Duracion, Tipo } from '../lib/catalogo';
   import { alternar, coincide } from '../lib/filtros';
+  import { obtenerRecientes } from '../lib/recientes';
 
   const buscador = document.getElementById('buscador') as HTMLInputElement;
   const items = Array.from(document.querySelectorAll<HTMLElement>('#grid-juegos .indice__item'));
@@ -239,5 +258,32 @@ const grupos = [
     tipos = new Set();
     buscador.value = '';
     aplicar();
+  });
+
+  const seccionRecientes = document.getElementById('recientes')!;
+  const gridRecientes = document.getElementById('grid-recientes')!;
+
+  // Clona las tarjetas ya renderizadas (siguen siendo <a href> reales) en el
+  // orden de recientes; un slug que ya no existe se ignora sin error.
+  function mostrarRecientes() {
+    const porSlug = new Map(items.map(item => [item.dataset.slug!, item]));
+    const tarjetas = obtenerRecientes()
+      .map(slug => porSlug.get(slug))
+      .filter((item): item is HTMLElement => item !== undefined)
+      .map(item => {
+        const copia = item.cloneNode(true) as HTMLElement;
+        copia.hidden = false;
+        return copia;
+      });
+    gridRecientes.replaceChildren(...tarjetas);
+    seccionRecientes.hidden = tarjetas.length === 0;
+  }
+
+  mostrarRecientes();
+
+  // Al volver con «atrás» la página puede salir de la caché del navegador
+  // (bfcache) sin volver a ejecutar el script: se refresca la fila.
+  window.addEventListener('pageshow', evento => {
+    if (evento.persisted) mostrarRecientes();
   });
 </script>
