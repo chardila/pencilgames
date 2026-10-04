@@ -7,7 +7,7 @@ function idsDeFila(row: number): number[] {
 }
 ---
 
-<TableroJuego class="tablero-agujero-negro">
+<TableroJuego class="tablero-agujero-negro" ladoMin={22} ladoMax={32}>
   <div id="tablero" class="tablero-an">
     {[0, 1, 2, 3, 4, 5].map(row => (
       <div class="fila-an">
@@ -39,8 +39,8 @@ function idsDeFila(row: number): number[] {
   }
 
   .posicion-an {
-    width: 3.25rem;
-    height: 3.25rem;
+    width: clamp(3.25rem, calc(var(--lado) / 7.5), 4.5rem);
+    height: clamp(3.25rem, calc(var(--lado) / 7.5), 4.5rem);
     border-radius: 50%;
     border: 2px solid #ddd;
     background: var(--color-surface);

@@ -216,6 +216,23 @@ export function iniciarSesionJuego<TMovimiento>(
     miAsiento = canal.asiento;
     nombres[miAsiento] = detalle.miNombre;
 
+    // Toda conexión a canal remoto arranca con época 0 y marcador limpio
+    // de 0-0 entre los dos dispositivos conectados.
+    epoca = 0;
+    limpiarMarcador(slug);
+    marcador = obtenerMarcador(slug);
+
+    // Si se venía de una partida local en curso (con jugadas en el registro
+    // o en la pila de deshacer), se reinicia el tablero para que ambos
+    // rivales arranquen sincronizados desde el tablero limpio y el turno 1.
+    const teniaPartidaPrevia = registro.length > 0 || pilaDeshacer.length > 0;
+    registro = [];
+    desincronizado = false;
+    pilaDeshacer = [];
+    if (teniaPartidaPrevia) {
+      config.onAplicarReinicio();
+    }
+
     solicitarWakeLock();
     limpiarVisibilidad?.();
     limpiarVisibilidad = registrarReactivacionWakeLock();

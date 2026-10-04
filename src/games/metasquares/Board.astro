@@ -19,7 +19,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
 });
 ---
 
-<TableroJuego class="tablero-metasquares">
+<TableroJuego class="tablero-metasquares" ladoMin={25} ladoMax={34}>
   <div id="tablero" class="tablero-metasquares__container">
     <svg
       id="svg-metasquares"
@@ -39,7 +39,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
             tabindex="0"
             aria-label={`Celda columna ${c.col + 1}, fila ${c.fila + 1}`}
           >
-            <circle class="punto__halo" cx={c.x} cy={c.y} r="22" />
+            <circle class="punto__halo" cx={c.x} cy={c.y} r="24" />
             <circle class="punto__circulo" cx={c.x} cy={c.y} r="7" />
             <text
               class="punto__ficha"
@@ -57,7 +57,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
 
 <style>
   .tablero-metasquares__container {
-    width: min(94vw, 32rem);
+    width: var(--lado);
     aspect-ratio: 1;
     margin: 0 auto;
     display: flex;
