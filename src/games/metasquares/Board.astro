@@ -100,8 +100,8 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
     fill: transparent;
   }
   .punto__circulo {
-    fill: var(--color-surface, #fff);
-    stroke: rgba(0, 0, 0, 0.25);
+    fill: var(--color-surface);
+    stroke: var(--color-border);
     stroke-width: 2px;
     transition: stroke 0.15s ease;
   }

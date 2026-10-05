@@ -1,0 +1,46 @@
+---
+---
+
+<div class="acciones-cabecera">
+  <button type="button" id="modal-jugadores-abrir" class="acciones-cabecera__boton" hidden>
+    ✏️ Cambiar nombres
+  </button>
+  <button type="button" id="boton-jugar-por-internet" class="acciones-cabecera__boton" hidden>
+    🌐 Por internet
+  </button>
+</div>
+
+<style>
+  .acciones-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+
+  .acciones-cabecera__boton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 700;
+    min-height: var(--tap-target-min);
+  }
+
+  .acciones-cabecera__boton[hidden] {
+    display: none;
+  }
+
+  /* En horizontal con poca altura se compactan para que quepan en la misma fila. */
+  @media (orientation: landscape) and (height <= 46rem) {
+    .acciones-cabecera__boton {
+      padding: 0.35rem 0.6rem;
+      font-size: 0.85rem;
+    }
+  }
+</style>

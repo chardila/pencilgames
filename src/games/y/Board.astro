@@ -36,7 +36,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     background: var(--color-surface);
     padding: 0.35rem;
     border-radius: 9999px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--color-line);
   }
 
   .btn-tamano {
@@ -53,7 +53,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   .btn-tamano--activo {
     background: var(--color-accent);
-    color: #fff;
+    color: var(--color-on-accent);
   }
 
   .btn-tamano:disabled {
@@ -84,7 +84,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   :global(.y-borde-banda) {
     fill: none;
-    stroke: #9aa0a6;
+    stroke: var(--color-muted);
     stroke-width: 8;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -92,7 +92,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   :global(.y-celda) {
     fill: var(--color-surface);
-    stroke: #bbb;
+    stroke: var(--color-muted);
     stroke-width: 1.5;
     cursor: pointer;
     transition: fill 0.15s ease, stroke 0.15s ease;
@@ -109,7 +109,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
   }
 
   :global(.y-celda:hover:not([data-ocupada='true'])) {
-    fill: rgba(0, 0, 0, 0.06);
+    fill: var(--color-shade);
     stroke: var(--color-accent);
   }
 

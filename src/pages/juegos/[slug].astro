@@ -6,6 +6,7 @@ import ModalJuegoRemoto from '../../components/ModalJuegoRemoto.astro';
 import ModalModoJuego from '../../components/ModalModoJuego.astro';
 import ModalJugadores from '../../components/ModalJugadores.astro';
 import ModalContinuarPartida from '../../components/ModalContinuarPartida.astro';
+import AccionesCabecera from '../../components/AccionesCabecera.astro';
 import TresEnRayaBoard from '../../games/tres-en-raya/Board.astro';
 import PuntosYCajasBoard from '../../games/puntos-y-cajas/Board.astro';
 import AgujeroNegroBoard from '../../games/agujero-negro/Board.astro';
@@ -69,6 +70,7 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
   <header class="cabecera-juego">
     <a href="/" class="cabecera-juego__volver">← Juegos</a>
     <h1 class="cabecera-juego__titulo">{juego.data.title}</h1>
+    <AccionesCabecera />
   </header>
   <ModalInstrucciones title={juego.data.title} slug={juego.id}>
     <Content />
@@ -86,9 +88,12 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
   .cabecera-juego {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0 var(--spacing);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    /* Zonas seguras (spec 10 R3): valen 0 sin muesca ni barra de gestos. */
+    padding: env(safe-area-inset-top, 0px) max(var(--spacing), env(safe-area-inset-right, 0px)) 0
+      max(var(--spacing), env(safe-area-inset-left, 0px));
+    border-bottom: 1px solid var(--color-line);
   }
 
   .cabecera-juego__volver {
@@ -104,21 +109,13 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
 
   .cabecera-juego__titulo {
     margin: 0;
+    flex: 1 1 6rem;
+    min-width: 0;
     font-size: 1.1rem;
     font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  @media (orientation: landscape) and (height <= 46rem) {
-    /* Solo reserva espacio si hay algún botón visible en la barra fija; si
-       ambos están ocultos (antes de elegir modo, o ya conectado en remoto)
-       no hay nada que solapar y el título no debe truncarse de más. */
-    body:has(#modal-jugadores-abrir:not([hidden]), #boton-jugar-por-internet:not([hidden]))
-      .cabecera-juego {
-      padding-right: 14.5rem;
-    }
   }
 </style>
 

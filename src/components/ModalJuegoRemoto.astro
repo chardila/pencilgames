@@ -102,7 +102,7 @@
     letter-spacing: 0.2em;
     text-transform: uppercase;
     border-radius: var(--radius);
-    border: 1px solid #ddd;
+    border: 1px solid var(--color-border);
     min-height: var(--tap-target-min);
   }
 
@@ -122,7 +122,7 @@
     padding: 0.75rem;
     font-size: 1rem;
     border-radius: var(--radius);
-    border: 1px solid #ddd;
+    border: 1px solid var(--color-border);
     min-height: var(--tap-target-min);
     font-weight: 400;
   }
@@ -132,6 +132,7 @@
     border: none;
     border-radius: var(--radius);
     background: var(--color-accent);
+    color: var(--color-on-accent);
     font-size: 1rem;
     font-weight: 700;
     min-height: var(--tap-target-min);
@@ -156,7 +157,7 @@
 
   .modal-remoto__error {
     margin-top: 1rem;
-    color: #b00020;
+    color: var(--color-error);
     font-weight: 700;
   }
 
@@ -168,7 +169,7 @@
     margin-top: 1rem;
     width: 100%;
     padding: 0.5rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--color-border);
     border-radius: var(--radius);
     background: var(--color-surface);
     min-height: var(--tap-target-min);

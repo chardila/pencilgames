@@ -59,7 +59,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     font-size: 1.9rem;
     font-weight: 700;
     background: var(--color-surface);
-    border: 2px solid #ddd;
+    border: 2px solid var(--color-border);
     border-radius: 10px;
     min-height: var(--tap-target-min);
     min-width: var(--tap-target-min);
@@ -70,6 +70,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   .casilla.casilla--linea {
     background: var(--color-accent);
+    color: var(--color-on-accent);
   }
 </style>
 
