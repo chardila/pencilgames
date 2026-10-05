@@ -28,7 +28,7 @@
 </style>
 
 <script>
-  import { aplicarTema, guardarTema, obtenerTema, siguienteTema, type Tema } from '../lib/tema';
+  import { aplicarTema, crearConmutador, obtenerTema, type Tema } from '../lib/tema';
 
   const ROTULOS: Record<Tema, { icono: string; texto: string }> = {
     auto: { icono: '🌗', texto: 'Tema: Auto' },
@@ -49,11 +49,12 @@
     return Array.from(document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'));
   }
 
-  pintar(obtenerTema());
+  const inicial = obtenerTema();
+  const conmutador = crearConmutador(inicial);
+  pintar(inicial);
 
   boton.addEventListener('click', () => {
-    const t = siguienteTema(obtenerTema());
-    guardarTema(t);
+    const t = conmutador.avanzar();
     aplicarTema(t, document.documentElement, metas());
     pintar(t);
   });

@@ -65,10 +65,19 @@ describe('paleta', () => {
     });
   }
 
-  it('las metas theme-color y el script inline usan los colores de COLOR_BARRA y la clave de tema', () => {
-    expect(fuente).toContain(COLOR_BARRA.claro);
-    expect(fuente).toContain(COLOR_BARRA.oscuro);
-    expect(fuente).toContain(CLAVE_TEMA);
+  it('el script inline usa la clave de tema y los dos colores de COLOR_BARRA', () => {
+    // Se aísla el texto del script: los colores también aparecen en las metas y
+    // en :root, así que buscarlos en todo el archivo no detectaría un desajuste.
+    const inline = fuente.match(/<script is:inline>([\s\S]*?)<\/script>/)?.[1];
+    expect(inline, 'falta el <script is:inline> anti-destello').toBeDefined();
+    expect(inline).toContain(`'${CLAVE_TEMA}'`);
+    expect(inline).toContain(`'${COLOR_BARRA.claro}'`);
+    expect(inline).toContain(`'${COLOR_BARRA.oscuro}'`);
+  });
+
+  it('las metas theme-color y el fondo de cada tema usan los colores de COLOR_BARRA', () => {
+    expect(fuente).toContain(`content="${COLOR_BARRA.claro}" media="(prefers-color-scheme: light)"`);
+    expect(fuente).toContain(`content="${COLOR_BARRA.oscuro}" media="(prefers-color-scheme: dark)"`);
     expect(claro['color-bg']).toBe(COLOR_BARRA.claro);
     expect(oscuroSistema['color-bg']).toBe(COLOR_BARRA.oscuro);
   });

@@ -3,6 +3,7 @@ import {
   CLAVE_TEMA,
   COLOR_BARRA,
   aplicarTema,
+  crearConmutador,
   guardarTema,
   obtenerTema,
   siguienteTema,
@@ -73,6 +74,34 @@ describe('siguienteTema', () => {
     expect(siguienteTema('auto')).toBe('claro');
     expect(siguienteTema('claro')).toBe('oscuro');
     expect(siguienteTema('oscuro')).toBe('auto');
+  });
+});
+
+describe('crearConmutador', () => {
+  it('con localStorage bloqueado sigue ciclando auto → claro → oscuro → auto', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('bloqueado');
+      },
+      setItem: () => {
+        throw new Error('bloqueado');
+      },
+      removeItem: () => {
+        throw new Error('bloqueado');
+      },
+    });
+    const conmutador = crearConmutador(obtenerTema());
+    expect(conmutador.avanzar()).toBe('claro');
+    expect(conmutador.avanzar()).toBe('oscuro');
+    expect(conmutador.avanzar()).toBe('auto');
+  });
+  it('guarda cada tema al avanzar', () => {
+    const datos = stubStorage({ [CLAVE_TEMA]: 'claro' });
+    const conmutador = crearConmutador(obtenerTema());
+    expect(conmutador.avanzar()).toBe('oscuro');
+    expect(datos.get(CLAVE_TEMA)).toBe('oscuro');
+    expect(conmutador.avanzar()).toBe('auto');
+    expect(datos.has(CLAVE_TEMA)).toBe(false);
   });
 });
 

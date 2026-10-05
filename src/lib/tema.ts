@@ -38,6 +38,20 @@ export function siguienteTema(t: Tema): Tema {
   return TEMAS[(TEMAS.indexOf(t) + 1) % TEMAS.length];
 }
 
+// Guarda el tema actual en memoria en vez de releerlo de localStorage en cada
+// clic: si el almacenamiento está bloqueado, obtenerTema() devolvería siempre
+// 'auto' y el botón se quedaría atascado en 'claro'.
+export function crearConmutador(inicial: Tema): { avanzar(): Tema } {
+  let actual = inicial;
+  return {
+    avanzar() {
+      actual = siguienteTema(actual);
+      guardarTema(actual);
+      return actual;
+    },
+  };
+}
+
 export interface RaizTema {
   setAttribute(nombre: string, valor: string): void;
   removeAttribute(nombre: string): void;
