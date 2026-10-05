@@ -14,7 +14,22 @@ const { title } = Astro.props;
     <title>{title} · Pencilgames</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#fdf6ec" />
+    <meta name="theme-color" content="#fdf6ec" media="(prefers-color-scheme: light)" data-esquema="claro" />
+    <meta name="theme-color" content="#1b1814" media="(prefers-color-scheme: dark)" data-esquema="oscuro" />
+    <script is:inline>
+      // Aplica el tema guardado antes de pintar (evita el destello claro).
+      // Repite la lectura de src/lib/tema.ts; paleta.test.ts vigila la clave y los colores.
+      try {
+        var t = localStorage.getItem('pencilgames:tema');
+        if (t === 'claro' || t === 'oscuro') {
+          document.documentElement.setAttribute('data-tema', t);
+          var c = t === 'claro' ? '#fdf6ec' : '#1b1814';
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.setAttribute('content', c);
+          });
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <slot />
@@ -30,15 +45,61 @@ const { title } = Astro.props;
 
 <style is:global>
   :root {
+    color-scheme: light;
     --color-bg: #fdf6ec;
     --color-surface: #ffffff;
     --color-text: #2b2b2b;
-    --color-player-1: #e0532c;
-    --color-player-2: #2c6fe0;
+    --color-player-1: #c4401c;
+    --color-player-2: #2560c8;
     --color-accent: #ffb84c;
+    --color-on-accent: #2b2b2b;
+    --color-on-player: #ffffff;
+    --color-muted: #666666;
+    --color-error: #b00020;
+    --color-border: #dddddd;
+    --color-line: rgba(0, 0, 0, 0.08);
+    --color-shade: rgba(0, 0, 0, 0.06);
     --tap-target-min: 44px;
     --radius: 16px;
     --spacing: 1rem;
+  }
+
+  /* Oscuro: el mismo juego de variables, dos veces (sistema y forzado). Mantenerlos
+     idénticos: paleta.test.ts lo comprueba. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-tema="claro"]) {
+      color-scheme: dark;
+      --color-bg: #1b1814;
+      --color-surface: #27231e;
+      --color-text: #f3ebdd;
+      --color-player-1: #ff8a65;
+      --color-player-2: #6ea8ff;
+      --color-accent: #ffb84c;
+      --color-on-accent: #2b2b2b;
+      --color-on-player: #1b1814;
+      --color-muted: #b5ab9c;
+      --color-error: #ff8a80;
+      --color-border: #4a443b;
+      --color-line: rgba(255, 255, 255, 0.12);
+      --color-shade: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  :root[data-tema="oscuro"] {
+    color-scheme: dark;
+    --color-bg: #1b1814;
+    --color-surface: #27231e;
+    --color-text: #f3ebdd;
+    --color-player-1: #ff8a65;
+    --color-player-2: #6ea8ff;
+    --color-accent: #ffb84c;
+    --color-on-accent: #2b2b2b;
+    --color-on-player: #1b1814;
+    --color-muted: #b5ab9c;
+    --color-error: #ff8a80;
+    --color-border: #4a443b;
+    --color-line: rgba(255, 255, 255, 0.12);
+    --color-shade: rgba(255, 255, 255, 0.08);
   }
 
   * {

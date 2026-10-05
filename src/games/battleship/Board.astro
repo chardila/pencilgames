@@ -103,7 +103,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
   .etiquetas {
     display: grid;
     font-size: 0.75rem;
-    color: #666;
+    color: var(--color-muted);
   }
 
   .etiquetas span {
@@ -143,7 +143,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
     font-weight: 700;
     line-height: 1;
     background: var(--color-surface);
-    border: 2px solid #ddd;
+    border: 2px solid var(--color-border);
     border-radius: 6px;
     padding: 0;
     touch-action: manipulation;
@@ -182,7 +182,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
   }
 
   .casilla[data-estado='agua'] {
-    color: #666;
+    color: var(--color-muted);
   }
 
   .casilla[data-estado='tocado'],
@@ -245,7 +245,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
   .boton-primario {
     background: var(--color-accent);
-    color: var(--color-text);
+    color: var(--color-on-accent);
   }
 </style>
 

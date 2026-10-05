@@ -1,0 +1,61 @@
+---
+---
+
+<button type="button" id="conmutador-tema" class="conmutador-tema">
+  <span id="conmutador-tema-icono" aria-hidden="true">🌗</span>
+  <span id="conmutador-tema-texto">Tema: Auto</span>
+</button>
+
+<style>
+  .conmutador-tema {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 48px;
+    padding: 0 1rem;
+    border: 2px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 600;
+  }
+
+  .conmutador-tema:focus-visible {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+  }
+</style>
+
+<script>
+  import { aplicarTema, crearConmutador, obtenerTema, type Tema } from '../lib/tema';
+
+  const ROTULOS: Record<Tema, { icono: string; texto: string }> = {
+    auto: { icono: '🌗', texto: 'Tema: Auto' },
+    claro: { icono: '☀️', texto: 'Tema: Claro' },
+    oscuro: { icono: '🌙', texto: 'Tema: Oscuro' },
+  };
+
+  const boton = document.getElementById('conmutador-tema')!;
+  const icono = document.getElementById('conmutador-tema-icono')!;
+  const texto = document.getElementById('conmutador-tema-texto')!;
+
+  function pintar(t: Tema) {
+    icono.textContent = ROTULOS[t].icono;
+    texto.textContent = ROTULOS[t].texto;
+  }
+
+  function metas() {
+    return Array.from(document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'));
+  }
+
+  const inicial = obtenerTema();
+  const conmutador = crearConmutador(inicial);
+  pintar(inicial);
+
+  boton.addEventListener('click', () => {
+    const t = conmutador.avanzar();
+    aplicarTema(t, document.documentElement, metas());
+    pintar(t);
+  });
+</script>

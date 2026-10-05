@@ -51,7 +51,7 @@ const { id = 'tablero-juego', class: className = '', n = 3,
        de controles (--reserva-barra + 1rem). En horizontal se redefine más
        abajo, porque ahí la barra deja de ser fija y pasa a la columna
        lateral. */
-    --reserva-barra: 6.5rem;
+    --reserva-barra: calc(6.5rem + env(safe-area-inset-bottom, 0px));
     --cromo: 18rem;
 
     /* R2 — el lado del tablero sale del menor entre ancho y alto disponibles.
@@ -85,6 +85,8 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     justify-content: safe center;
     gap: 1rem;
     padding: var(--spacing);
+    padding-inline: max(var(--spacing), env(safe-area-inset-left, 0px))
+      max(var(--spacing), env(safe-area-inset-right, 0px));
     /* La barra de controles es fija: sin esta reserva tapa la fila final. */
     padding-bottom: calc(var(--spacing) + var(--reserva-barra));
     /* R3 — el piso táctil gana: si no cabe, el tablero desborda con scroll */
@@ -99,6 +101,9 @@ const { id = 'tablero-juego', class: className = '', n = 3,
       --cromo: 4rem;
       flex-direction: row;
       padding: 0.5rem;
+      padding-inline: max(0.5rem, env(safe-area-inset-left, 0px))
+        max(0.5rem, env(safe-area-inset-right, 0px));
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
       gap: 0.5rem;
     }
 
@@ -153,7 +158,7 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     padding: 0.25rem 0.85rem;
     border-radius: 9999px;
     background: var(--color-accent);
-    color: var(--color-text);
+    color: var(--color-on-accent);
     animation: badgePopIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     letter-spacing: 0.02em;
     /* Spec 04 R1/R2 — franja reservada de una línea, siempre en el flujo:
@@ -216,7 +221,7 @@ const { id = 'tablero-juego', class: className = '', n = 3,
   .indicador-turno :global(.ficha-turno[data-jugador='1'][data-activo='true']) {
     background: var(--color-player-1);
     border-color: var(--color-player-1);
-    color: #ffffff;
+    color: var(--color-on-player);
     transform: scale(1.15);
     box-shadow: 0 6px 16px color-mix(in srgb, var(--color-player-1) 55%, transparent);
   }
@@ -224,7 +229,7 @@ const { id = 'tablero-juego', class: className = '', n = 3,
   .indicador-turno :global(.ficha-turno[data-jugador='2'][data-activo='true']) {
     background: var(--color-player-2);
     border-color: var(--color-player-2);
-    color: #ffffff;
+    color: var(--color-on-player);
     transform: scale(1.15);
     box-shadow: 0 6px 16px color-mix(in srgb, var(--color-player-2) 55%, transparent);
   }
@@ -390,7 +395,7 @@ const { id = 'tablero-juego', class: className = '', n = 3,
 
   .banner-ganador :global(.banner-ganador__reiniciar) {
     background: var(--color-accent);
-    color: var(--color-text);
+    color: var(--color-on-accent);
   }
 
   .banner-ganador :global(.banner-ganador__otro-juego) {

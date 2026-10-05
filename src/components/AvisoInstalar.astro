@@ -1,0 +1,122 @@
+---
+---
+
+<section id="aviso-instalar" class="aviso-instalar" aria-label="Instalar Pencilgames" hidden>
+  <p class="aviso-instalar__texto">
+    Añade Pencilgames a la pantalla de inicio para abrirlo como una app, sin la barra del
+    navegador.
+    <span id="aviso-instalar-ayuda">
+      Abre el menú del navegador y elige «Añadir a pantalla de inicio».
+    </span>
+  </p>
+  <div class="aviso-instalar__acciones">
+    <button
+      type="button"
+      id="aviso-instalar-si"
+      class="aviso-instalar__boton aviso-instalar__boton--primario"
+      hidden
+    >
+      Instalar
+    </button>
+    <button type="button" id="aviso-instalar-no" class="aviso-instalar__boton">Ahora no</button>
+  </div>
+</section>
+
+<style>
+  .aviso-instalar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--color-accent);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+  }
+
+  .aviso-instalar[hidden],
+  .aviso-instalar__boton[hidden],
+  #aviso-instalar-ayuda[hidden] {
+    display: none;
+  }
+
+  .aviso-instalar__texto {
+    flex: 1 1 16rem;
+    margin: 0;
+  }
+
+  .aviso-instalar__acciones {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .aviso-instalar__boton {
+    min-height: 48px;
+    padding: 0 1rem;
+    border: 2px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 700;
+  }
+
+  .aviso-instalar__boton--primario {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+</style>
+
+<script>
+  import { debeMostrarAviso, instalarVisto, marcarInstalarVisto } from '../lib/instalar';
+
+  // Evento no estándar (Chrome/Android): solo describimos lo que usamos.
+  interface PeticionInstalar extends Event {
+    prompt(): Promise<void>;
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  }
+
+  const aviso = document.getElementById('aviso-instalar')!;
+  const botonSi = document.getElementById('aviso-instalar-si')!;
+  const botonNo = document.getElementById('aviso-instalar-no')!;
+  const ayuda = document.getElementById('aviso-instalar-ayuda')!;
+
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+  function cerrar() {
+    marcarInstalarVisto();
+    aviso.hidden = true;
+  }
+
+  if (debeMostrarAviso({ visto: instalarVisto(), standalone })) {
+    aviso.hidden = false;
+  }
+
+  let peticion: PeticionInstalar | null = null;
+
+  window.addEventListener('beforeinstallprompt', evento => {
+    evento.preventDefault();
+    peticion = evento as PeticionInstalar;
+    // Hay instalación nativa: botón real y sin las instrucciones manuales.
+    botonSi.hidden = false;
+    ayuda.hidden = true;
+  });
+
+  window.addEventListener('appinstalled', cerrar);
+
+  botonSi.addEventListener('click', async () => {
+    if (!peticion) return;
+    const p = peticion;
+    peticion = null;
+    await p.prompt();
+    await p.userChoice;
+    // Aceptada o rechazada, no se vuelve a insistir.
+    cerrar();
+  });
+
+  botonNo.addEventListener('click', cerrar);
+</script>

@@ -25,16 +25,6 @@
   </div>
 </div>
 
-<div class="barra-superior-juego">
-  <button type="button" id="modal-jugadores-abrir" class="modal-jugadores__abrir" hidden>
-    ✏️ Cambiar nombres
-  </button>
-
-  <button type="button" id="boton-jugar-por-internet" class="modal-jugadores__abrir" hidden>
-    🌐 Por internet
-  </button>
-</div>
-
 <style>
   .modal-jugadores {
     position: fixed;
@@ -71,14 +61,14 @@
     padding: 0.75rem;
     font-size: 1rem;
     border-radius: var(--radius);
-    border: 1px solid #ddd;
+    border: 1px solid var(--color-border);
     min-height: var(--tap-target-min);
     font-weight: 400;
   }
 
   .jugadores-error {
     margin-top: 1rem;
-    color: #b00020;
+    color: var(--color-error);
     font-weight: 700;
   }
 
@@ -93,55 +83,13 @@
     border: none;
     border-radius: var(--radius);
     background: var(--color-accent);
+    color: var(--color-on-accent);
     font-size: 1.1rem;
     font-weight: 700;
     min-height: var(--tap-target-min);
     min-width: var(--tap-target-min);
   }
 
-  .barra-superior-juego {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    padding: 0 var(--spacing);
-  }
-
-  .modal-jugadores__abrir {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0.9rem;
-    border: 1px solid #ddd;
-    border-radius: var(--radius);
-    background: var(--color-surface);
-    font-weight: 700;
-    min-height: var(--tap-target-min);
-  }
-
-  .modal-jugadores__abrir[hidden] {
-    display: none;
-  }
-
-  /* R5 — en horizontal con poca altura, la barra se superpone a la cabecera
-     en vez de ocupar su propia fila, para no robarle esos ~44 px de alto al
-     tablero. Los botones van dentro de un solo contenedor fijo, en fila, en
-     vez de fijar cada botón por separado (eso los hacía superponerse). */
-  @media (orientation: landscape) and (height <= 46rem) {
-    .barra-superior-juego {
-      position: fixed;
-      top: 0.25rem;
-      right: 0.5rem;
-      z-index: 5;
-      padding: 0;
-      gap: 0.35rem;
-    }
-
-    .modal-jugadores__abrir {
-      padding: 0.35rem 0.6rem;
-      font-size: 0.8rem;
-    }
-  }
 </style>
 
 <script>

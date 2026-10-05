@@ -36,7 +36,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
     font-weight: 700;
     line-height: 1;
     background: var(--color-surface);
-    border: 2px solid #ddd;
+    border: 2px solid var(--color-border);
     border-radius: 8px;
     padding: 0;
     touch-action: manipulation;
@@ -52,7 +52,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
   }
 
   .casilla--muerta {
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--color-shade);
     border-color: transparent;
   }
 

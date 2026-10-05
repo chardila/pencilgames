@@ -136,7 +136,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
     font-weight: 700;
     font-family: inherit;
     pointer-events: none;
-    fill: var(--color-text, #222);
+    fill: var(--color-text);
   }
 
   .triangulo[data-jugador='1'] .triangulo__simbolo {
@@ -148,7 +148,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
   }
 
   .arista {
-    stroke: rgba(0, 0, 0, 0.12);
+    stroke: var(--color-line);
     stroke-width: 2px;
     stroke-linecap: round;
     transition: stroke 0.2s ease, stroke-width 0.2s ease;
@@ -189,8 +189,8 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
   }
 
   .punto__circulo {
-    fill: var(--color-surface, #fff);
-    stroke: var(--color-text, #222);
+    fill: var(--color-surface);
+    stroke: var(--color-text);
     stroke-width: 2px;
     transition: stroke 0.2s ease, r 0.15s ease;
   }

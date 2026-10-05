@@ -117,7 +117,7 @@ const allEdges = getAllEdges().map(edge => {
 
   /* Aristas visuales */
   .arista-visual {
-    stroke: rgba(0, 0, 0, 0.15);
+    stroke: var(--color-border);
     stroke-width: 2.5px;
     stroke-dasharray: 4 4;
     stroke-linecap: round;
@@ -190,8 +190,8 @@ const allEdges = getAllEdges().map(edge => {
   }
 
   .nodo__circulo {
-    fill: var(--color-surface, #ffffff);
-    stroke: var(--color-text, #222222);
+    fill: var(--color-surface);
+    stroke: var(--color-text);
     stroke-width: 2.5px;
     transition: fill 0.2s ease, stroke 0.2s ease, transform 0.15s ease;
   }
@@ -199,13 +199,13 @@ const allEdges = getAllEdges().map(edge => {
   .nodo.seleccionado .nodo__circulo {
     stroke: var(--color-accent);
     stroke-width: 3.5px;
-    fill: #ffffff;
+    fill: var(--color-surface);
   }
 
   .nodo__texto {
     font-size: 14px;
     font-weight: 700;
-    fill: var(--color-text, #222222);
+    fill: var(--color-text);
     pointer-events: none;
     font-family: inherit;
   }

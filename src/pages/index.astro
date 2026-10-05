@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import GameCard from '../components/GameCard.astro';
+import ConmutadorTema from '../components/ConmutadorTema.astro';
+import AvisoInstalar from '../components/AvisoInstalar.astro';
 import { getCollection } from 'astro:content';
 import { DURACIONES, DURACION_INFO, TIPOS, TIPO_INFO } from '../lib/catalogo';
 
@@ -24,8 +26,13 @@ const grupos = [
 
 <BaseLayout title="Juegos">
   <main class="indice">
-    <h1>Pencilgames</h1>
+    <div class="indice__cabecera">
+      <h1>Pencilgames</h1>
+      <ConmutadorTema />
+    </div>
     <p>Juegos de lápiz y papel para jugar en familia, en una sola tableta.</p>
+
+    <AvisoInstalar />
 
     <section id="recientes" class="indice__recientes" aria-labelledby="recientes-titulo" hidden>
       <h2 id="recientes-titulo">Seguir jugando</h2>
@@ -99,7 +106,17 @@ const grupos = [
   .indice {
     max-width: 60rem;
     margin: 0 auto;
-    padding: var(--spacing);
+    padding: calc(var(--spacing) + env(safe-area-inset-top, 0px))
+      max(var(--spacing), env(safe-area-inset-right, 0px)) var(--spacing)
+      max(var(--spacing), env(safe-area-inset-left, 0px));
+  }
+
+  .indice__cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
   }
 
   .indice__recientes {
@@ -144,7 +161,7 @@ const grupos = [
     min-height: 48px;
     min-width: 48px;
     padding: 0 1rem;
-    border: 2px solid rgba(0, 0, 0, 0.15);
+    border: 2px solid var(--color-border);
     border-radius: 999px;
     background: var(--color-surface);
     color: var(--color-text);
@@ -155,6 +172,7 @@ const grupos = [
 
   .filtro[aria-pressed='true'] {
     background: var(--color-accent);
+    color: var(--color-on-accent);
     border-color: var(--color-text);
   }
 
@@ -169,7 +187,9 @@ const grupos = [
     padding: 0.5rem 1rem;
     font-size: 0.95rem;
     border-radius: var(--radius);
-    border: 1px solid #ddd;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
     margin: 0 0 1rem;
     min-height: var(--tap-target-min);
   }

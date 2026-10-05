@@ -23,7 +23,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     font-size: 2.5rem;
     font-weight: 700;
     background: var(--color-surface);
-    border: 2px solid #ddd;
+    border: 2px solid var(--color-border);
     border-radius: 12px;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -39,6 +39,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   .casilla.casilla--ganadora {
     background: var(--color-accent);
+    color: var(--color-on-accent);
   }
 </style>
 

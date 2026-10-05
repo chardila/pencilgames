@@ -5,6 +5,7 @@
   "theme_color": "#fdf6ec",
   "background_color": "#fdf6ec",
   "display": "standalone",
+  "orientation": "any",
   "start_url": "/",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
