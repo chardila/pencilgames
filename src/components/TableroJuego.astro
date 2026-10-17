@@ -45,12 +45,16 @@ const { id = 'tablero-juego', class: className = '', n = 3,
     --gap: 0.25rem;
     --celda-min: 3.5rem;
     --celda-max: 5rem;
-    /* Lo que el tablero no puede usar en vertical: cabecera (~2.8rem) +
-       barra superior (~2.75rem) + indicador con su hueco (~3.25rem) +
-       relleno superior (1rem) + relleno inferior que reserva la barra fija
-       de controles (--reserva-barra + 1rem). En horizontal se redefine más
-       abajo, porque ahí la barra deja de ser fija y pasa a la columna
-       lateral. */
+    /* Lo que el tablero no puede usar en vertical. Medido en un móvil de
+       390×844 (Tres en raya y Gomoku, 2026-10): cabecera con su barra
+       superior ~5,8rem (93px) + relleno superior 1rem + indicador de turno
+       ~12,8rem (204px: desde la spec 05 las fichas se apilan y lleva frase) +
+       hueco 1rem + relleno inferior que reserva la barra fija de controles
+       (1rem + --reserva-barra) ≈ 28rem. El valor de --cromo (18rem) es
+       anterior a esa spec y no lo refleja: hoy solo condiciona al tablero
+       cuando manda el alto (viewports cortos), porque en móvil manda el
+       ancho o el piso táctil. En horizontal se redefine más abajo, porque ahí
+       la barra deja de ser fija y pasa a la columna lateral. */
     --reserva-barra: calc(6.5rem + env(safe-area-inset-bottom, 0px));
     --cromo: 18rem;
 
