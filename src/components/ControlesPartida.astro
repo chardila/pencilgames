@@ -15,7 +15,7 @@
       id="control-sonido"
       class="controles-partida__boton controles-partida__boton--icono"
       aria-pressed="true"
-      aria-label="Sonido activado"
+      aria-label="Sonido"
     >
       <span id="control-sonido-icono" aria-hidden="true">🔊</span>
     </button>
@@ -198,7 +198,6 @@
   function pintar(): void {
     const activo = sonidoActivo();
     boton?.setAttribute('aria-pressed', String(activo));
-    boton?.setAttribute('aria-label', activo ? 'Sonido activado' : 'Sonido silenciado');
     if (icono) icono.textContent = activo ? '🔊' : '🔇';
   }
 
