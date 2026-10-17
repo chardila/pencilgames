@@ -12,7 +12,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 04-pieces-and-movement | [06-paper-soccer.md](04-pieces-and-movement/06-paper-soccer.md) | |
 | 04-pieces-and-movement | [07-rabbit-hole.md](04-pieces-and-movement/07-rabbit-hole.md) | |
 | 01-2-players | [08-walking-dots.md](01-2-players/08-walking-dots.md) | |
-| 01-2-players | [09-snort.md](01-2-players/09-snort.md) | |
+| 01-2-players | [09-snort.md](01-2-players/09-snort.md) | ✅ |
 | 01-2-players | [11-bridg-it.md](01-2-players/11-bridg-it.md) | ✅ |
 | 01-2-players | [12-chomp.md](01-2-players/12-chomp.md) | ✅ |
 | 01-2-players | [13-notakto.md](01-2-players/13-notakto.md) | ✅ |
