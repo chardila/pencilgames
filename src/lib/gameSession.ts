@@ -327,6 +327,7 @@ export function iniciarSesionJuego<TMovimiento>(
       nombres[1] = customEvent.detail[1];
       nombres[2] = customEvent.detail[2];
       limpiarMarcador(slug);
+      victoriaRegistrada = false;
       marcador = obtenerMarcador(slug);
       actualizarMarcadorUI();
       config.onRender();
@@ -345,6 +346,7 @@ export function iniciarSesionJuego<TMovimiento>(
     // de 0-0 entre los dos dispositivos conectados.
     epoca = 0;
     limpiarMarcador(slug);
+    victoriaRegistrada = false;
     marcador = obtenerMarcador(slug);
     descartarPartida();
 
@@ -659,6 +661,9 @@ export function iniciarSesionJuego<TMovimiento>(
   // Tras mostrarFinDeJuego los toques sobre el tablero no son "errores": la
   // partida terminó. mostrarTurno la reabre (revancha, deshacer).
   let partidaTerminada = false;
+  // Aparte de partidaTerminada: limpiar el marcador (cambio de nombres local,
+  // canal remoto nuevo) obliga a volver a registrar una victoria ya mostrada.
+  let victoriaRegistrada = false;
 
   function jugadaInvalida(): void {
     if (partidaTerminada) return;
@@ -696,6 +701,7 @@ export function iniciarSesionJuego<TMovimiento>(
 
   function reiniciar(): void {
     retirarConfeti();
+    victoriaRegistrada = false;
     epoca++;
     registro = [];
     desincronizado = false;
@@ -710,6 +716,7 @@ export function iniciarSesionJuego<TMovimiento>(
   function mostrarTurno(opciones: MostrarTurnoOptions): void {
     programarGuardado();
     partidaTerminada = false;
+    victoriaRegistrada = false;
     retirarConfeti();
     // Punto: la jugada repite turno o algún puntaje numérico subió. `mejorar`
     // solo actúa si hubo una jugada en este tick, así restaurar, deshacer o
@@ -779,7 +786,10 @@ export function iniciarSesionJuego<TMovimiento>(
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
     if (ind) ocultarTurnIndicator(ind);
-    if (opciones.ganador !== undefined) {
+    // Los juegos llaman aquí en cada render: sin esta guarda, un re-render
+    // remoto (reconexión, nombre del rival) sumaría la victoria otra vez.
+    if (opciones.ganador !== undefined && !victoriaRegistrada) {
+      victoriaRegistrada = true;
       marcador = registrarVictoria(slug, opciones.ganador);
       actualizarMarcadorUI();
     }
