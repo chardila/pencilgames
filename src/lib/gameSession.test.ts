@@ -960,6 +960,34 @@ describe('gameSession', () => {
       sesion.destruir();
     });
 
+    it('un re-render tras la victoria no la cuenta dos veces, pero tras cambiar los nombres sí se re-registra (issue #99)', () => {
+      vi.stubGlobal('location', { pathname: '/juegos/doble-conteo-test', reload: vi.fn() });
+      const sesion = iniciarSesionJuego<number>({
+        validarMovimiento: (p: unknown): p is number => typeof p === 'number',
+        onMovimientoRemoto: vi.fn(),
+        onAplicarReinicio: vi.fn(),
+        onRender: vi.fn(),
+      });
+
+      sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 1!', ganador: 1 });
+      sesion.mostrarFinDeJuego({ titulo: '¡Ganó Jugador 1!', ganador: 1 }); // re-render
+      expect(botones().marcador.textContent).toBe('Jugador 1 1 · Jugador 2 0');
+
+      document.dispatchEvent(
+        new CustomEvent('nombres-jugadores-actualizados', {
+          detail: { 1: 'Alicia', 2: 'Bob' },
+        })
+      );
+      sesion.mostrarFinDeJuego({ titulo: '¡Ganó Alicia!', ganador: 1 }); // el juego re-renderiza
+      expect(botones().marcador.textContent).toBe('Alicia 1 · Bob 0');
+
+      sesion.mostrarTurno({ jugador: 1 }); // revancha
+      sesion.mostrarFinDeJuego({ titulo: '¡Ganó Alicia!', ganador: 1 });
+      expect(botones().marcador.textContent).toBe('Alicia 2 · Bob 0');
+
+      sesion.destruir();
+    });
+
     it('un clic en cualquier enlace a "/" limpia el marcador acumulado', () => {
       vi.stubGlobal('location', { pathname: '/juegos/volver-test', reload: vi.fn() });
       const sesion = iniciarSesionJuego<number>({
