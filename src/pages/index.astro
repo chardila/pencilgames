@@ -284,12 +284,11 @@ const grupos = [
   const gridRecientes = document.getElementById('grid-recientes')!;
 
   // Clona las tarjetas ya renderizadas (siguen siendo <a href> reales) en el
-  // orden de recientes; un slug que ya no existe se ignora sin error.
+  // orden de recientes; un slug que ya no existe se descarta antes de recortar.
   function mostrarRecientes() {
     const porSlug = new Map(items.map(item => [item.dataset.slug!, item]));
-    const tarjetas = obtenerRecientes()
-      .map(slug => porSlug.get(slug))
-      .filter((item): item is HTMLElement => item !== undefined)
+    const tarjetas = obtenerRecientes(new Set(porSlug.keys()))
+      .map(slug => porSlug.get(slug)!)
       .map(item => {
         const copia = item.cloneNode(true) as HTMLElement;
         copia.hidden = false;

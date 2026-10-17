@@ -5,7 +5,9 @@
 export const CLAVE_RECIENTES = 'pencilgames:recientes';
 export const MAX_RECIENTES = 4;
 
-export function obtenerRecientes(): string[] {
+// `existentes` (los slugs que sigue teniendo el catálogo) se aplica antes de
+// recortar: un slug muerto no debe ocupar una de las plazas de la fila.
+export function obtenerRecientes(existentes?: ReadonlySet<string>): string[] {
   try {
     const raw = localStorage.getItem(CLAVE_RECIENTES);
     if (!raw) return [];
@@ -13,7 +15,7 @@ export function obtenerRecientes(): string[] {
     if (!Array.isArray(parsed)) return [];
     const vistos = new Set<string>();
     for (const x of parsed) {
-      if (typeof x === 'string' && x !== '') vistos.add(x);
+      if (typeof x === 'string' && x !== '' && (!existentes || existentes.has(x))) vistos.add(x);
     }
     return [...vistos].slice(0, MAX_RECIENTES);
   } catch {

@@ -84,6 +84,17 @@ describe('recientes', () => {
     expect(obtenerRecientes()).toEqual(['hex', 'nim', 'a', 'b']);
   });
 
+  it('con el conjunto de existentes, descarta los slugs muertos antes de recortar (issue #78)', () => {
+    storage.setItem(CLAVE_RECIENTES, JSON.stringify(['a', 'muerto', 'b', 'c', 'd', 'e']));
+    const existentes = new Set(['a', 'b', 'c', 'd', 'e']);
+    expect(obtenerRecientes(existentes)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('sin el conjunto de existentes no filtra', () => {
+    storage.setItem(CLAVE_RECIENTES, JSON.stringify(['a', 'muerto', 'b']));
+    expect(obtenerRecientes()).toEqual(['a', 'muerto', 'b']);
+  });
+
   it('si localStorage lanza, no rompe: lee [] y registrar devuelve la lista en memoria', () => {
     vi.stubGlobal('localStorage', {
       getItem() {
