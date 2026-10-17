@@ -769,6 +769,9 @@ export function iniciarSesionJuego<TMovimiento>(
 
   function mostrarFinDeJuego(opciones: MostrarFinDeJuegoOptions): void {
     descartarPartida();
+    // Los juegos llaman aquí en cada render mientras la partida está ganada
+    // (reconexión, cambio de nombres): el confeti solo sale en la transición.
+    const yaTerminada = partidaTerminada;
     partidaTerminada = true;
     // Victoria con ganador; un empate se celebra más bajo (como un punto).
     if (opciones.ganador === 1 || opciones.ganador === 2) senales.mejorar('victoria');
@@ -788,7 +791,7 @@ export function iniciarSesionJuego<TMovimiento>(
       });
     }
     // Después de pintar el banner: la celebración nunca tapa el resultado.
-    if (opciones.ganador === 1 || opciones.ganador === 2) lanzarConfeti();
+    if (!yaTerminada && (opciones.ganador === 1 || opciones.ganador === 2)) lanzarConfeti();
   }
 
   function destruir(): void {
