@@ -2062,6 +2062,19 @@ describe('gameSession — señales de feedback (spec 09)', () => {
     sesion.destruir();
   });
 
+  it('un re-render tras la victoria no relanza el confeti, pero tras reabrir la partida sí (issue #81)', () => {
+    const sesion = montar();
+    sesion.guardarParaDeshacer({ n: 1 });
+    sesion.mostrarFinDeJuego({ titulo: 'gana', ganador: 1 });
+    sesion.mostrarFinDeJuego({ titulo: 'gana', ganador: 1 }); // re-render
+    expect(lanzarConfeti).toHaveBeenCalledTimes(1);
+
+    sesion.mostrarTurno({ jugador: 1 }); // revancha o deshacer
+    sesion.mostrarFinDeJuego({ titulo: 'gana', ganador: 2 });
+    expect(lanzarConfeti).toHaveBeenCalledTimes(2);
+    sesion.destruir();
+  });
+
   it('reiniciar (revancha) y mostrarTurno retiran el confeti', () => {
     const sesion = montar();
     sesion.reiniciar();
