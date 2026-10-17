@@ -107,7 +107,8 @@ const grupos = [
     max-width: 60rem;
     margin: 0 auto;
     padding: calc(var(--spacing) + env(safe-area-inset-top, 0px))
-      max(var(--spacing), env(safe-area-inset-right, 0px)) var(--spacing)
+      max(var(--spacing), env(safe-area-inset-right, 0px))
+      calc(var(--spacing) + env(safe-area-inset-bottom, 0px))
       max(var(--spacing), env(safe-area-inset-left, 0px));
   }
 
