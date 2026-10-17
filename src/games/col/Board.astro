@@ -141,6 +141,8 @@ import { MAPAS } from './maps';
 <script>
   import {
     createInitialState,
+    desempaquetarSnapshot,
+    empaquetarSnapshot,
     esJugadaValida,
     playMove,
     regionesLegales,
@@ -180,10 +182,14 @@ import { MAPAS } from './maps';
       pathsPorId.forEach(p => (p.style.pointerEvents = 'none'));
     },
     onDeshacer: snapshot => {
-      state = snapshot as ColState;
+      const desempaquetado = desempaquetarSnapshot(snapshot);
+      state = desempaquetado.state;
+      if (desempaquetado.jugadorInicialSiguiente) {
+        jugadorInicialSiguiente = desempaquetado.jugadorInicialSiguiente;
+      }
       render();
     },
-    obtenerSnapshot: () => state,
+    obtenerSnapshot: () => empaquetarSnapshot(state, jugadorInicialSiguiente),
   });
 
   function construirSvgDelMapa(mapaId: number): void {

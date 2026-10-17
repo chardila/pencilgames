@@ -32,6 +32,23 @@ export function createInitialState(jugadorInicial: Player = 1): ColState {
   };
 }
 
+// El jugador que abre la partida siguiente depende de quién ganó la actual,
+// no se deduce de `state`: viaja junto al estado en el snapshot persistido.
+export type SnapshotCol = ColState & { jugadorInicialSiguiente?: Player };
+
+export function empaquetarSnapshot(state: ColState, jugadorInicialSiguiente: Player): SnapshotCol {
+  return { ...state, jugadorInicialSiguiente };
+}
+
+export function desempaquetarSnapshot(snapshot: unknown): {
+  state: ColState;
+  jugadorInicialSiguiente: Player | undefined;
+} {
+  const { jugadorInicialSiguiente, ...state } = snapshot as SnapshotCol;
+  const valido = jugadorInicialSiguiente === 1 || jugadorInicialSiguiente === 2;
+  return { state, jugadorInicialSiguiente: valido ? jugadorInicialSiguiente : undefined };
+}
+
 const otro = (p: Player): Player => (p === 1 ? 2 : 1);
 
 export function esJugadaValida(payload: unknown): payload is ColMove {
