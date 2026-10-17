@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   createInitialState,
+  desempaquetarSnapshot,
+  empaquetarSnapshot,
   esJugadaValida,
   regionesLegales,
   type ColState,
@@ -224,5 +226,28 @@ describe('partidas aleatorias', () => {
       expect(s.winner === 1 || s.winner === 2).toBe(true);
       expect(s.fase).toBe('terminado');
     }
+  });
+});
+
+describe('snapshot con jugadorInicialSiguiente (issue #75)', () => {
+  it('ida y vuelta conserva el estado y el jugador inicial siguiente', () => {
+    const state = createInitialState(2);
+    const { state: restaurado, jugadorInicialSiguiente } = desempaquetarSnapshot(
+      JSON.parse(JSON.stringify(empaquetarSnapshot(state, 2)))
+    );
+    expect(restaurado).toEqual(state);
+    expect(jugadorInicialSiguiente).toBe(2);
+  });
+
+  it('el estado desempaquetado no arrastra el campo extra', () => {
+    const { state } = desempaquetarSnapshot(empaquetarSnapshot(createInitialState(), 2));
+    expect('jugadorInicialSiguiente' in state).toBe(false);
+  });
+
+  it('un snapshot sin el campo (pila de deshacer o partida antigua) devuelve undefined', () => {
+    const base = createInitialState(1);
+    const { state, jugadorInicialSiguiente } = desempaquetarSnapshot(base);
+    expect(state).toEqual(base);
+    expect(jugadorInicialSiguiente).toBeUndefined();
   });
 });
