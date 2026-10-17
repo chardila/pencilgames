@@ -121,6 +121,11 @@ const ICONOS: Record<string, string> = {
     `<path d="M24 6L43 40H5Z"/>` +
     `<path d="M24 29V17M24 29L14 35M24 29L34 35" stroke="${P1}" stroke-width="3"/>` +
     punto(24, 29, P1, 3.5),
+  kropki:
+    `<path d="M10 10L24 6L38 10L40 24L38 38L24 42L10 38L8 24Z" stroke="${P1}" stroke-width="3"/>` +
+    punto(24, 24, P2, 5) +
+    [[10, 10], [24, 6], [38, 10], [40, 24], [38, 38], [24, 42], [10, 38], [8, 24]]
+      .map(([x, y]) => punto(x, y, P1, 3.6)).join(''),
   metasquares:
     [9, 19, 29, 39].flatMap(x => [9, 19, 29, 39].map(y => punto(x, y, 'currentColor', 1.6))).join('') +
     `<path d="M19 9L29 19L19 29L9 19Z" stroke="${P1}"/>` +
