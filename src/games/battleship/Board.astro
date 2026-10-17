@@ -181,8 +181,18 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
     border-bottom-left-radius: calc(min(var(--eb, 1), var(--el, 1)) * 6px);
   }
 
+  /* Agua: punto dibujado con CSS (proporcional a la celda) en vez del glifo
+     «·», que quedaba diminuto. */
   .casilla[data-estado='agua'] {
-    color: var(--color-muted);
+    color: transparent;
+  }
+
+  .casilla[data-estado='agua']::after {
+    content: '';
+    width: 38%;
+    height: 38%;
+    border-radius: 50%;
+    background: var(--color-muted);
   }
 
   .casilla[data-estado='tocado'],
@@ -272,7 +282,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
   const textoResultado = (r: 'agua' | 'tocado' | 'hundido') =>
     r === 'agua' ? 'agua' : r === 'tocado' ? 'tocado' : '¡hundido!';
   const glifoEstado = (r: 'agua' | 'tocado' | 'hundido' | null) =>
-    r === 'agua' ? '·' : r === 'tocado' ? '✳' : r === 'hundido' ? '✖' : '';
+    r === 'agua' ? '' : r === 'tocado' ? '✳' : r === 'hundido' ? '✖' : '';
 
   const interstitial = document.getElementById('interstitial')!;
   const interstitialTexto = document.getElementById('interstitial-texto')!;
