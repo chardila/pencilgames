@@ -275,10 +275,15 @@ const grupos = [
   buscador.addEventListener('input', aplicar);
 
   botonLimpiar.addEventListener('click', () => {
+    // Al limpiar, el aviso (y este botón) se oculta: con teclado el foco se
+    // perdería. Solo en ese caso se lleva al buscador; con un toque no, para
+    // no abrir el teclado en pantalla.
+    const conTeclado = botonLimpiar.matches(':focus-visible');
     duraciones = new Set();
     tipos = new Set();
     buscador.value = '';
     aplicar();
+    if (conTeclado) buscador.focus();
   });
 
   const seccionRecientes = document.getElementById('recientes')!;
