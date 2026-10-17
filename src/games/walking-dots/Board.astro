@@ -1,0 +1,211 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const TAMANO = 7;
+const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
+---
+
+<TableroJuego class="tablero-walking-dots" n={TAMANO}>
+  <div id="tablero" class="tablero" role="grid" aria-label="Tablero de Puntos Caminantes, 7 por 7">
+    {casillas.map(i => (
+      <button
+        type="button"
+        class="casilla"
+        data-indice={i}
+        aria-label={`Fila ${Math.floor(i / TAMANO) + 1}, columna ${(i % TAMANO) + 1}`}
+      />
+    ))}
+  </div>
+  <div class="barra-pasar">
+    <button type="button" id="wd-pasar" class="barra-pasar__btn">Pasar</button>
+    <span id="wd-aviso" class="barra-pasar__aviso" aria-live="polite"></span>
+  </div>
+</TableroJuego>
+
+<style>
+  /* 7 columnas con el piso de 3,5rem (56px) miden ~416px y desbordan un móvil
+     de 412px: se baja al piso táctil de 48px. El id gana en especificidad a las
+     reglas con scope de TableroJuego. */
+  :global(#tablero-juego.tablero-walking-dots) {
+    --celda-min: 3rem;
+  }
+
+  .tablero {
+    display: grid;
+    grid-template-columns: repeat(7, var(--celda));
+    grid-template-rows: repeat(7, var(--celda));
+    gap: var(--gap);
+    margin: 0 auto;
+    touch-action: manipulation;
+  }
+
+  .casilla {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(1.2rem, 7vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .casilla[data-valor='1'] { color: var(--color-player-1); }
+  .casilla[data-valor='2'] { color: var(--color-player-2); }
+
+  /* Territorio provisional (módulo de área): zonas vacías de un solo jugador. */
+  .casilla[data-territorio='1'] {
+    background: color-mix(in srgb, var(--color-player-1) 14%, var(--color-surface));
+  }
+  .casilla[data-territorio='2'] {
+    background: color-mix(in srgb, var(--color-player-2) 14%, var(--color-surface));
+  }
+
+  .casilla--legal {
+    border-color: var(--color-accent);
+    cursor: pointer;
+  }
+
+  .casilla--ultima {
+    box-shadow: inset 0 0 0 3px var(--color-accent);
+  }
+
+  .barra-pasar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+    min-height: 3.5rem;
+  }
+
+  .barra-pasar__btn {
+    min-height: var(--tap-target-min);
+    padding: 0 1.25rem;
+    border-radius: 8px;
+    border: 2px solid var(--color-accent);
+    background: transparent;
+    color: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .barra-pasar__btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .barra-pasar__aviso {
+    font-weight: 700;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    esLegal,
+    puntajes,
+    playMove,
+    type WalkingDotsState,
+    type Move,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const FICHAS = { 1: '●', 2: '▲' } as const;
+
+  const tablero = document.getElementById('tablero')!;
+  const casillas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.casilla'));
+  const btnPasar = document.getElementById('wd-pasar') as HTMLButtonElement;
+  const aviso = document.getElementById('wd-aviso')!;
+
+  let state: WalkingDotsState = createInitialState();
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      casillas.forEach(c => (c.disabled = true));
+      btnPasar.disabled = true;
+    },
+    onDeshacer: snapshot => {
+      state = snapshot as WalkingDotsState;
+      render();
+    },
+    obtenerSnapshot: () => state,
+  });
+
+  function render(): void {
+    const jugador = state.currentPlayer;
+    const esMiTurno = sesion.esMiTurno(jugador) && state.status === 'playing';
+    const area = puntajes(state.board);
+
+    casillas.forEach((casilla, i) => {
+      const valor = state.board[i];
+      casilla.textContent = valor ? FICHAS[valor] : '';
+      if (valor) casilla.dataset.valor = String(valor);
+      else delete casilla.dataset.valor;
+      const territorio = area.duenoDeVacia[i];
+      if (territorio) casilla.dataset.territorio = String(territorio);
+      else delete casilla.dataset.territorio;
+      const legal = esMiTurno && esLegal(state.board, i, jugador);
+      casilla.classList.toggle('casilla--legal', legal);
+      casilla.classList.toggle('casilla--ultima', state.lastMove === i);
+      casilla.disabled = !legal;
+    });
+
+    btnPasar.disabled = !esMiTurno;
+    aviso.textContent =
+      state.status === 'playing' && state.pasesSeguidos === 1
+        ? 'Si pasas ahora, termina la partida'
+        : '';
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador,
+        simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
+        puntajes: { 1: area.total[1], 2: area.total[2] },
+      });
+    } else {
+      const ganador = state.winner === 1 || state.winner === 2 ? state.winner : null;
+      sesion.mostrarFinDeJuego({
+        titulo:
+          ganador === null
+            ? '🤝 ¡Empate!'
+            : `🎉 ¡Ganó ${sesion.nombres[ganador]} (${FICHAS[ganador]})!`,
+        detalle: `${sesion.nombres[1]} ${area.total[1]} · ${sesion.nombres[2]} ${area.total[2]} (puntos + territorio)`,
+        ganador,
+      });
+    }
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    // Sin guardia de esMiTurno: los movimientos remotos llegan con el
+    // currentPlayer local aún en el emisor. El input local ya está protegido
+    // por casilla.disabled y btnPasar.disabled en render; playMove es la
+    // autoridad.
+    const prev = state;
+    state = playMove(state, move);
+    if (state === prev) return;
+    sesion.guardarParaDeshacer(prev);
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  casillas.forEach(casilla => {
+    casilla.addEventListener('click', () => jugar(Number(casilla.dataset.indice)));
+  });
+  btnPasar.addEventListener('click', () => jugar('pasar'));
+
+  render();
+</script>
