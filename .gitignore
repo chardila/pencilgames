@@ -23,3 +23,7 @@ CLAUDE.md
 
 # PDFs de referencia (libros, reglas) — no versionar
 *.pdf
+
+# Playwright
+playwright-report/
+test-results/

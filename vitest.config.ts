@@ -15,6 +15,6 @@ export default defineConfig({
     // sin el `**/` inicial, ese `worker/` anidado no quedaba excluido y
     // `npm test` desde la raíz del checkout principal volvía a chocar con
     // `cloudflare:test` al recoger los tests del worktree anidado.
-    exclude: ['**/node_modules/**', '**/worker/**'],
+    exclude: ['**/node_modules/**', '**/worker/**', '**/e2e/**'],
   },
 });
