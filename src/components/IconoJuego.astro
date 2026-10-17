@@ -170,6 +170,10 @@ const ICONOS: Record<string, string> = {
     `<path d="M8 40V28H22V14H38" stroke="${P1}" stroke-width="5"/>` +
     punto(38, 14, P1, 5.5) + punto(40, 12.5, '#fff', 1.4) +
     `<path d="M40 40V32" stroke="${P2}" stroke-width="5"/>` + punto(40, 30, P2, 5.5),
+  snort:
+    cuadricula(8, 8, 10.67, 4) +
+    punto(8, 8, P1, 4.5) + punto(18.67, 8, P1, 4.5) + punto(8, 18.67, P1, 4.5) +
+    punto(40, 40, P2, 4.5) + punto(29.33, 40, P2, 4.5) + punto(40, 29.33, P2, 4.5),
   sos:
     [0, 1, 2]
       .map(k => `<rect x="${4 + k * 14.5}" y="14" width="13" height="20" rx="3" stroke-width="2"/>`)
