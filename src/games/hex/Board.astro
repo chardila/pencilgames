@@ -252,7 +252,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
     const totalHeight = MARGIN * 2 + (size - 1) * (1.5 * R) + 2 * R;
     svg.setAttribute('viewBox', `0 0 ${totalWidth.toFixed(1)} ${totalHeight.toFixed(1)}`);
     const wrapper = svg.parentElement as HTMLElement;
-    wrapper.style.setProperty('--ratio', (totalWidth / totalHeight).toFixed(3));
+    // El ratio sale de los mismos valores redondeados del viewBox: con otros, el
+    // alto del SVG se desviaba ~0,1px del disponible en vertical (#91).
+    const ratio = +totalWidth.toFixed(1) / +totalHeight.toFixed(1);
+    wrapper.style.setProperty('--ratio', ratio.toFixed(5));
     // Piso táctil: el hexágono (ancho W unidades) debe medir ≥48px.
     wrapper.style.setProperty('--lado-min-hex', `${Math.ceil((totalWidth * 48) / W)}px`);
 
