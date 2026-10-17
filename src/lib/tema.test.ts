@@ -7,6 +7,7 @@ import {
   guardarTema,
   obtenerTema,
   siguienteTema,
+  temaDeAlmacenamiento,
   type MetaColor,
 } from './tema';
 
@@ -136,5 +137,19 @@ describe('aplicarTema', () => {
     aplicarTema('auto', raiz, m);
     expect(raiz.attrs.has('data-tema')).toBe(false);
     expect(m.map(x => x.content)).toEqual([COLOR_BARRA.claro, COLOR_BARRA.oscuro]);
+  });
+});
+
+describe('adoptar el tema de otra pestaña', () => {
+  it('temaDeAlmacenamiento: valor válido, inválido o clave borrada', () => {
+    expect(temaDeAlmacenamiento('oscuro')).toBe('oscuro');
+    expect(temaDeAlmacenamiento('rosa')).toBe('auto');
+    expect(temaDeAlmacenamiento(null)).toBe('auto');
+  });
+  it('fijar hace que el siguiente avance parta del tema adoptado', () => {
+    stubStorage();
+    const conmutador = crearConmutador('auto');
+    conmutador.fijar('oscuro');
+    expect(conmutador.avanzar()).toBe('auto');
   });
 });

@@ -6,7 +6,7 @@
     Añade Pencilgames a la pantalla de inicio para abrirlo como una app, sin la barra del
     navegador.
     <span id="aviso-instalar-ayuda">
-      Abre el menú del navegador y elige «Añadir a pantalla de inicio».
+      Abre el menú del navegador y elige «Instalar» o «Añadir a pantalla de inicio».
     </span>
   </p>
   <div class="aviso-instalar__acciones">
@@ -70,7 +70,12 @@
 </style>
 
 <script>
-  import { debeMostrarAviso, instalarVisto, marcarInstalarVisto } from '../lib/instalar';
+  import {
+    ayudaManual,
+    debeMostrarAviso,
+    instalarVisto,
+    marcarInstalarVisto,
+  } from '../lib/instalar';
 
   // Evento no estándar (Chrome/Android): solo describimos lo que usamos.
   interface PeticionInstalar extends Event {
@@ -87,6 +92,11 @@
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
+  ayuda.textContent = ayudaManual({
+    userAgent: navigator.userAgent,
+    puntosTactiles: navigator.maxTouchPoints,
+  });
+
   function cerrar() {
     marcarInstalarVisto();
     aviso.hidden = true;
@@ -99,6 +109,9 @@
   let peticion: PeticionInstalar | null = null;
 
   window.addEventListener('beforeinstallprompt', evento => {
+    // Con el aviso oculto (ya visto o instalada) no hay dónde ofrecer el botón:
+    // se deja el prompt nativo del navegador en vez de suprimirlo.
+    if (aviso.hidden) return;
     evento.preventDefault();
     peticion = evento as PeticionInstalar;
     // Hay instalación nativa: botón real y sin las instrucciones manuales.
@@ -112,9 +125,14 @@
     if (!peticion) return;
     const p = peticion;
     peticion = null;
-    await p.prompt();
-    await p.userChoice;
-    // Aceptada o rechazada, no se vuelve a insistir.
+    try {
+      await p.prompt();
+      await p.userChoice;
+    } catch {
+      // prompt() rechaza si el navegador ya no admite la petición (p. ej. se
+      // usó antes): no hay nada que reintentar.
+    }
+    // Aceptada, rechazada o fallida, no se vuelve a insistir.
     cerrar();
   });
 

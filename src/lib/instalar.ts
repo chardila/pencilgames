@@ -24,3 +24,14 @@ export function marcarInstalarVisto(): void {
 export function debeMostrarAviso(o: { visto: boolean; standalone: boolean }): boolean {
   return !o.visto && !o.standalone;
 }
+
+// Texto de ayuda para quien no recibe `beforeinstallprompt` (Safari de iOS,
+// Firefox, etc.): ahí no hay botón de instalar y el camino manual depende del
+// navegador. iPadOS moderno se anuncia como Mac, de ahí la comprobación táctil.
+export function ayudaManual(o: { userAgent: string; puntosTactiles: number }): string {
+  const esIOS =
+    /iPad|iPhone|iPod/.test(o.userAgent) || (/Macintosh/.test(o.userAgent) && o.puntosTactiles > 1);
+  return esIOS
+    ? 'Toca el botón Compartir y elige «Añadir a pantalla de inicio».'
+    : 'Abre el menú del navegador y elige «Instalar» o «Añadir a pantalla de inicio».';
+}
