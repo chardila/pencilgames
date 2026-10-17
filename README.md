@@ -13,6 +13,24 @@ npm test         # tests de los engines
 npm run build    # build de producción en dist/
 ```
 
+## Pruebas e2e
+
+Playwright prueba el `dist` construido (Chromium, escritorio y móvil). En CI un
+selector (`scripts/seleccionar-e2e.mjs`) decide qué suites correr según los
+archivos cambiados; ante la duda corren todas, y bloquean el despliegue.
+
+```bash
+npm run build
+npm run test:e2e:install   # una vez: descarga Chromium
+npm run test:e2e           # todas las suites
+E2E_SUITES=portada npm run test:e2e              # solo la portada
+E2E_SUITES=juegos E2E_SLUGS=hex,nim npm run test:e2e  # solo esos juegos
+```
+
+Un juego nuevo queda cubierto solo con añadir su `.md` al catálogo. Si el
+adaptador genérico (`e2e/juegos/adaptadores.ts`) no encuentra dónde hacer clic,
+la prueba falla con `juego <slug> sin adaptador e2e`: añade ahí su entrada.
+
 ## Modo remoto (jugar por internet)
 
 Los 3 juegos soportan jugar entre dos computadoras por internet, uniéndose

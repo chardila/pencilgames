@@ -72,6 +72,7 @@ function archivosCambiados(base) {
   try {
     const salida = execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', `${base}...HEAD`], {
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
     });
     return salida.split('\0').filter(Boolean);
   } catch {

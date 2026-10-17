@@ -1,0 +1,71 @@
+name: E2E
+
+on:
+  workflow_call:
+    inputs:
+      base:
+        description: SHA contra el que se calcula el diff para elegir suites (vacío = correr todas)
+        type: string
+        default: ""
+
+jobs:
+  # Este job SIEMPRE se ejecuta: el ruleset de main exige chequeos y uno omitido
+  # queda pendiente y bloquea el merge. Si no hay nada que probar, los pasos
+  # pesados se saltan y el job termina en verde.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Seleccionar suites
+        id: sel
+        run: node scripts/seleccionar-e2e.mjs --base "${{ inputs.base }}"
+
+      - name: Resumen de la selección
+        run: |
+          echo "suites: '${{ steps.sel.outputs.suites }}'  slugs: '${{ steps.sel.outputs.slugs }}'"
+          echo "### E2E" >> "$GITHUB_STEP_SUMMARY"
+          echo "Suites: \`${{ steps.sel.outputs.suites || 'ninguna' }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cachear navegadores de Playwright
+        if: steps.sel.outputs.suites != ''
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar Chromium
+        if: steps.sel.outputs.suites != ''
+        run: npm run test:e2e:install
+
+      - name: Build
+        if: steps.sel.outputs.suites != ''
+        run: npm run build
+        env:
+          PUBLIC_SIGNAL_WORKER_URL: https://signal.games.cardila.com
+
+      - name: Pruebas e2e
+        if: steps.sel.outputs.suites != ''
+        run: npm run test:e2e
+        env:
+          E2E_SUITES: ${{ steps.sel.outputs.suites }}
+          E2E_SLUGS: ${{ steps.sel.outputs.slugs }}
+
+      - name: Subir reporte de Playwright
+        if: ${{ !cancelled() && steps.sel.outputs.suites != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
