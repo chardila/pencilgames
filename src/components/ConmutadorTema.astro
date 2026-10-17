@@ -28,7 +28,14 @@
 </style>
 
 <script>
-  import { aplicarTema, crearConmutador, obtenerTema, type Tema } from '../lib/tema';
+  import {
+    CLAVE_TEMA,
+    aplicarTema,
+    crearConmutador,
+    obtenerTema,
+    temaDeAlmacenamiento,
+    type Tema,
+  } from '../lib/tema';
 
   const ROTULOS: Record<Tema, { icono: string; texto: string }> = {
     auto: { icono: '🌗', texto: 'Tema: Auto' },
@@ -55,6 +62,17 @@
 
   boton.addEventListener('click', () => {
     const t = conmutador.avanzar();
+    aplicarTema(t, document.documentElement, metas());
+    pintar(t);
+  });
+
+  // Otra pestaña cambió el tema: esta lo adopta sin recargar. `storage` solo
+  // se dispara en las demás pestañas, nunca en la que escribió. key === null
+  // es un localStorage.clear(): equivale a volver a auto.
+  window.addEventListener('storage', evento => {
+    if (evento.key !== null && evento.key !== CLAVE_TEMA) return;
+    const t = temaDeAlmacenamiento(evento.key === null ? null : evento.newValue);
+    conmutador.fijar(t);
     aplicarTema(t, document.documentElement, metas());
     pintar(t);
   });

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CLAVE_INSTALAR_VISTO,
+  ayudaManual,
   debeMostrarAviso,
   instalarVisto,
   marcarInstalarVisto,
@@ -52,5 +53,22 @@ describe('debeMostrarAviso', () => {
     expect(debeMostrarAviso({ visto: false, standalone: false })).toBe(true);
     expect(debeMostrarAviso({ visto: true, standalone: false })).toBe(false);
     expect(debeMostrarAviso({ visto: false, standalone: true })).toBe(false);
+  });
+});
+
+describe('ayudaManual', () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
+  const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15';
+  const FIREFOX = 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0';
+
+  it('en iPhone indica el botón Compartir', () => {
+    expect(ayudaManual({ userAgent: IPHONE, puntosTactiles: 5 })).toMatch(/Compartir/);
+  });
+  it('un iPad que se anuncia como Mac también', () => {
+    expect(ayudaManual({ userAgent: MAC, puntosTactiles: 5 })).toMatch(/Compartir/);
+  });
+  it('un Mac de escritorio y otros navegadores reciben la ayuda genérica', () => {
+    expect(ayudaManual({ userAgent: MAC, puntosTactiles: 0 })).toMatch(/menú del navegador/);
+    expect(ayudaManual({ userAgent: FIREFOX, puntosTactiles: 0 })).toMatch(/menú del navegador/);
   });
 });

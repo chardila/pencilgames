@@ -41,7 +41,7 @@ export function siguienteTema(t: Tema): Tema {
 // Guarda el tema actual en memoria en vez de releerlo de localStorage en cada
 // clic: si el almacenamiento está bloqueado, obtenerTema() devolvería siempre
 // 'auto' y el botón se quedaría atascado en 'claro'.
-export function crearConmutador(inicial: Tema): { avanzar(): Tema } {
+export function crearConmutador(inicial: Tema): { avanzar(): Tema; fijar(t: Tema): void } {
   let actual = inicial;
   return {
     avanzar() {
@@ -49,7 +49,16 @@ export function crearConmutador(inicial: Tema): { avanzar(): Tema } {
       guardarTema(actual);
       return actual;
     },
+    // Otra pestaña cambió el tema: se adopta sin volver a guardarlo.
+    fijar(t) {
+      actual = t;
+    },
   };
+}
+
+// Valor de la clave tal como llega en un evento `storage` (null = borrada = auto).
+export function temaDeAlmacenamiento(valor: string | null): Tema {
+  return esTema(valor) ? valor : 'auto';
 }
 
 export interface RaizTema {
