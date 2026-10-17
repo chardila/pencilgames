@@ -23,7 +23,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [18-kropki.md](01-2-players/18-kropki.md) | |
 | 01-2-players | [19-triangle-game.md](01-2-players/19-triangle-game.md) | |
 | 01-2-players | [20-arithmetic-progression.md](01-2-players/20-arithmetic-progression.md) | |
-| 01-2-players | [21-col.md](01-2-players/21-col.md) | |
+| 01-2-players | [21-col.md](01-2-players/21-col.md) | ✅ |
 | 01-2-players | [22-hackenbush.md](01-2-players/22-hackenbush.md) | |
 | 04-pieces-and-movement | [23-phutball.md](04-pieces-and-movement/23-phutball.md) | |
 | 04-pieces-and-movement | [24-racetrack.md](04-pieces-and-movement/24-racetrack.md) | |
