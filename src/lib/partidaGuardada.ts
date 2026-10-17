@@ -14,6 +14,9 @@ export interface DatosPartida {
   nombres: PlayerNames;
   snapshot: unknown;
   pila: unknown[];
+  // La pila perdió jugadas antiguas: el snapshot más viejo no es el tablero
+  // inicial. Opcional para no invalidar entradas anteriores.
+  pilaRecortada?: boolean;
 }
 
 export interface PartidaGuardada extends DatosPartida {
