@@ -5,7 +5,7 @@ import { codificarEstado, decodificarEstado } from './partidaGuardada';
 // algún juego incluyera algo no clonable (funciones, instancias de clase con
 // métodos, etc.) el clon perdería datos o `structuredClone` lanzaría, y el
 // bug solo aparecería jugando esa partida concreta. Este test lo detecta para
-// los 21 motores de una sola vez, sin tener que leerlos todos a mano.
+// los 22 motores de una sola vez, sin tener que leerlos todos a mano.
 const ENGINES = [
   'agujero-negro',
   'battleship',
@@ -13,6 +13,7 @@ const ENGINES = [
   'chomp',
   'col',
   'conquista',
+  'cram',
   'domineering',
   'estampida',
   'gomoku',
@@ -44,7 +45,7 @@ describe('el estado inicial de cada juego sobrevive a structuredClone', () => {
 // `codificarEstado`, que conserva Map y Set (Conquista usa un Map). Lo que
 // ese codificador no pueda ir y volver (funciones, undefined, clases con
 // métodos) se perdería sin avisar al restaurar: este test lo detecta para
-// los 21 motores de una vez.
+// los 22 motores de una vez.
 describe('el estado inicial de cada juego sobrevive a codificarEstado (localStorage)', () => {
   it.each(ENGINES)('%s', async juego => {
     const mod: { createInitialState: (...args: never[]) => unknown } =
