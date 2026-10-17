@@ -39,7 +39,9 @@ import TableroJuego from '../../components/TableroJuego.astro';
     transition: opacity 0.2s ease;
   }
 
-  .mini-tablero[data-muerto='true'] {
+  /* La atenuación va en las casillas, no en el contenedor: la etiqueta
+     «muerto» no puede heredarla y perder contraste (AA, 4.5:1). */
+  .mini-tablero[data-muerto='true'] .casilla {
     opacity: 0.55;
   }
 
@@ -52,7 +54,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     font-weight: 800;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--color-accent);
+    color: var(--color-muted);
   }
 
   .casilla {
