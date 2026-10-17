@@ -1,0 +1,297 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+---
+
+<TableroJuego class="tablero-kropki" ladoMin={22} ladoMax={32}>
+  <div class="kropki-wrapper">
+    <svg
+      id="kropki-svg"
+      class="kropki-svg"
+      role="grid"
+      aria-label="Tablero de Kropki, 8 por 8 intersecciones"
+    ></svg>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-kropki {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .kropki-wrapper {
+    width: var(--lado);
+    margin: 0 auto;
+    touch-action: manipulation;
+  }
+
+  .kropki-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+  }
+
+  /* Los hijos del SVG se crean desde el cliente: sin atributo de scope de
+     Astro, así que sus reglas van con :global(). */
+  :global(.kropki-territorio[data-jugador='1']) { fill: var(--color-player-1); }
+  :global(.kropki-territorio[data-jugador='2']) { fill: var(--color-player-2); }
+  :global(.kropki-territorio) { fill-opacity: 0.2; }
+
+  :global(.kropki-muro) {
+    stroke-width: 6;
+    stroke-linecap: round;
+  }
+  :global(.kropki-muro[data-jugador='1']) { stroke: var(--color-player-1); }
+  :global(.kropki-muro[data-jugador='2']) { stroke: var(--color-player-2); }
+
+  :global(.kropki-hit) {
+    fill: transparent;
+    outline: none;
+  }
+
+  :global(.kropki-punto) {
+    fill: var(--color-border);
+  }
+
+  :global(.kropki-grupo[data-libre='true']) {
+    cursor: pointer;
+  }
+
+  :global(.kropki-grupo[data-libre='true']:hover .kropki-punto),
+  :global(.kropki-grupo[data-libre='true']:focus-visible .kropki-punto) {
+    fill: var(--color-accent);
+    stroke: var(--color-accent);
+    stroke-width: 3;
+  }
+
+  :global(.kropki-grupo[data-jugador='1'] .kropki-punto) { fill: var(--color-player-1); }
+  :global(.kropki-grupo[data-jugador='2'] .kropki-punto) { fill: var(--color-player-2); }
+
+  /* Punto capturado: hueco, con el color de su dueño original. */
+  :global(.kropki-grupo[data-capturado='true'] .kropki-punto) {
+    fill: var(--color-surface);
+    stroke-width: 4;
+  }
+  :global(.kropki-grupo[data-capturado='true'][data-jugador='1'] .kropki-punto) { stroke: var(--color-player-1); }
+  :global(.kropki-grupo[data-capturado='true'][data-jugador='2'] .kropki-punto) { stroke: var(--color-player-2); }
+
+  :global(.kropki-grupo[data-ultima='true'] .kropki-punto) {
+    stroke: var(--color-accent);
+    stroke-width: 4;
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    esLegal,
+    vecinas8,
+    playMove,
+    TAMANO,
+    TOTAL,
+    type KropkiState,
+    type Player,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const FICHAS = { 1: '●', 2: '▲' } as const;
+  const PASO = 60;
+  const MARGEN = 40;
+
+  const svg = document.getElementById('kropki-svg') as unknown as SVGSVGElement;
+  let capaTerritorio: SVGGElement;
+  let capaMuros: SVGGElement;
+
+  let state: KropkiState = createInitialState();
+
+  function coord(i: number): { x: number; y: number } {
+    return { x: MARGEN + (i % TAMANO) * PASO, y: MARGEN + Math.floor(i / TAMANO) * PASO };
+  }
+
+  const sesion = iniciarSesionJuego<number>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: indice => jugar(indice, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      svg.querySelectorAll<SVGGElement>('.kropki-grupo').forEach(g => {
+        g.dataset.libre = 'false';
+        g.setAttribute('aria-disabled', 'true');
+        (g.querySelector('.kropki-hit') as SVGRectElement).style.pointerEvents = 'none';
+      });
+    },
+    onDeshacer: snapshot => {
+      state = snapshot as KropkiState;
+      render();
+    },
+    obtenerSnapshot: () => state,
+  });
+
+  function nuevoGrupo(clase: string): SVGGElement {
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('class', clase);
+    svg.appendChild(g);
+    return g;
+  }
+
+  function construirTablero(): void {
+    svg.innerHTML = '';
+    const lado = MARGEN * 2 + (TAMANO - 1) * PASO;
+    svg.setAttribute('viewBox', `0 0 ${lado} ${lado}`);
+
+    capaTerritorio = nuevoGrupo('kropki-capa-territorio');
+    capaMuros = nuevoGrupo('kropki-capa-muros');
+
+    for (let i = 0; i < TOTAL; i++) {
+      const { x, y } = coord(i);
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('class', 'kropki-grupo');
+      g.setAttribute('data-indice', String(i));
+      g.setAttribute('data-libre', 'false');
+      g.setAttribute('tabindex', '0');
+      g.setAttribute('role', 'gridcell');
+
+      const hit = document.createElementNS(SVG_NS, 'rect');
+      hit.setAttribute('class', 'kropki-hit');
+      hit.setAttribute('x', String(x - PASO / 2));
+      hit.setAttribute('y', String(y - PASO / 2));
+      hit.setAttribute('width', String(PASO));
+      hit.setAttribute('height', String(PASO));
+      hit.style.pointerEvents = 'none';
+
+      const punto = document.createElementNS(SVG_NS, 'circle');
+      punto.setAttribute('class', 'kropki-punto');
+      punto.setAttribute('cx', String(x));
+      punto.setAttribute('cy', String(y));
+      punto.setAttribute('r', '6');
+
+      g.appendChild(hit);
+      g.appendChild(punto);
+      g.addEventListener('click', () => {
+        if (g.dataset.libre === 'true') jugar(i);
+      });
+      g.addEventListener('keydown', (e: KeyboardEvent) => {
+        if ((e.key === 'Enter' || e.key === ' ') && g.dataset.libre === 'true') {
+          e.preventDefault();
+          jugar(i);
+        }
+      });
+      svg.appendChild(g);
+    }
+  }
+
+  function render(): void {
+    const esMiTurno =
+      sesion.esMiTurno(state.currentPlayer) && state.status === 'playing';
+
+    // Territorio: una celda tintada por intersección cubierta.
+    capaTerritorio.replaceChildren();
+    state.territorio.forEach((dueno, i) => {
+      if (dueno === null) return;
+      const { x, y } = coord(i);
+      const r = document.createElementNS(SVG_NS, 'rect');
+      r.setAttribute('class', 'kropki-territorio');
+      r.setAttribute('data-jugador', String(dueno));
+      r.setAttribute('x', String(x - PASO / 2));
+      r.setAttribute('y', String(y - PASO / 2));
+      r.setAttribute('width', String(PASO));
+      r.setAttribute('height', String(PASO));
+      capaTerritorio.appendChild(r);
+    });
+
+    // Muros: une los puntos vivos de un mismo jugador contiguos (8 direcciones).
+    capaMuros.replaceChildren();
+    for (let i = 0; i < TOTAL; i++) {
+      const dueno = state.board[i];
+      if (dueno === null || state.capturado[i]) continue;
+      for (const v of vecinas8(i)) {
+        if (v < i || state.board[v] !== dueno || state.capturado[v]) continue;
+        const a = coord(i);
+        const b = coord(v);
+        const l = document.createElementNS(SVG_NS, 'line');
+        l.setAttribute('class', 'kropki-muro');
+        l.setAttribute('data-jugador', String(dueno));
+        l.setAttribute('x1', String(a.x));
+        l.setAttribute('y1', String(a.y));
+        l.setAttribute('x2', String(b.x));
+        l.setAttribute('y2', String(b.y));
+        capaMuros.appendChild(l);
+      }
+    }
+
+    svg.querySelectorAll<SVGGElement>('.kropki-grupo').forEach(g => {
+      const i = Number(g.dataset.indice);
+      const dueno = state.board[i];
+      const libre = esMiTurno && esLegal(state, i);
+      g.dataset.libre = libre ? 'true' : 'false';
+      g.dataset.capturado = String(state.capturado[i]);
+      g.dataset.ultima = String(state.lastMove === i);
+      if (dueno === null) delete g.dataset.jugador;
+      else g.dataset.jugador = String(dueno);
+      g.setAttribute('aria-disabled', libre ? 'false' : 'true');
+
+      (g.querySelector('.kropki-hit') as SVGRectElement).style.pointerEvents =
+        libre ? 'auto' : 'none';
+      (g.querySelector('.kropki-punto') as SVGCircleElement).setAttribute(
+        'r',
+        dueno === null ? '6' : '14',
+      );
+
+      let label = `Fila ${Math.floor(i / TAMANO) + 1}, columna ${(i % TAMANO) + 1}`;
+      if (dueno !== null) {
+        label += ` (Jugador ${dueno} ${FICHAS[dueno]}${state.capturado[i] ? ', capturado' : ''})`;
+      } else if (state.territorio[i] !== null) {
+        label += ` (territorio del Jugador ${state.territorio[i]})`;
+      }
+      g.setAttribute('aria-label', label);
+    });
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: state.currentPlayer,
+        simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
+        puntajes: { 1: state.scores[1], 2: state.scores[2] },
+      });
+    } else {
+      const ganador = state.winner === 1 || state.winner === 2 ? state.winner : null;
+      sesion.mostrarFinDeJuego({
+        titulo:
+          ganador === null
+            ? '🤝 ¡Empate!'
+            : `🎉 ¡Ganó ${sesion.nombres[ganador]} (${FICHAS[ganador]})!`,
+        detalle: `Capturas: ${sesion.nombres[1]} ${state.scores[1]} · ${sesion.nombres[2]} ${state.scores[2]}`,
+        ganador,
+      });
+    }
+  }
+
+  function jugar(indice: number, emitirRemoto = true): void {
+    if (state.status !== 'playing') return;
+    // Guard de turno solo para la entrada local; los movimientos remotos
+    // llegan cuando currentPlayer aún es el asiento del rival.
+    if (emitirRemoto && !sesion.esMiTurno(state.currentPlayer)) {
+      sesion.jugadaInvalida();
+      return;
+    }
+    const antes = state;
+    state = playMove(state, indice);
+    if (state === antes) {
+      if (emitirRemoto) sesion.jugadaInvalida();
+      return;
+    }
+    sesion.guardarParaDeshacer(antes);
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(indice);
+  }
+
+  construirTablero();
+  render();
+</script>
