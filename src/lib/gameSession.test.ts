@@ -1094,6 +1094,57 @@ describe('gameSession', () => {
       sesion.destruir();
     });
 
+    it('con la pila recortada, deshacer hasta vaciarla conserva la partida (issue #74)', () => {
+      let estado = { n: 0 };
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: snapshot => {
+          estado = snapshot as { n: number };
+          sesion.mostrarTurno({ jugador: 1 });
+        },
+        obtenerSnapshot: () => estado,
+      });
+      const deshacer = mockDoc.getElementById('control-deshacer')!;
+
+      for (let i = 0; i < 12; i++) {
+        sesion.guardarParaDeshacer(estado);
+        estado = { n: estado.n + 1 };
+        sesion.mostrarTurno({ jugador: 1 });
+      }
+      for (let i = 0; i < 10; i++) deshacer.dispatchEvent(new Event('click'));
+      vi.advanceTimersByTime(300);
+
+      const guardada = leerPartida('gomoku')!;
+      expect(guardada.snapshot).toEqual({ n: 2 });
+      expect(guardada.pila).toEqual([]);
+      expect(guardada.pilaRecortada).toBe(true);
+      sesion.destruir();
+    });
+
+    it('restaura pilaRecortada y, al deshacer hasta vaciar de nuevo, no borra la partida', () => {
+      guardarPartida('gomoku', {
+        nombres: { 1: 'Ana', 2: 'Beto' },
+        snapshot: { n: 5 },
+        pila: [{ n: 4 }],
+        pilaRecortada: true,
+      });
+      let estado = { n: 5 };
+      const sesion = iniciarSesionJuego<number>({
+        ...configBase(),
+        onDeshacer: snapshot => {
+          estado = snapshot as { n: number };
+          sesion.mostrarTurno({ jugador: 1 });
+        },
+        obtenerSnapshot: () => estado,
+      });
+      document.dispatchEvent(new Event('partida-restaurar'));
+      mockDoc.getElementById('control-deshacer')!.dispatchEvent(new Event('click'));
+      vi.advanceTimersByTime(300);
+
+      expect(leerPartida('gomoku')!.snapshot).toEqual({ n: 4 });
+      sesion.destruir();
+    });
+
     it('terminar la partida borra la entrada y cancela una escritura pendiente', () => {
       const sesion = iniciarSesionJuego<number>({
         ...configBase(),

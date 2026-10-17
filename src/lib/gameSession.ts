@@ -146,6 +146,10 @@ export function iniciarSesionJuego<TMovimiento>(
   const senales = crearSenales(emitirSenal);
 
   let pilaDeshacer: unknown[] = [];
+  // Con la pila recortada (más de PROFUNDIDAD_DESHACER jugadas) el último
+  // snapshot que queda no es el tablero inicial: vaciar la pila no equivale
+  // a una partida sin empezar y no debe borrar la partida guardada.
+  let pilaRecortada = false;
   let marcador: Marcador = obtenerMarcador(slug);
   // Se une a la próxima frase que arme mostrarTurno, para que "Jugada
   // deshecha"/"Partida reiniciada" llegue al mismo cambio de texto del
@@ -160,13 +164,18 @@ export function iniciarSesionJuego<TMovimiento>(
     return miAsiento === null && !!config.obtenerSnapshot;
   }
 
+  function hayPartidaPersistible(): boolean {
+    return puedePersistir() && (pilaDeshacer.length > 0 || pilaRecortada);
+  }
+
   function escribirPartida(): void {
     timeoutGuardado = null;
-    if (!puedePersistir() || pilaDeshacer.length === 0) return;
+    if (!hayPartidaPersistible()) return;
     guardarPartida(slug, {
       nombres: { 1: nombres[1], 2: nombres[2] },
       snapshot: config.obtenerSnapshot!(),
       pila: pilaDeshacer,
+      pilaRecortada,
     });
   }
 
@@ -175,7 +184,7 @@ export function iniciarSesionJuego<TMovimiento>(
   // guardada. Solo borran deshacer-hasta-vacío, reiniciar, el fin de la
   // partida y conectar en remoto.
   function programarGuardado(): void {
-    if (!puedePersistir() || pilaDeshacer.length === 0) return;
+    if (!hayPartidaPersistible()) return;
     if (timeoutGuardado !== null) clearTimeout(timeoutGuardado);
     timeoutGuardado = setTimeout(escribirPartida, DEBOUNCE_GUARDADO_MS);
   }
@@ -218,6 +227,7 @@ export function iniciarSesionJuego<TMovimiento>(
     nombres[2] = guardada.nombres[2];
     savePlayerNames(nombres);
     pilaDeshacer = guardada.pila;
+    pilaRecortada = guardada.pilaRecortada === true;
     actualizarBotonDeshacer();
     actualizarMarcadorUI();
     try {
@@ -228,6 +238,7 @@ export function iniciarSesionJuego<TMovimiento>(
       // vuelve al tablero inicial.
       console.warn('No se pudo restaurar la partida guardada:', error);
       pilaDeshacer = [];
+      pilaRecortada = false;
       actualizarBotonDeshacer();
       descartarPartida();
       config.onAplicarReinicio();
@@ -253,7 +264,10 @@ export function iniciarSesionJuego<TMovimiento>(
     senales.marcar('toque');
     if (miAsiento !== null) return; // sin pila propia en modo remoto
     pilaDeshacer.push(structuredClone(snapshot));
-    if (pilaDeshacer.length > PROFUNDIDAD_DESHACER) pilaDeshacer.shift();
+    if (pilaDeshacer.length > PROFUNDIDAD_DESHACER) {
+      pilaDeshacer.shift();
+      pilaRecortada = true;
+    }
     actualizarBotonDeshacer();
   }
 
@@ -293,7 +307,7 @@ export function iniciarSesionJuego<TMovimiento>(
     if (miAsiento !== null || pilaDeshacer.length === 0) return;
     const snapshot = pilaDeshacer.pop();
     actualizarBotonDeshacer();
-    if (pilaDeshacer.length === 0) descartarPartida();
+    if (pilaDeshacer.length === 0 && !pilaRecortada) descartarPartida();
     anuncioPendiente = 'Jugada deshecha.';
     config.onDeshacer?.(snapshot);
   }
@@ -341,6 +355,7 @@ export function iniciarSesionJuego<TMovimiento>(
     registro = [];
     desincronizado = false;
     pilaDeshacer = [];
+    pilaRecortada = false;
     if (teniaPartidaPrevia) {
       config.onAplicarReinicio();
     }
@@ -490,6 +505,7 @@ export function iniciarSesionJuego<TMovimiento>(
       registro = [];
       desincronizado = false;
       pilaDeshacer = [];
+      pilaRecortada = false;
       actualizarBotonDeshacer();
       config.onAplicarReinicio();
       aplicarLote(msg.movimientos);
@@ -558,6 +574,7 @@ export function iniciarSesionJuego<TMovimiento>(
       registro = [];
       desincronizado = false;
       pilaDeshacer = [];
+      pilaRecortada = false;
       actualizarBotonDeshacer();
       config.onAplicarReinicio();
     } else if (mensaje.tipo === 'sync-hola') {
@@ -683,6 +700,7 @@ export function iniciarSesionJuego<TMovimiento>(
     registro = [];
     desincronizado = false;
     pilaDeshacer = [];
+    pilaRecortada = false;
     actualizarBotonDeshacer();
     descartarPartida();
     config.onAplicarReinicio();
