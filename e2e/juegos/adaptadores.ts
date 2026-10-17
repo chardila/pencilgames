@@ -50,6 +50,8 @@ const ESPECIFICOS: Record<string, Adaptador> = {
   conquista: clicEn('[data-interactivo="true"]'),
   triggle: clicEn('.punto .punto__halo'),
   // Los destinos legales pulsan (animación infinita): nunca están «estables».
+  // Solo son jugables las casillas junto a un punto propio (la 0 no lo es).
+  'puntos-caminantes': clicEn('button.casilla:not(:disabled)'),
   snakes: clicEn('.snakes-grupo[data-destino="true"] .snakes-punto', undefined, { force: true }),
   chomp: clicEn('button[data-indice]:last-of-type'),
   // Primero hay que elegir un mapa; después, una región.
