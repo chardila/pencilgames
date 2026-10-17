@@ -1,0 +1,283 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const SIZE = 6;
+---
+
+<TableroJuego class="tablero-oc" n={SIZE}>
+  <div class="selector-letra" role="radiogroup" aria-label="Elegir marca">
+    <span class="selector-letra__label">Marca:</span>
+    <div class="selector-letra__controles">
+      <button
+        type="button"
+        role="radio"
+        aria-checked="true"
+        class="btn-letra activo"
+        data-letra="X"
+        id="btn-marca-x"
+      >
+        X
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked="false"
+        class="btn-letra"
+        data-letra="O"
+        id="btn-marca-o"
+      >
+        O
+      </button>
+    </div>
+  </div>
+
+  <div class="tablero-oc__contenedor">
+    <div id="tablero-grid" class="tablero-oc__grid" role="grid" aria-label="Tablero de Orden y Caos, 6 por 6">
+      {Array.from({ length: SIZE }).map((_, r) =>
+        Array.from({ length: SIZE }).map((_, c) => (
+          <button
+            type="button"
+            class="casilla"
+            data-fila={r}
+            data-columna={c}
+            aria-label={`Fila ${r + 1}, Columna ${c + 1}`}
+          />
+        ))
+      )}
+    </div>
+  </div>
+</TableroJuego>
+
+<style>
+  .tablero-oc {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .selector-letra {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: color-mix(in srgb, var(--color-surface) 80%, var(--color-shade));
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-line);
+  }
+
+  .selector-letra__label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    opacity: 0.8;
+  }
+
+  .selector-letra__controles {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .btn-letra {
+    min-width: 2.5rem;
+    min-height: 2.2rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: transparent;
+    cursor: pointer;
+    color: var(--color-text);
+    transition: all 0.15s ease;
+  }
+
+  .btn-letra:hover:not(:disabled) {
+    background: var(--color-shade);
+  }
+
+  .btn-letra.activo {
+    background: var(--color-text);
+    color: var(--color-surface);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn-letra:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .tablero-oc__contenedor {
+    position: relative;
+    width: calc(6 * var(--celda) + 7 * var(--gap));
+    aspect-ratio: 1;
+    margin: 0 auto;
+  }
+
+  .tablero-oc__grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+    width: 100%;
+    height: 100%;
+    gap: var(--gap);
+    background: var(--color-shade);
+    padding: var(--gap);
+    border-radius: var(--radius);
+  }
+
+  .casilla {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    border: none;
+    border-radius: 4px;
+    font-size: clamp(1.1rem, 4vw, 1.4rem);
+    font-weight: 800;
+    color: var(--color-text);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease, transform 0.1s ease;
+    padding: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .casilla:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-surface) 90%, black);
+    transform: scale(0.98);
+  }
+
+  .casilla:disabled {
+    cursor: default;
+  }
+
+  .casilla.casilla--ultima {
+    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--color-text) 30%, transparent);
+  }
+
+  .casilla.casilla--linea {
+    background: color-mix(in srgb, var(--color-player-1) 28%, var(--color-surface));
+    box-shadow: inset 0 0 0 3px var(--color-player-1);
+  }
+</style>
+
+<script>
+  import {
+    createInitialState,
+    esJugadaValida,
+    playMove,
+    type OrdenCaosState,
+    type Move,
+    type Marca,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const ROLES = { 1: 'Orden', 2: 'Caos' } as const;
+
+  const tableroGrid = document.getElementById('tablero-grid')!;
+  const casillas = Array.from(tableroGrid.querySelectorAll<HTMLButtonElement>('.casilla'));
+  const botonesMarca = Array.from(document.querySelectorAll<HTMLButtonElement>('.btn-letra'));
+
+  let state: OrdenCaosState = createInitialState();
+  let marcaActiva: Marca = 'X';
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      marcaActiva = 'X';
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      for (const casilla of casillas) casilla.disabled = true;
+      for (const btn of botonesMarca) btn.disabled = true;
+    },
+    onDeshacer: snapshot => {
+      state = snapshot as OrdenCaosState;
+      render();
+    },
+    obtenerSnapshot: () => state,
+  });
+
+  function render(): void {
+    const esMiTurno =
+      sesion.esMiTurno(state.currentPlayer) && state.status === 'playing';
+
+    for (const btn of botonesMarca) {
+      const activa = btn.dataset.letra === marcaActiva;
+      btn.classList.toggle('activo', activa);
+      btn.setAttribute('aria-checked', String(activa));
+      btn.disabled = !esMiTurno;
+    }
+
+    casillas.forEach((casilla, i) => {
+      const valor = state.board[i];
+      casilla.textContent = valor ?? '';
+      casilla.disabled = valor !== null || !esMiTurno;
+      casilla.classList.toggle('casilla--ultima', state.lastMove?.cell === i);
+      casilla.classList.toggle('casilla--linea', state.linea?.includes(i) ?? false);
+    });
+
+    if (state.status === 'playing') {
+      sesion.mostrarTurno({
+        jugador: state.currentPlayer,
+        detalle: `Juega ${ROLES[state.currentPlayer]} · elige X u O`,
+        simbolos: { 1: '■', 2: '✳' },
+      });
+    } else if (state.winner === 1) {
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[1]} (Orden)!`,
+        detalle: 'Cinco iguales en línea',
+        ganador: 1,
+      });
+    } else {
+      sesion.mostrarFinDeJuego({
+        titulo: `🎉 ¡Ganó ${sesion.nombres[2]} (Caos)!`,
+        detalle: 'El tablero se llenó sin cinco en línea',
+        ganador: 2,
+      });
+    }
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    // Sin guardia de esMiTurno: los movimientos remotos llegan con el
+    // currentPlayer local aún en el emisor. El input local ya está protegido
+    // por casilla.disabled en render; playMove es la autoridad.
+    const prev = state;
+    state = playMove(state, move);
+    if (state === prev) return;
+    sesion.guardarParaDeshacer(prev);
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  for (const btn of botonesMarca) {
+    btn.addEventListener('click', () => {
+      marcaActiva = btn.dataset.letra as Marca;
+      render();
+    });
+  }
+
+  casillas.forEach((casilla, i) => {
+    casilla.addEventListener('click', () => {
+      jugar({ cell: i, marca: marcaActiva });
+    });
+  });
+
+  // Teclado: X y O cambian la marca activa.
+  document.addEventListener('keydown', e => {
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+    if (e.key === 'x' || e.key === 'X') {
+      marcaActiva = 'X';
+      render();
+    } else if (e.key === 'o' || e.key === 'O') {
+      marcaActiva = 'O';
+      render();
+    }
+  });
+
+  render();
+</script>

@@ -152,6 +152,10 @@ const ICONOS: Record<string, string> = {
         return `<rect x="${6 + c * 9.5}" y="${6 + f * 9.5}" width="8" height="8" rx="2" stroke-width="2" fill="${fill}"${op}/>`;
       })
       .join(''),
+  'orden-y-caos':
+    cuadricula(8, 8, 8, 6) +
+    [0, 1, 2, 3].map(k => equis(10 + 8 * k, 10 + 8 * k, 3, P1)).join('') +
+    punto(34, 18, P2, 3) + punto(18, 34, P2, 3) + punto(40, 40, P2, 3),
   'puntos-y-cajas':
     [8, 24, 40].flatMap(x => [8, 24, 40].map(y => punto(x, y, 'currentColor', 2.5))).join('') +
     `<rect x="8" y="8" width="16" height="16" fill="${P1}" fill-opacity=".25" stroke="${P1}"/>` +

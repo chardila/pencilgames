@@ -19,7 +19,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [14-nim.md](01-2-players/14-nim.md) | ✅ |
 | 01-2-players | [15-domineering.md](01-2-players/15-domineering.md) | ✅ |
 | 01-2-players | [16-sos.md](01-2-players/16-sos.md) | ✅ |
-| 01-2-players | [17-order-and-chaos.md](01-2-players/17-order-and-chaos.md) | |
+| 01-2-players | [17-order-and-chaos.md](01-2-players/17-order-and-chaos.md) | ✅ (Orden y Caos) |
 | 01-2-players | [18-kropki.md](01-2-players/18-kropki.md) | |
 | 01-2-players | [19-triangle-game.md](01-2-players/19-triangle-game.md) | |
 | 01-2-players | [20-arithmetic-progression.md](01-2-players/20-arithmetic-progression.md) | |
