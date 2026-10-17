@@ -58,6 +58,23 @@ describe('seleccionarSuites', () => {
   });
 });
 
+describe('seleccionarSuites con catálogo', () => {
+  const catalogo = ['hex', 'juego-y', 'nim'];
+
+  it('un directorio de juego que no es slug del catálogo (src/games/y ⇒ juego-y) cae en «todas»', () => {
+    expect(seleccionarSuites(['src/games/y/Board.astro'], catalogo)).toEqual(TODAS);
+  });
+
+  it('slugs que sí están en el catálogo siguen siendo selectivos', () => {
+    expect(seleccionarSuites(['src/games/hex/Board.astro', 'src/content/juegos/juego-y.md'], catalogo)).toEqual({
+      todas: false,
+      portada: true,
+      juegos: ['hex', 'juego-y'],
+      remoto: false,
+    });
+  });
+});
+
 describe('slugsDeArchivos', () => {
   it('extrae slugs únicos y ordenados de juegos y de su md del catálogo', () => {
     expect(

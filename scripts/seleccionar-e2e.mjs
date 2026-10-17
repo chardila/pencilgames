@@ -2,7 +2,7 @@
 // Criterio conservador: ante la duda, todas. La lógica es pura; el CLI solo
 // lee el diff de git y escribe las salidas para GitHub Actions.
 import { execFileSync } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const PREFIJOS_NUCLEO = [
@@ -49,9 +49,12 @@ export function slugsDeArchivos(archivos) {
 
 /**
  * @param {string[] | null} archivos `null` = diff no calculable
+ * @param {string[]} [catalogo] slugs del catálogo. Si se pasa y algún juego tocado
+ *   no figura en él (p. ej. el directorio `src/games/y` es el slug `juego-y`), no
+ *   se puede saber qué probar: todas.
  * @returns {{todas: boolean, portada: boolean, juegos: string[], remoto: boolean}}
  */
-export function seleccionarSuites(archivos) {
+export function seleccionarSuites(archivos, catalogo) {
   const todas = { todas: true, portada: false, juegos: [], remoto: false };
   if (archivos === null || archivos.length === 0) return todas;
 
@@ -59,6 +62,7 @@ export function seleccionarSuites(archivos) {
   if (tipos.includes('desconocido') || tipos.includes('nucleo')) return todas;
 
   const juegos = slugsDeArchivos(archivos);
+  if (catalogo && juegos.some(slug => !catalogo.includes(slug))) return todas;
   return {
     todas: false,
     portada: juegos.length > 0,
@@ -80,9 +84,18 @@ function archivosCambiados(base) {
   }
 }
 
+function slugsDelCatalogo() {
+  return readdirSync('src/content/juegos')
+    .filter(nombre => nombre.endsWith('.md'))
+    .map(nombre => nombre.slice(0, -'.md'.length));
+}
+
 function main() {
   const i = process.argv.indexOf('--base');
-  const seleccion = seleccionarSuites(archivosCambiados(i === -1 ? '' : process.argv[i + 1]));
+  const seleccion = seleccionarSuites(
+    archivosCambiados(i === -1 ? '' : process.argv[i + 1]),
+    slugsDelCatalogo(),
+  );
 
   const suites = seleccion.todas
     ? 'todas'
