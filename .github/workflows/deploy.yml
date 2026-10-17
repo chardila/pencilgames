@@ -8,8 +8,13 @@ jobs:
   test-and-check:
     uses: ./.github/workflows/_test.yml
 
+  e2e:
+    uses: ./.github/workflows/_e2e.yml
+    with:
+      base: ${{ github.event.before }}
+
   deploy:
-    needs: [test-and-check]
+    needs: [test-and-check, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,7 +38,7 @@ jobs:
           command: pages deploy dist --project-name=pencilgames --branch=main
 
   deploy-worker:
-    needs: [test-and-check]
+    needs: [test-and-check, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read

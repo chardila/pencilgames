@@ -10,7 +10,9 @@
     "check": "astro check",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:all": "npm test && npm test --prefix worker"
+    "test:all": "npm test && npm test --prefix worker",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -20,6 +22,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
+    "@playwright/test": "1.64.1",
+    "@types/node": "22.20.5",
     "sharp": "^0.35.5",
     "typescript": "^6.0.3",
     "vitest": "^5.0.3"
