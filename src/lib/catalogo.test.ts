@@ -41,8 +41,8 @@ describe('catalogo', () => {
     expect(textoEdad(9)).toBe('9+ años');
   });
 
-  it('hay 26 juegos', () => {
-    expect(juegos).toHaveLength(26);
+  it('hay 27 juegos', () => {
+    expect(juegos).toHaveLength(27);
   });
 
   it.each(juegos)('$slug declara duracion, edad y tipo válidos', ({ texto }) => {
