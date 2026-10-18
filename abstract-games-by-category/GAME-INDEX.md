@@ -21,7 +21,6 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [16-sos.md](01-2-players/16-sos.md) | ✅ |
 | 01-2-players | [17-order-and-chaos.md](01-2-players/17-order-and-chaos.md) | ✅ (Orden y Caos) |
 | 01-2-players | [18-kropki.md](01-2-players/18-kropki.md) | ✅ |
-| 01-2-players | [19-triangle-game.md](01-2-players/19-triangle-game.md) | |
 | 01-2-players | [20-arithmetic-progression.md](01-2-players/20-arithmetic-progression.md) | |
 | 01-2-players | [21-col.md](01-2-players/21-col.md) | ✅ |
 | 01-2-players | [22-hackenbush.md](01-2-players/22-hackenbush.md) | |
@@ -29,13 +28,9 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 04-pieces-and-movement | [24-racetrack.md](04-pieces-and-movement/24-racetrack.md) | |
 | 01-2-players | [26-y.md](01-2-players/26-y.md) | ✅ |
 | 01-2-players | [27-gomoku.md](01-2-players/27-gomoku.md) | ✅ |
-| 01-2-players | [28-connect6.md](01-2-players/28-connect6.md) | |
-| 01-2-players | [31-clique.md](01-2-players/31-clique.md) | |
-| 01-2-players | [33-box-making.md](01-2-players/33-box-making.md) | |
 | 01-2-players | [36-conquista.md](01-2-players/36-conquista.md) | ✅ |
 | 01-2-players | [37-battleship.md](01-2-players/37-battleship.md) | ✅ |
 | 01-2-players | [38-estampida.md](01-2-players/38-estampida.md) | ✅ |
-| 01-2-players | [40-3d-noughts-and-crosses.md](01-2-players/40-3d-noughts-and-crosses.md) | |
 | 01-2-players | [41-obstruction.md](01-2-players/41-obstruction.md) | ✅ |
 | 01-2-players | [42-snakes.md](01-2-players/42-snakes.md) | ✅ |
 | 01-2-players | [43-virus-war.md](01-2-players/43-virus-war.md) | |
@@ -62,15 +57,6 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [66-the-flat.md](01-2-players/66-the-flat.md) | |
 | 02-solo | [10-join-five.md](02-solo/10-join-five.md) | |
 | 02-solo | [30-icosian-game.md](02-solo/30-icosian-game.md) | |
-| 04-pieces-and-movement | [25-tennis.md](04-pieces-and-movement/25-tennis.md) | |
 | 03-variants-and-research | [32-labyrinth-paper.md](03-variants-and-research/32-labyrinth-paper.md) | |
-| 03-variants-and-research | [34-crosshatching.md](03-variants-and-research/34-crosshatching.md) | |
-| 04-pieces-and-movement | [35-hex-race.md](04-pieces-and-movement/35-hex-race.md) | |
-| 03-variants-and-research | [45-misere.md](03-variants-and-research/45-misere.md) | |
-| 04-pieces-and-movement | [46-twixt.md](04-pieces-and-movement/46-twixt.md) | |
-| 03-variants-and-research | [67-mishmash.md](03-variants-and-research/67-mishmash.md) | |
-| 03-variants-and-research | [68-nucleus.md](03-variants-and-research/68-nucleus.md) | |
-| 03-variants-and-research | [69-poe.md](03-variants-and-research/69-poe.md) | |
-| 03-variants-and-research | [70-word-hunt-and-verbal-rope.md](03-variants-and-research/70-word-hunt-and-verbal-rope.md) | |
 
 Nota: Tres en Raya también está implementado pero no tiene ficha en este backlog (es anterior a la colección).
