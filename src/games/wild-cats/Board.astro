@@ -1,0 +1,417 @@
+---
+import TableroJuego from '../../components/TableroJuego.astro';
+
+const LADO = 5;
+const casillas = Array.from({ length: LADO * LADO }, (_, i) => i);
+const columnas = ['A', 'B', 'C', 'D', 'E'];
+const filas = [1, 2, 3, 4, 5];
+---
+
+<TableroJuego class="tablero-wild-cats" n={LADO}>
+  <div class="marco">
+    <div class="etiquetas etiquetas--columnas" aria-hidden="true">
+      {columnas.map(c => <span>{c}</span>)}
+    </div>
+    <div class="etiquetas etiquetas--filas" aria-hidden="true">
+      {filas.map(f => <span>{f}</span>)}
+    </div>
+    <div class="zona">
+      <div id="tablero" class="tablero" role="grid" aria-label="Tablero de Gatos Salvajes, 5 por 5">
+        {casillas.map(i => (
+          <button
+            type="button"
+            class="casilla"
+            data-indice={i}
+            aria-label={`Fila ${Math.floor(i / LADO) + 1}, columna ${(i % LADO) + 1}`}
+          />
+        ))}
+      </div>
+      <div id="wc-velo" class="velo" hidden>
+        <p id="wc-velo-texto" class="velo__texto"></p>
+        <button type="button" id="wc-velo-listo" class="boton">Listo</button>
+      </div>
+    </div>
+  </div>
+  <div class="barra">
+    <button type="button" id="wc-confirmar" class="boton" disabled>Confirmar</button>
+    <p id="wc-revelacion" class="revelacion" aria-live="polite"></p>
+    <button type="button" id="wc-siguiente" class="boton" hidden>Siguiente ronda</button>
+  </div>
+</TableroJuego>
+
+<style>
+  .marco {
+    display: grid;
+    grid-template-columns: 1.25rem auto;
+    grid-template-rows: 1.25rem auto;
+    column-gap: 0.25rem;
+    row-gap: 0.25rem;
+    justify-content: center;
+  }
+
+  .etiquetas {
+    display: grid;
+    gap: var(--gap);
+    font-size: 0.8rem;
+    font-weight: 700;
+    opacity: 0.7;
+    text-align: center;
+    align-items: center;
+  }
+
+  .etiquetas--columnas {
+    grid-column: 2;
+    grid-row: 1;
+    grid-template-columns: repeat(5, var(--celda));
+  }
+
+  .etiquetas--filas {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-rows: repeat(5, var(--celda));
+  }
+
+  .zona {
+    grid-column: 2;
+    grid-row: 2;
+    position: relative;
+  }
+
+  .tablero {
+    display: grid;
+    grid-template-columns: repeat(5, var(--celda));
+    grid-template-rows: repeat(5, var(--celda));
+    gap: var(--gap);
+    margin: 0 auto;
+    touch-action: manipulation;
+  }
+
+  .casilla {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(1.4rem, 8vw, 2.6rem);
+    font-weight: 700;
+    line-height: 1;
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .casilla[data-valor='1'] { color: var(--color-player-1); }
+  .casilla[data-valor='2'] { color: var(--color-player-2); }
+
+  .casilla--elegible {
+    border-color: var(--color-accent);
+    cursor: pointer;
+  }
+
+  .casilla--marcada {
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 3px var(--color-accent);
+  }
+
+  .casilla--vetada {
+    opacity: 0.45;
+    border-style: dashed;
+  }
+
+  .casilla--eleccion-1 { box-shadow: inset 0 0 0 4px var(--color-player-1); }
+  .casilla--eleccion-2 { box-shadow: inset 0 0 0 4px var(--color-player-2); }
+
+  .casilla--choque {
+    border-style: dashed;
+    border-color: var(--color-accent);
+    box-shadow:
+      inset 0 0 0 4px var(--color-player-1),
+      inset 0 0 0 8px var(--color-player-2);
+  }
+
+  .casilla--linea {
+    background: color-mix(in srgb, var(--color-accent) 30%, var(--color-surface));
+    border-color: var(--color-accent);
+  }
+
+  .velo {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem;
+    text-align: center;
+    background: var(--color-surface);
+    border: 2px solid var(--color-accent);
+    border-radius: 8px;
+  }
+
+  .velo[hidden] {
+    display: none;
+  }
+
+  .velo__texto {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .barra {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .boton {
+    min-height: var(--tap-target-min);
+    min-width: var(--tap-target-min);
+    padding: 0 1.25rem;
+    border-radius: 8px;
+    border: 2px solid var(--color-accent);
+    background: transparent;
+    color: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .boton:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .boton[hidden] {
+    display: none;
+  }
+
+  .revelacion {
+    margin: 0;
+    min-height: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+  }
+</style>
+
+<script>
+  import {
+    LADO,
+    MAX_RONDAS,
+    createInitialState,
+    esJugadaValida,
+    celdasElegibles,
+    lineaGanadora,
+    playMove,
+    type WildCatsState,
+    type Move,
+  } from './engine';
+  import { iniciarSesionJuego } from '../../lib/gameSession';
+
+  const FICHAS = { 1: '●', 2: '▲' } as const;
+
+  const tablero = document.getElementById('tablero')!;
+  const casillas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.casilla'));
+  const btnConfirmar = document.getElementById('wc-confirmar') as HTMLButtonElement;
+  const btnSiguiente = document.getElementById('wc-siguiente') as HTMLButtonElement;
+  const btnListo = document.getElementById('wc-velo-listo') as HTMLButtonElement;
+  const velo = document.getElementById('wc-velo')!;
+  const veloTexto = document.getElementById('wc-velo-texto')!;
+  const revelacion = document.getElementById('wc-revelacion')!;
+
+  let state: WildCatsState = createInitialState();
+  // Casilla tocada y aún sin confirmar (estado solo de UI, nunca en `state`).
+  let marcada: number | null = null;
+  // Pasar-y-jugar: velo "Pasa el dispositivo" entre la confirmación de J1 y la de J2.
+  let veloParaJ2 = false;
+  // La revelación de la última ronda sigue en pantalla.
+  let verRevelacion = false;
+  let desconectado = false;
+
+  const coord = (i: number): string =>
+    `${String.fromCharCode(65 + (i % LADO))}${Math.floor(i / LADO) + 1}`;
+
+  const sesion = iniciarSesionJuego<Move>({
+    validarMovimiento: esJugadaValida,
+    onMovimientoRemoto: move => jugar(move, false),
+    onAplicarReinicio: () => {
+      state = createInitialState();
+      marcada = null;
+      verRevelacion = false;
+      veloParaJ2 = false;
+      render();
+    },
+    onRender: render,
+    onDesconectar: () => {
+      desconectado = true;
+      casillas.forEach(c => (c.disabled = true));
+      btnConfirmar.disabled = true;
+    },
+    onDeshacer: snapshot => {
+      state = snapshot as WildCatsState;
+      marcada = null;
+      verRevelacion = false;
+      // Una partida restaurada con la elección de J1 pendiente en pasar-y-jugar
+      // debe volver a tapar el tablero antes de que J2 elija.
+      veloParaJ2 = sesion.miAsiento === null && state.eleccionJ1 !== null;
+      render();
+    },
+    obtenerSnapshot: () => state,
+  });
+
+  function textoRevelacion(): string {
+    const rev = state.ultimaRevelacion;
+    if (!rev) return '';
+    if (rev.choque) return `Eligieron ${coord(rev.elecciones[1])} los dos — casilla vetada`;
+    return `${sesion.nombres[1]} eligió ${coord(rev.elecciones[1])} y ${sesion.nombres[2]} eligió ${coord(rev.elecciones[2])}`;
+  }
+
+  function detalleFin(): string {
+    if (lineaGanadora(state.tablero, 1) && lineaGanadora(state.tablero, 2)) {
+      return 'Los dos completaron línea a la vez';
+    }
+    if (state.tablero.filter(c => c === null).length <= 1) return 'Casi sin casillas libres';
+    if (state.ronda === MAX_RONDAS) return 'Demasiadas rondas';
+    return 'Línea de cuatro completada';
+  }
+
+  function render(): void {
+    const jugando = state.fase === 'jugando';
+    const pasarYJugar = sesion.miAsiento === null;
+    const esMiTurno = sesion.esMiTurno(state.currentPlayer) && jugando && !desconectado;
+    const veloActivo = pasarYJugar && veloParaJ2 && jugando && state.currentPlayer === 2;
+    const revelando = pasarYJugar && verRevelacion && jugando;
+    // En remoto, J2 puede ir marcando mientras espera a que J1 confirme.
+    const puedeMarcar =
+      !desconectado &&
+      jugando &&
+      !veloActivo &&
+      !revelando &&
+      (esMiTurno || (sesion.miAsiento === 2 && state.currentPlayer === 1));
+    const elegibles = puedeMarcar ? celdasElegibles(state) : [];
+    if (marcada !== null && !elegibles.includes(marcada)) marcada = null;
+
+    const rev = verRevelacion ? state.ultimaRevelacion : null;
+    const lineas = new Set<number>();
+    if (!jugando) {
+      for (const j of [1, 2] as const) {
+        lineaGanadora(state.tablero, j)?.forEach(i => lineas.add(i));
+      }
+    }
+
+    casillas.forEach((casilla, i) => {
+      const valor = state.tablero[i];
+      casilla.textContent = valor ? FICHAS[valor] : '';
+      if (valor) casilla.dataset.valor = String(valor);
+      else delete casilla.dataset.valor;
+
+      const vetada = jugando && state.vetada === i && valor === null;
+      const elegible = elegibles.includes(i);
+      casilla.disabled = !elegible;
+      casilla.classList.toggle('casilla--elegible', elegible);
+      casilla.classList.toggle('casilla--marcada', marcada === i);
+      casilla.classList.toggle('casilla--vetada', vetada);
+      casilla.classList.toggle('casilla--linea', lineas.has(i));
+      casilla.classList.toggle('casilla--choque', !!rev && rev.choque && rev.elecciones[1] === i);
+      casilla.classList.toggle(
+        'casilla--eleccion-1',
+        !!rev && !rev.choque && rev.elecciones[1] === i,
+      );
+      casilla.classList.toggle(
+        'casilla--eleccion-2',
+        !!rev && !rev.choque && rev.elecciones[2] === i,
+      );
+      if (elegible) casilla.setAttribute('aria-pressed', String(marcada === i));
+      else casilla.removeAttribute('aria-pressed');
+      casilla.setAttribute(
+        'aria-label',
+        `Fila ${Math.floor(i / LADO) + 1}, columna ${(i % LADO) + 1}${vetada ? ' — vetada esta ronda' : ''}`,
+      );
+    });
+
+    btnConfirmar.disabled = !(esMiTurno && marcada !== null && !veloActivo && !revelando);
+    btnConfirmar.hidden = !jugando;
+
+    velo.hidden = !veloActivo;
+    veloTexto.textContent = veloActivo ? `Pasa el dispositivo a ${sesion.nombres[2]}` : '';
+
+    btnSiguiente.hidden = !revelando;
+    revelacion.textContent = rev ? textoRevelacion() : '';
+
+    if (jugando) {
+      const rivalYaElegio =
+        sesion.miAsiento === 2 && state.currentPlayer === 2 && state.eleccionJ1 !== null;
+      const esperandoRival = sesion.miAsiento === 1 && state.currentPlayer === 2;
+      sesion.mostrarTurno({
+        jugador: state.currentPlayer,
+        simbolos: { 1: FICHAS[1], 2: FICHAS[2] },
+        detalle: rivalYaElegio
+          ? 'Tu rival ya eligió'
+          : esperandoRival
+            ? 'Esperando la elección del rival'
+            : 'Elige en secreto',
+      });
+    } else {
+      const ganador = state.winner === 1 || state.winner === 2 ? state.winner : null;
+      sesion.mostrarFinDeJuego({
+        titulo:
+          ganador === null
+            ? '🤝 ¡Empate!'
+            : `🎉 ¡Ganó ${sesion.nombres[ganador]} (${FICHAS[ganador]})!`,
+        detalle: detalleFin(),
+        ganador,
+      });
+    }
+  }
+
+  function jugar(move: Move, emitirRemoto = true): void {
+    // Sin guardia de esMiTurno: los movimientos remotos llegan con el
+    // currentPlayer local aún en el emisor. El input local ya está protegido
+    // por casilla.disabled y btnConfirmar.disabled en render; playMove es la
+    // autoridad.
+    const prev = state;
+    state = playMove(state, move);
+    if (state === prev) {
+      sesion.jugadaInvalida();
+      return;
+    }
+    sesion.guardarParaDeshacer(prev);
+    if (prev.currentPlayer === 1) {
+      // Confirmó J1: en pasar-y-jugar se tapa el tablero para J2.
+      veloParaJ2 = sesion.miAsiento === null;
+      verRevelacion = false;
+    } else {
+      veloParaJ2 = false;
+      verRevelacion = true;
+    }
+    if (emitirRemoto) marcada = null;
+    render();
+    if (emitirRemoto) sesion.enviarMovimiento(move);
+  }
+
+  casillas.forEach(casilla => {
+    casilla.addEventListener('click', () => {
+      marcada = Number(casilla.dataset.indice);
+      // En remoto basta con marcar para dar por vista la revelación anterior.
+      if (sesion.miAsiento !== null) verRevelacion = false;
+      render();
+    });
+  });
+  btnConfirmar.addEventListener('click', () => {
+    if (marcada !== null) jugar({ celda: marcada });
+  });
+  btnListo.addEventListener('click', () => {
+    veloParaJ2 = false;
+    render();
+  });
+  btnSiguiente.addEventListener('click', () => {
+    verRevelacion = false;
+    render();
+  });
+
+  render();
+</script>
