@@ -49,7 +49,7 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [58-engel.md](01-2-players/58-engel.md) | |
 | 01-2-players | [59-lasso.md](01-2-players/59-lasso.md) | |
 | 04-pieces-and-movement | [60-horsey.md](04-pieces-and-movement/60-horsey.md) | |
-| 01-2-players | [61-wild-cats.md](01-2-players/61-wild-cats.md) | |
+| 01-2-players | [61-wild-cats.md](01-2-players/61-wild-cats.md) | ✅ (Gatos Salvajes) |
 | 01-2-players | [62-war-of-the-stars.md](01-2-players/62-war-of-the-stars.md) | |
 | 01-2-players | [63-bulls-and-cows.md](01-2-players/63-bulls-and-cows.md) | |
 | 01-2-players | [64-mine-field.md](01-2-players/64-mine-field.md) | |

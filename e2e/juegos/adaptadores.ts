@@ -52,6 +52,13 @@ const ESPECIFICOS: Record<string, Adaptador> = {
   // Los destinos legales pulsan (animación infinita): nunca están «estables».
   // Solo son jugables las casillas junto a un punto propio (la 0 no lo es).
   'puntos-caminantes': clicEn('button.casilla:not(:disabled)'),
+  'gatos-salvajes': {
+    jugar: async page => {
+      await page.locator('#tablero-juego button.casilla:not(:disabled)').first().click();
+      await page.locator('#wc-confirmar').click();
+    },
+    huella: huellaDelTablero,
+  },
   snakes: clicEn('.snakes-grupo[data-destino="true"] .snakes-punto', undefined, { force: true }),
   chomp: clicEn('button[data-indice]:last-of-type'),
   // Primero hay que elegir un mapa; después, una región.
