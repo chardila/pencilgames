@@ -57,6 +57,5 @@ Estado: ✅ = implementado y en vivo en https://games.cardila.com
 | 01-2-players | [66-the-flat.md](01-2-players/66-the-flat.md) | |
 | 02-solo | [10-join-five.md](02-solo/10-join-five.md) | |
 | 02-solo | [30-icosian-game.md](02-solo/30-icosian-game.md) | |
-| 03-variants-and-research | [32-labyrinth-paper.md](03-variants-and-research/32-labyrinth-paper.md) | |
 
 Nota: Tres en Raya también está implementado pero no tiene ficha en este backlog (es anterior a la colección).
