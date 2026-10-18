@@ -46,7 +46,7 @@ Ficha de backlog (fuente de las reglas):
    - Solo un jugador forma línea → gana.
    - **Ambos forman línea en la misma revelación → empate** (llamada mía; la
      ficha no lo prevé).
-   - Tablero lleno sin línea → empate.
+   - Quedan 1 o menos casillas vacías sin línea → empate (con 25 casillas, cada ronda coloca 0 o 2 fichas: las vacías son siempre impares y la última casilla solo daría choques interminables).
    - **Tope de 40 rondas → empate** (llamada mía, evita bucles infinitos de
      choques deliberados; 25 casillas hacen que una partida normal acabe muy
      antes).
@@ -159,7 +159,7 @@ Todo JSON-serializable. `Move` no lleva jugador: lo determina `currentPlayer`
     `ultimaRevelacion = { …, choque: false }`.
   - Evalúa líneas: `g1 = lineaGanadora(…,1)`, `g2 = lineaGanadora(…,2)`.
     Solo `g1` → `winner 1`; solo `g2` → `winner 2`; ambas → empate
-    (`winner null`, `finished`). Si no hay línea y el tablero está lleno o
+    (`winner null`, `finished`). Si no hay línea y quedan ≤ 1 casillas vacías o
     `ronda === MAX_RONDAS` → empate.
   - Si sigue: `ronda++`, `eleccionJ1 = null`, `currentPlayer = 1`.
 
@@ -191,7 +191,7 @@ El guard de turno va en `render()`, **nunca** dentro de `jugar()` (lección
 - Indicador de turno: `{ jugador: currentPlayer, simbolos: {1:'●',2:'▲'},
   detalle: 'Elige en secreto' }`.
 - Fin: ganador (con la línea resaltada) o empate con detalle
-  ("Los dos completaron línea a la vez" / "Tablero lleno" / "Demasiadas
+  ("Los dos completaron línea a la vez" / "Casi sin casillas libres" / "Demasiadas
   rondas").
 - Casilla vetada: estilo atenuado + `aria-label` "vetada esta ronda".
 - Sin colores fijos (`sinColoresFijos.test.ts`): usar tokens de paleta. Botones
@@ -244,7 +244,7 @@ Siguiendo los últimos juegos (#117–#119), un PR con:
 - Rechazos con misma referencia: casilla ocupada, fuera de rango, vetada,
   partida terminada.
 - Líneas: 4 en H/V/D en ambos sentidos; sin envolvimiento de borde; 3 no basta.
-- Fin: gana solo uno; **ambos a la vez → empate**; tablero lleno → empate;
+- Fin: gana solo uno; **ambos a la vez → empate**; ≤ 1 casilla vacía → empate;
   `MAX_RONDAS` → empate; `playMove` tras `finished` rechaza.
 - Determinismo: dos instancias con la misma secuencia terminan `deep-equal`.
 

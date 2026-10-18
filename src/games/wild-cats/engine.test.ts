@@ -211,18 +211,35 @@ describe('playMove', () => {
     expect(s.winner).toBe(2);
   });
 
-  it('tablero lleno sin línea -> empate (estado con dos vacías)', () => {
-    // Reparto sin línea de 4 para ninguno; se vacían la 0 (J1) y la 1 (J2).
+  it('con <= 1 casilla vacía y sin línea es empate', () => {
+    // Reparto sin línea de 4; se vacían 0 (J1), 1 (J2) y 12.
     const reparto = '1222121211112121112122122';
     const tablero: Celda[] = [...reparto].map((c) => (c === '1' ? 1 : 2));
     expect(lineaGanadora(tablero, 1)).toBeNull();
     expect(lineaGanadora(tablero, 2)).toBeNull();
     tablero[0] = null;
     tablero[1] = null;
-    const s = jugar([0, 1], { ...vacio(), tablero, ronda: 12 });
-    expect(s.tablero.every((c) => c !== null)).toBe(true);
+    tablero[12] = null;
+    const base = { ...vacio(), tablero, ronda: 12 };
+    const s = jugar([0, 1], base);
+    expect(s.tablero.filter((c) => c === null)).toHaveLength(1);
     expect(s.fase).toBe('finished');
     expect(s.winner).toBeNull();
+    // Un choque con 3 vacías no reduce las vacías: la partida sigue.
+    const c = jugar([12, 12], base);
+    expect(c.fase).toBe('jugando');
+    expect(c.vetada).toBe(12);
+  });
+
+  it('una línea completada en la última ronda gana en vez de empatar', () => {
+    const base: WildCatsState = {
+      ...vacio(),
+      tablero: tableroCon(1, [0, 1, 2]),
+      ronda: MAX_RONDAS,
+    };
+    const s = jugar([3, 20], base);
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBe(1);
   });
 
   it('tope de rondas: un choque en la última ronda termina en empate', () => {
@@ -240,15 +257,5 @@ describe('playMove', () => {
   it('es determinista', () => {
     const seq = [0, 1, 6, 6, 7, 8, 2, 3];
     expect(jugar(seq)).toEqual(jugar(seq));
-  });
-
-  it('con una sola vacía y choque forzado, el veto se levanta', () => {
-    const reparto = '1222121211112121112122122';
-    const tablero: Celda[] = [...reparto].map((c) => (c === '1' ? 1 : 2));
-    tablero[12] = null;
-    const s = jugar([12, 12], { ...vacio(), tablero, ronda: 12 });
-    expect(s.fase).toBe('jugando');
-    expect(s.vetada).toBe(12);
-    expect(celdasElegibles(s)).toEqual([12]);
   });
 });

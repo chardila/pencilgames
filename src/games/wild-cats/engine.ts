@@ -112,8 +112,8 @@ export function playMove(state: WildCatsState, move: Move): WildCatsState {
 
   const g1 = lineaGanadora(tablero, 1) !== null;
   const g2 = lineaGanadora(tablero, 2) !== null;
-  const lleno = tablero.every((c) => c !== null);
-  if (g1 || g2 || lleno || state.ronda === MAX_RONDAS) {
+  const casiLleno = tablero.filter((c) => c === null).length <= 1;
+  if (g1 || g2 || casiLleno || state.ronda === MAX_RONDAS) {
     const winner: Player | null = g1 && !g2 ? 1 : g2 && !g1 ? 2 : null;
     return {
       ...state,
