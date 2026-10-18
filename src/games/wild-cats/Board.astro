@@ -40,6 +40,16 @@ const filas = [1, 2, 3, 4, 5];
 </TableroJuego>
 
 <style>
+  /* Las etiquetas A–E / 1–5 ocupan 1,5rem (1,25rem + hueco) a la izquierda de
+     la rejilla: se restan del ancho con el que TableroJuego calcula --celda, y
+     el piso baja a 3rem (48px, piso táctil) para que quepa a 320px. */
+  :global(#tablero-juego.tablero-wild-cats) {
+    --celda-min: 3rem;
+    --celda-por-ancho: calc(
+      (var(--ancho-disp) - 1.5rem - (var(--n) - 1) * var(--gap)) / var(--n)
+    );
+  }
+
   .marco {
     display: grid;
     grid-template-columns: 1.25rem auto;
@@ -111,6 +121,7 @@ const filas = [1, 2, 3, 4, 5];
 
   .casilla--marcada {
     border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 25%, var(--color-surface));
     box-shadow: inset 0 0 0 3px var(--color-accent);
   }
 
