@@ -44,16 +44,17 @@ const filas = [1, 2, 3, 4, 5];
      la rejilla: se restan del ancho con el que TableroJuego calcula --celda, y
      el piso baja a 3rem (48px, piso táctil) para que quepa a 320px. */
   :global(#tablero-juego.tablero-wild-cats) {
+    --wc-gutter: 1.5rem;
     --celda-min: 3rem;
     --celda-por-ancho: calc(
-      (var(--ancho-disp) - 1.5rem - (var(--n) - 1) * var(--gap)) / var(--n)
+      (var(--ancho-disp) - var(--wc-gutter) - (var(--n) - 1) * var(--gap)) / var(--n)
     );
   }
 
   .marco {
     display: grid;
-    grid-template-columns: 1.25rem auto;
-    grid-template-rows: 1.25rem auto;
+    grid-template-columns: calc(var(--wc-gutter) - 0.25rem) auto;
+    grid-template-rows: calc(var(--wc-gutter) - 0.25rem) auto;
     column-gap: 0.25rem;
     row-gap: 0.25rem;
     justify-content: center;
@@ -212,11 +213,11 @@ const filas = [1, 2, 3, 4, 5];
 <script>
   import {
     LADO,
-    MAX_RONDAS,
     createInitialState,
     esJugadaValida,
     celdasElegibles,
     lineaGanadora,
+    causaFin,
     playMove,
     type WildCatsState,
     type Move,
@@ -281,14 +282,12 @@ const filas = [1, 2, 3, 4, 5];
     return `${sesion.nombres[1]} eligió ${coord(rev.elecciones[1])} y ${sesion.nombres[2]} eligió ${coord(rev.elecciones[2])}`;
   }
 
-  function detalleFin(): string {
-    if (lineaGanadora(state.tablero, 1) && lineaGanadora(state.tablero, 2)) {
-      return 'Los dos completaron línea a la vez';
-    }
-    if (state.tablero.filter(c => c === null).length <= 1) return 'Casi sin casillas libres';
-    if (state.ronda === MAX_RONDAS) return 'Demasiadas rondas';
-    return 'Línea de cuatro completada';
-  }
+  const DETALLE_FIN = {
+    linea: 'Línea de cuatro completada',
+    'dos-lineas': 'Los dos completaron línea a la vez',
+    casillas: 'Casi sin casillas libres',
+    rondas: 'Demasiadas rondas',
+  } as const;
 
   function render(): void {
     const jugando = state.fase === 'jugando';
@@ -340,7 +339,7 @@ const filas = [1, 2, 3, 4, 5];
       else casilla.removeAttribute('aria-pressed');
       casilla.setAttribute(
         'aria-label',
-        `Fila ${Math.floor(i / LADO) + 1}, columna ${(i % LADO) + 1}${vetada ? ' — vetada esta ronda' : ''}`,
+        `${coord(i)}, ${valor ? `Jugador ${valor} ${FICHAS[valor]}` : 'vacía'}${vetada ? ' — vetada esta ronda' : ''}`,
       );
     });
 
@@ -373,7 +372,7 @@ const filas = [1, 2, 3, 4, 5];
           ganador === null
             ? '🤝 ¡Empate!'
             : `🎉 ¡Ganó ${sesion.nombres[ganador]} (${FICHAS[ganador]})!`,
-        detalle: detalleFin(),
+        detalle: DETALLE_FIN[causaFin(state) ?? 'rondas'],
         ganador,
       });
     }

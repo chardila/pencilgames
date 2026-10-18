@@ -135,3 +135,14 @@ export function playMove(state: WildCatsState, move: Move): WildCatsState {
     ronda: state.ronda + 1,
   };
 }
+
+export type CausaFin = 'linea' | 'dos-lineas' | 'casillas' | 'rondas';
+
+/** Por qué terminó la partida (null si sigue en juego). Un ganador manda sobre los demás motivos. */
+export function causaFin(state: WildCatsState): CausaFin | null {
+  if (state.fase !== 'finished') return null;
+  if (state.winner !== null) return 'linea';
+  if (lineaGanadora(state.tablero, 1) && lineaGanadora(state.tablero, 2)) return 'dos-lineas';
+  if (state.tablero.filter((c) => c === null).length <= 1) return 'casillas';
+  return 'rondas';
+}

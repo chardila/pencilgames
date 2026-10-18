@@ -5,6 +5,7 @@ import {
   celdasElegibles,
   lineaGanadora,
   playMove,
+  causaFin,
   MAX_RONDAS,
   type WildCatsState,
   LINEAS,
@@ -257,5 +258,51 @@ describe('playMove', () => {
   it('es determinista', () => {
     const seq = [0, 1, 6, 6, 7, 8, 2, 3];
     expect(jugar(seq)).toEqual(jugar(seq));
+  });
+});
+
+describe('causaFin', () => {
+  const terminado = (t: Celda[], over: Partial<WildCatsState> = {}): WildCatsState => ({
+    ...vacio(),
+    tablero: t,
+    fase: 'finished',
+    ...over,
+  });
+
+  it('null mientras se juega', () => {
+    expect(causaFin(vacio())).toBeNull();
+  });
+
+  it('victoria con una sola casilla vacía: linea', () => {
+    const t = tableroCon(2, [20, 21, 22, 23]);
+    for (let i = 0; i < 20; i++) t[i] = i % 2 === 0 ? 1 : 2;
+    t[24] = null;
+    expect(causaFin(terminado(t, { winner: 2 }))).toBe('linea');
+  });
+
+  it('victoria en la ronda MAX_RONDAS: linea', () => {
+    const t = tableroCon(1, [0, 1, 2, 3]);
+    expect(causaFin(terminado(t, { winner: 1, ronda: MAX_RONDAS }))).toBe('linea');
+  });
+
+  it('ambos completan línea en la misma revelación: dos-lineas', () => {
+    let s = vacio();
+    s = { ...s, tablero: [...tableroCon(1, [0, 1, 2]).map((c, i) => c ?? ([5, 6, 7].includes(i) ? 2 : null))] };
+    s = jugar([3, 8], s);
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBeNull();
+    expect(causaFin(s)).toBe('dos-lineas');
+  });
+
+  it('sin línea y con ≤1 vacía: casillas', () => {
+    const t: Celda[] = Array.from({ length: 25 }, (_, i) => ((Math.floor(i / 10) + (i % 5)) % 2 === 0 ? 1 : 2) as 1 | 2);
+    t[0] = null;
+    expect(lineaGanadora(t, 1)).toBeNull();
+    expect(lineaGanadora(t, 2)).toBeNull();
+    expect(causaFin(terminado(t))).toBe('casillas');
+  });
+
+  it('sin línea en la ronda MAX_RONDAS con más vacías: rondas', () => {
+    expect(causaFin(terminado(vacio().tablero, { ronda: MAX_RONDAS }))).toBe('rondas');
   });
 });
