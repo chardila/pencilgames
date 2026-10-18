@@ -4,6 +4,9 @@ import {
   esJugadaValida,
   celdasElegibles,
   lineaGanadora,
+  playMove,
+  MAX_RONDAS,
+  type WildCatsState,
   LINEAS,
   CELDAS,
   type Celda,
@@ -112,5 +115,140 @@ describe('lineaGanadora', () => {
   });
   it('no confunde jugadores', () => {
     expect(lineaGanadora(tableroCon(1, [0, 1, 2, 3]), 2)).toBeNull();
+  });
+});
+
+/** Aplica la secuencia comprobando que cada jugada es legal (nueva referencia). */
+function jugar(secuencia: number[], inicial: WildCatsState = createInitialState()): WildCatsState {
+  let s = inicial;
+  for (const celda of secuencia) {
+    const n = playMove(s, { celda });
+    expect(n).not.toBe(s);
+    s = n;
+  }
+  return s;
+}
+
+describe('playMove', () => {
+  it('ronda normal: J1 guarda en secreto y luego J2 resuelve', () => {
+    const a = jugar([0]);
+    expect(a.eleccionJ1).toBe(0);
+    expect(a.currentPlayer).toBe(2);
+    expect(a.tablero).toEqual(Array(25).fill(null));
+    expect(a.ronda).toBe(1);
+
+    const b = jugar([0, 1]);
+    expect(b.tablero[0]).toBe(1);
+    expect(b.tablero[1]).toBe(2);
+    expect(b.currentPlayer).toBe(1);
+    expect(b.eleccionJ1).toBeNull();
+    expect(b.ronda).toBe(2);
+    expect(b.vetada).toBeNull();
+    expect(b.ultimaRevelacion).toEqual({ elecciones: { 1: 0, 2: 1 }, choque: false });
+  });
+
+  it('choque: tablero intacto, celda vetada, ronda avanza', () => {
+    const s = jugar([6, 6]);
+    expect(s.tablero).toEqual(Array(25).fill(null));
+    expect(s.vetada).toBe(6);
+    expect(s.ultimaRevelacion).toEqual({ elecciones: { 1: 6, 2: 6 }, choque: true });
+    expect(s.ronda).toBe(2);
+    expect(s.currentPlayer).toBe(1);
+  });
+
+  it('la celda vetada se rechaza para J1 y J2, y se levanta tras una ronda sin choque', () => {
+    const s = jugar([6, 6]);
+    expect(playMove(s, { celda: 6 })).toBe(s);
+    const medio = jugar([7], s);
+    expect(playMove(medio, { celda: 6 })).toBe(medio);
+    const despues = jugar([7, 8], s);
+    expect(celdasElegibles(despues)).toContain(6);
+  });
+
+  it('un segundo choque reemplaza el veto', () => {
+    expect(jugar([6, 6, 9, 9]).vetada).toBe(9);
+  });
+
+  it('rechaza jugadas ilegales con la misma referencia', () => {
+    const s = jugar([0, 1]);
+    expect(playMove(s, { celda: 0 })).toBe(s);
+    expect(playMove(s, { celda: 1 })).toBe(s);
+    expect(playMove(s, { celda: 25 })).toBe(s);
+    expect(playMove(s, { celda: -1 })).toBe(s);
+    const fin = jugar([0, 5, 1, 6, 2, 7, 3, 20]);
+    expect(fin.fase).toBe('finished');
+    expect(playMove(fin, { celda: 24 })).toBe(fin);
+  });
+
+  it('no muta el estado recibido', () => {
+    const s = createInitialState();
+    const copia = structuredClone(s);
+    playMove(s, { celda: 3 });
+    expect(s).toEqual(copia);
+    const m = jugar([3]);
+    const copiaM = structuredClone(m);
+    playMove(m, { celda: 4 });
+    expect(m).toEqual(copiaM);
+  });
+
+  it('si ambos completan línea en la misma ronda es empate', () => {
+    const s = jugar([0, 5, 1, 6, 2, 7, 3, 8]);
+    expect(lineaGanadora(s.tablero, 1)).not.toBeNull();
+    expect(lineaGanadora(s.tablero, 2)).not.toBeNull();
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBeNull();
+  });
+
+  it('gana solo J1', () => {
+    const s = jugar([0, 5, 1, 6, 2, 7, 3, 20]);
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBe(1);
+  });
+
+  it('gana solo J2', () => {
+    const s = jugar([10, 0, 11, 1, 12, 2, 20, 3]);
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBe(2);
+  });
+
+  it('tablero lleno sin línea -> empate (estado con dos vacías)', () => {
+    // Reparto sin línea de 4 para ninguno; se vacían la 0 (J1) y la 1 (J2).
+    const reparto = '1222121211112121112122122';
+    const tablero: Celda[] = [...reparto].map((c) => (c === '1' ? 1 : 2));
+    expect(lineaGanadora(tablero, 1)).toBeNull();
+    expect(lineaGanadora(tablero, 2)).toBeNull();
+    tablero[0] = null;
+    tablero[1] = null;
+    const s = jugar([0, 1], { ...vacio(), tablero, ronda: 12 });
+    expect(s.tablero.every((c) => c !== null)).toBe(true);
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBeNull();
+  });
+
+  it('tope de rondas: un choque en la última ronda termina en empate', () => {
+    const s = jugar([3, 3], { ...vacio(), ronda: MAX_RONDAS });
+    expect(s.fase).toBe('finished');
+    expect(s.winner).toBeNull();
+  });
+
+  it('el estado a mitad de ronda sobrevive a JSON y structuredClone', () => {
+    const s = jugar([0, 1, 2, 2, 4]);
+    expect(JSON.parse(JSON.stringify(s))).toEqual(s);
+    expect(structuredClone(s)).toEqual(s);
+  });
+
+  it('es determinista', () => {
+    const seq = [0, 1, 6, 6, 7, 8, 2, 3];
+    expect(jugar(seq)).toEqual(jugar(seq));
+  });
+
+  it('con una sola vacía y choque forzado, el veto se levanta', () => {
+    const reparto = '1222121211112121112122122';
+    const tablero: Celda[] = [...reparto].map((c) => (c === '1' ? 1 : 2));
+    tablero[12] = null;
+    const s = jugar([12, 12], { ...vacio(), tablero, ronda: 12 });
+    expect(s.fase).toBe('jugando');
+    expect(s.vetada).toBe(12);
+    expect(celdasElegibles(s)).toEqual([12]);
   });
 });

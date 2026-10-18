@@ -88,3 +88,50 @@ export function celdasElegibles(state: WildCatsState): number[] {
 export function lineaGanadora(tablero: Celda[], jugador: Player): number[] | null {
   return LINEAS.find((l) => l.every((i) => tablero[i] === jugador)) ?? null;
 }
+
+/** Resuelve una elección. Jugada ilegal -> misma referencia. Nunca muta `state`. */
+export function playMove(state: WildCatsState, move: Move): WildCatsState {
+  if (state.fase !== 'jugando') return state;
+  if (!celdasElegibles(state).includes(move.celda)) return state;
+
+  if (state.currentPlayer === 1) {
+    return { ...state, eleccionJ1: move.celda, currentPlayer: 2 };
+  }
+
+  const a = state.eleccionJ1;
+  if (a === null) return state;
+  const b = move.celda;
+  const choque = a === b;
+  const tablero = state.tablero.slice();
+  if (!choque) {
+    tablero[a] = 1;
+    tablero[b] = 2;
+  }
+  const ultimaRevelacion: Revelacion = { elecciones: { 1: a, 2: b }, choque };
+  const vetada = choque ? a : null;
+
+  const g1 = lineaGanadora(tablero, 1) !== null;
+  const g2 = lineaGanadora(tablero, 2) !== null;
+  const lleno = tablero.every((c) => c !== null);
+  if (g1 || g2 || lleno || state.ronda === MAX_RONDAS) {
+    const winner: Player | null = g1 && !g2 ? 1 : g2 && !g1 ? 2 : null;
+    return {
+      ...state,
+      tablero,
+      vetada,
+      ultimaRevelacion,
+      eleccionJ1: null,
+      fase: 'finished',
+      winner,
+    };
+  }
+  return {
+    ...state,
+    tablero,
+    vetada,
+    ultimaRevelacion,
+    eleccionJ1: null,
+    currentPlayer: 1,
+    ronda: state.ronda + 1,
+  };
+}
