@@ -12,6 +12,7 @@ export interface TurnIndicatorOptions {
   repiteTurno?: boolean;
   motivoRepeticion?: string;
   estadoReconexion?: 'propia' | 'rival' | 'reconectando' | string;
+  textoEspera?: string;
 }
 
 const FORMA: Record<1 | 2, string> = { 1: '●', 2: '▲' };
@@ -43,7 +44,8 @@ function prosaAccesible(
   detalle: string | undefined,
   repiteTurno: boolean | undefined,
   motivoRepeticion: string | undefined,
-  estadoReconexion?: string
+  estadoReconexion?: string,
+  textoEspera?: string
 ): string {
   const partes: string[] = [];
   if (estadoReconexion) {
@@ -51,10 +53,11 @@ function prosaAccesible(
   }
 
   const nombre = fichas[jugador].nombre;
+  const sufijoEspera = (textoEspera ?? 'esperando').replace(/[….]+$/, '');
   let base: string;
   if (miAsiento == null) base = `Turno de ${nombre}`;
   else if (miAsiento === jugador) base = `Te toca, eres ${nombre}`;
-  else base = `Turno de ${nombre}, esperando`;
+  else base = `Turno de ${nombre}, ${sufijoEspera}`;
 
   const esMio = miAsiento == null || miAsiento === jugador;
   if (repiteTurno && esMio && !estadoReconexion) partes.push(motivoRepeticion || '¡Vuelves a jugar!');
@@ -96,6 +99,7 @@ export function renderTurnIndicator(
     repiteTurno,
     motivoRepeticion,
     estadoReconexion,
+    textoEspera,
   }: TurnIndicatorOptions
 ): void {
   container.hidden = false;
@@ -186,7 +190,7 @@ export function renderTurnIndicator(
   detalleEl.textContent = detalle ?? '';
 
   container.querySelector<HTMLElement>('.indicador-turno__espera')!.textContent = esperando
-    ? 'esperando…'
+    ? (textoEspera ?? 'esperando…')
     : '';
 
   // R6 — reescribir el mismo texto en una región viva puede reanunciarlo.
@@ -198,7 +202,8 @@ export function renderTurnIndicator(
     detalle,
     repiteTurno,
     motivoRepeticion,
-    estadoReconexion
+    estadoReconexion,
+    textoEspera
   );
   if (prosaEl.textContent !== prosa) prosaEl.textContent = prosa;
 }
