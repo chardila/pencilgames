@@ -2,109 +2,124 @@ import { elegirAlAzar, type Dificultad, type Rng } from '../../lib/bot/tipos';
 import { TAMANO, casillaLegal, type ObstruccionState } from './engine';
 
 const TOTAL = TAMANO * TAMANO;
-const ALL_MASK = (1n << BigInt(TOTAL)) - 1n;
-const BIT_MASK: bigint[] = Array.from({ length: TOTAL }, (_, i) => 1n << BigInt(i));
+const HALF_MASK = (1 << 18) - 1;
 
-const POPCOUNT_12 = new Uint8Array(4096);
-for (let i = 1; i < 4096; i++) {
-  POPCOUNT_12[i] = POPCOUNT_12[i >> 1] + (i & 1);
+const POPCOUNT_9 = new Uint8Array(512);
+for (let i = 1; i < 512; i++) {
+  POPCOUNT_9[i] = POPCOUNT_9[i >> 1] + (i & 1);
 }
 
-const VECINOS_MASK: bigint[] = Array.from({ length: TOTAL }, (_, idx) => {
+const INV_LO = new Int32Array(TOTAL);
+const INV_HI = new Int32Array(TOTAL);
+
+for (let idx = 0; idx < TOTAL; idx++) {
   const fila = Math.floor(idx / TAMANO);
   const col = idx % TAMANO;
-  let mask = 0n;
+  let lo = 0;
+  let hi = 0;
   for (let df = -1; df <= 1; df++) {
     for (let dc = -1; dc <= 1; dc++) {
       const f = fila + df;
       const c = col + dc;
       if (f >= 0 && f < TAMANO && c >= 0 && c < TAMANO) {
-        mask |= BIT_MASK[f * TAMANO + c];
+        const bit = f * TAMANO + c;
+        if (bit < 18) lo |= 1 << bit;
+        else hi |= 1 << (bit - 18);
       }
     }
   }
-  return mask;
-});
+  INV_LO[idx] = HALF_MASK ^ lo;
+  INV_HI[idx] = HALF_MASK ^ hi;
+}
 
-const INV_VECINOS_MASK: bigint[] = VECINOS_MASK.map(m => ALL_MASK ^ m);
-
-const CENTRO_PESO: number[] = Array.from({ length: TOTAL }, (_, idx) => {
+const CENTRO_PESO = Int8Array.from({ length: TOTAL }, (_, idx) => {
   const fila = Math.floor(idx / TAMANO);
   const col = idx % TAMANO;
   const dist = Math.abs(fila - 2.5) + Math.abs(col - 2.5);
   return Math.round(6 - dist);
 });
 
-function construirMascaraLegal(state: ObstruccionState): bigint {
-  let mask = 0n;
-  for (let i = 0; i < TOTAL; i++) {
-    if (casillaLegal(state.board, i)) mask |= BIT_MASK[i];
-  }
-  return mask;
+// Scratch reutilizable: se rellena y lee dentro de ordenarPorRestantes antes de recursión.
+const REM_SCRATCH = new Uint8Array(TOTAL);
+
+function popcount36(lo: number, hi: number): number {
+  return (
+    POPCOUNT_9[lo & 0x1ff] +
+    POPCOUNT_9[lo >> 9] +
+    POPCOUNT_9[hi & 0x1ff] +
+    POPCOUNT_9[hi >> 9]
+  );
 }
 
-function listarIndices(mask: bigint): number[] {
+function listarIndices(lo: number, hi: number): number[] {
   const indices: number[] = [];
-  for (let i = 0; i < TOTAL; i++) {
-    if ((mask & BIT_MASK[i]) !== 0n) indices.push(i);
+  let b = lo;
+  while (b !== 0) {
+    const lsb = b & -b;
+    indices.push(31 - Math.clz32(lsb));
+    b ^= lsb;
+  }
+  b = hi;
+  while (b !== 0) {
+    const lsb = b & -b;
+    indices.push(49 - Math.clz32(lsb));
+    b ^= lsb;
   }
   return indices;
 }
 
-function popcount(mask: bigint): number {
-  const n = Number(mask & 0xfffn);
-  const m = Number((mask >> 12n) & 0xfffn);
-  const h = Number((mask >> 24n) & 0xfffn);
-  return POPCOUNT_12[n] + POPCOUNT_12[m] + POPCOUNT_12[h];
-}
-
-function ordenarPorRestantes(indices: number[], mask: bigint): void {
+function ordenarPorRestantes(indices: number[], lo: number, hi: number): void {
+  for (let i = 0; i < indices.length; i++) {
+    const idx = indices[i];
+    REM_SCRATCH[idx] = popcount36(lo & INV_LO[idx], hi & INV_HI[idx]);
+  }
   indices.sort((a, b) => {
-    const remA = popcount(mask & INV_VECINOS_MASK[a]);
-    const remB = popcount(mask & INV_VECINOS_MASK[b]);
-    if (remA !== remB) return remA - remB;
-    return CENTRO_PESO[b] - CENTRO_PESO[a];
+    const diff = REM_SCRATCH[a] - REM_SCRATCH[b];
+    return diff !== 0 ? diff : CENTRO_PESO[b] - CENTRO_PESO[a];
   });
 }
 
-function esGanadoraExacta(mask: bigint, memoExacto: Map<bigint, boolean>): boolean {
-  if (mask === 0n) return false;
-  const cacheado = memoExacto.get(mask);
+function esGanadoraExacta(lo: number, hi: number, memoExacto: Map<number, boolean>): boolean {
+  if (lo === 0 && hi === 0) return false;
+  const key = hi * 0x40000 + lo;
+  const cacheado = memoExacto.get(key);
   if (cacheado !== undefined) return cacheado;
 
-  const libres = listarIndices(mask);
-  for (const m of libres) {
-    if ((mask & INV_VECINOS_MASK[m]) === 0n) {
-      memoExacto.set(mask, true);
+  const libres = listarIndices(lo, hi);
+  for (let i = 0; i < libres.length; i++) {
+    const m = libres[i];
+    if ((lo & INV_LO[m]) === 0 && (hi & INV_HI[m]) === 0) {
+      memoExacto.set(key, true);
       return true;
     }
   }
 
-  libres.sort((a, b) => popcount(mask & INV_VECINOS_MASK[a]) - popcount(mask & INV_VECINOS_MASK[b]));
+  ordenarPorRestantes(libres, lo, hi);
 
-  for (const m of libres) {
-    const siguiente = mask & INV_VECINOS_MASK[m];
-    if (!esGanadoraExacta(siguiente, memoExacto)) {
-      memoExacto.set(mask, true);
+  for (let i = 0; i < libres.length; i++) {
+    const m = libres[i];
+    if (!esGanadoraExacta(lo & INV_LO[m], hi & INV_HI[m], memoExacto)) {
+      memoExacto.set(key, true);
       return true;
     }
   }
 
-  memoExacto.set(mask, false);
+  memoExacto.set(key, false);
   return false;
 }
 
 function negamax(
-  mask: bigint,
+  lo: number,
+  hi: number,
   profundidad: number,
   alpha: number,
   beta: number,
-  memoExacto: Map<bigint, boolean>
+  memoExacto: Map<number, boolean>
 ): number {
-  if (mask === 0n) return -1000;
-  const n = popcount(mask);
+  if (lo === 0 && hi === 0) return -1000;
+  const n = popcount36(lo, hi);
   if (n <= 10) {
-    return esGanadoraExacta(mask, memoExacto) ? 1000 + profundidad : -1000 - profundidad;
+    return esGanadoraExacta(lo, hi, memoExacto) ? 1000 + profundidad : -1000 - profundidad;
   }
 
   if (profundidad === 0) {
@@ -112,14 +127,14 @@ function negamax(
     return (n % 2 === 1 ? 8 : -8) + Math.min(n, 20);
   }
 
-  const libres = listarIndices(mask);
-  ordenarPorRestantes(libres, mask);
+  const libres = listarIndices(lo, hi);
+  ordenarPorRestantes(libres, lo, hi);
 
-  const limite = libres.slice(0, 8);
+  const limite = Math.min(6, libres.length);
   let mejor = -Infinity;
-  for (const m of limite) {
-    const siguiente = mask & INV_VECINOS_MASK[m];
-    const valor = -negamax(siguiente, profundidad - 1, -beta, -alpha, memoExacto);
+  for (let i = 0; i < limite; i++) {
+    const m = libres[i];
+    const valor = -negamax(lo & INV_LO[m], hi & INV_HI[m], profundidad - 1, -beta, -alpha, memoExacto);
     if (valor > mejor) mejor = valor;
     if (valor > alpha) alpha = valor;
     if (alpha >= beta) break;
@@ -135,11 +150,19 @@ export function elegirMovimiento(
   dificultad: Dificultad,
   rng: Rng = Math.random
 ): number {
-  const mask = construirMascaraLegal(state);
-  const legales = listarIndices(mask);
+  let lo = 0;
+  let hi = 0;
+  for (let i = 0; i < TOTAL; i++) {
+    if (casillaLegal(state.board, i)) {
+      if (i < 18) lo |= 1 << i;
+      else hi |= 1 << (i - 18);
+    }
+  }
+
+  const legales = listarIndices(lo, hi);
   if (legales.length === 0) return 0;
 
-  const inmediatas = legales.filter(i => (mask & INV_VECINOS_MASK[i]) === 0n);
+  const inmediatas = legales.filter(i => (lo & INV_LO[i]) === 0 && (hi & INV_HI[i]) === 0);
 
   if (dificultad === 'facil') {
     if (inmediatas.length > 0 && (legales.length === inmediatas.length || rng() < 0.4)) {
@@ -152,32 +175,37 @@ export function elegirMovimiento(
 
   if (dificultad === 'medio') {
     const seguras = legales.filter(i => {
-      const sig = mask & INV_VECINOS_MASK[i];
-      for (const j of listarIndices(sig)) {
-        if ((sig & INV_VECINOS_MASK[j]) === 0n) return false;
+      const sigLo = lo & INV_LO[i];
+      const sigHi = hi & INV_HI[i];
+      const sigLibres = listarIndices(sigLo, sigHi);
+      for (let k = 0; k < sigLibres.length; k++) {
+        const j = sigLibres[k];
+        if ((sigLo & INV_LO[j]) === 0 && (sigHi & INV_HI[j]) === 0) return false;
       }
       return true;
     });
     return elegirAlAzar(seguras.length > 0 ? seguras : legales, rng);
   }
 
-  const memoExacto = new Map<bigint, boolean>();
-  ordenarPorRestantes(legales, mask);
+  const memoExacto = new Map<number, boolean>();
+  ordenarPorRestantes(legales, lo, hi);
 
   if (legales.length <= 12) {
-    const ganadoras = legales.filter(m => !esGanadoraExacta(mask & INV_VECINOS_MASK[m], memoExacto));
+    const ganadoras = legales.filter(
+      m => !esGanadoraExacta(lo & INV_LO[m], hi & INV_HI[m], memoExacto)
+    );
     if (ganadoras.length > 0) return elegirAlAzar(ganadoras, rng);
   }
 
-  const candidatos = legales.length > 16 ? legales.slice(0, 14) : legales;
-  const profundidad = legales.length > 20 ? 3 : 4;
+  const candidatos = legales.length > 16 ? legales.slice(0, 10) : legales;
+  const profundidad = legales.length > 14 ? 2 : 3;
   let mejorPuntaje = -Infinity;
   let mejores: number[] = [];
 
-  for (const m of candidatos) {
-    const siguiente = mask & INV_VECINOS_MASK[m];
+  for (let i = 0; i < candidatos.length; i++) {
+    const m = candidatos[i];
     const beta = Number.isFinite(mejorPuntaje) ? -mejorPuntaje + 1 : Infinity;
-    const valor = -negamax(siguiente, profundidad, -Infinity, beta, memoExacto);
+    const valor = -negamax(lo & INV_LO[m], hi & INV_HI[m], profundidad, -Infinity, beta, memoExacto);
     if (valor > mejorPuntaje) {
       mejorPuntaje = valor;
       mejores = [m];

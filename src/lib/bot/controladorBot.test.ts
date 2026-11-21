@@ -245,4 +245,58 @@ describe('controladorBot', () => {
     expect(elegirMovimiento).not.toHaveBeenCalled();
     expect(aplicarMovimiento).not.toHaveBeenCalled();
   });
+
+  it('cancelarTurno desbloquea al bot tras un movimiento sin cambios con alCambiarTurno síncrono', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const estadoFijo = { turno: 2 };
+    let intentos = 0;
+
+    const ctrl = crearControladorBot<number>({
+      elegirMovimiento: () => 0,
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      aplicarMovimiento: () => {
+        intentos++;
+        ctrl.alCambiarTurno(2);
+      },
+      obtenerSnapshot: () => estadoFijo,
+      esMovimientoReducido: () => false,
+    });
+
+    ctrl.activar('facil', 1);
+    ctrl.alCambiarTurno(2);
+    vi.advanceTimersByTime(RETRASO_BOT_MS);
+    expect(intentos).toBe(1);
+
+    // Simula reiniciar(): cancelarTurno debe limpiar el bloqueo por sin cambio.
+    ctrl.cancelarTurno();
+    ctrl.alCambiarTurno(2);
+    vi.advanceTimersByTime(RETRASO_BOT_MS);
+
+    expect(intentos).toBe(2);
+    warn.mockRestore();
+  });
+
+  it('obtenerSnapshot que devuelve undefined no dispara bloqueo anti-bucle falso entre turnos seguidos', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let intentos = 0;
+
+    const ctrl = crearControladorBot<number>({
+      elegirMovimiento: () => intentos,
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      aplicarMovimiento: () => {
+        intentos++;
+        ctrl.alCambiarTurno(intentos < 2 ? 2 : 1);
+      },
+      obtenerSnapshot: () => undefined,
+      esMovimientoReducido: () => false,
+    });
+
+    ctrl.activar('facil', 1);
+    ctrl.alCambiarTurno(2);
+    vi.advanceTimersByTime(RETRASO_BOT_MS * 3);
+
+    expect(intentos).toBe(2);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
 });

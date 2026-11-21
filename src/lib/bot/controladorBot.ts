@@ -42,7 +42,8 @@ function defectoMovimientoReducido(): boolean {
 function huellaSnapshot(obtenerSnapshot?: () => unknown): string | null {
   if (!obtenerSnapshot) return null;
   try {
-    return codificarEstado(obtenerSnapshot());
+    const huella = codificarEstado(obtenerSnapshot());
+    return typeof huella === 'string' ? huella : null;
   } catch {
     return null;
   }
@@ -61,7 +62,7 @@ export function crearControladorBot<TMovimiento>(
 
   const esMovimientoReducido = config.esMovimientoReducido ?? defectoMovimientoReducido;
 
-  function cancelarTurno(): void {
+  function limpiarTimer(): void {
     epoch++;
     if (timerPendiente !== null) {
       clearTimeout(timerPendiente);
@@ -69,8 +70,13 @@ export function crearControladorBot<TMovimiento>(
     }
   }
 
+  function cancelarTurno(): void {
+    limpiarTimer();
+    bloqueadoPorSinCambio = false;
+  }
+
   function activar(nuevaDificultad: Dificultad, nuevoAsientoHumano: Player = 1): void {
-    cancelarTurno();
+    limpiarTimer();
     activo = true;
     dificultad = nuevaDificultad;
     asientoHumano = nuevoAsientoHumano;
@@ -78,7 +84,7 @@ export function crearControladorBot<TMovimiento>(
   }
 
   function desactivar(): void {
-    cancelarTurno();
+    limpiarTimer();
     activo = false;
     aplicandoJugada = false;
     bloqueadoPorSinCambio = false;
@@ -91,7 +97,6 @@ export function crearControladorBot<TMovimiento>(
   function alternarAsiento(): Player {
     cancelarTurno();
     asientoHumano = asientoHumano === 1 ? 2 : 1;
-    bloqueadoPorSinCambio = false;
     return asientoHumano;
   }
 
@@ -126,7 +131,7 @@ export function crearControladorBot<TMovimiento>(
 
     if (antes !== null && huellaSnapshot(config.obtenerSnapshot) === antes) {
       bloqueadoPorSinCambio = true;
-      cancelarTurno();
+      limpiarTimer();
       console.warn('El movimiento del bot no modificó el estado; se detiene para evitar bucle.');
     }
   }
@@ -134,7 +139,7 @@ export function crearControladorBot<TMovimiento>(
   function alCambiarTurno(jugadorActual: Player): void {
     if (!activo || jugadorActual === asientoHumano) {
       bloqueadoPorSinCambio = false;
-      cancelarTurno();
+      limpiarTimer();
       return;
     }
 
@@ -143,7 +148,7 @@ export function crearControladorBot<TMovimiento>(
       return;
     }
 
-    cancelarTurno();
+    limpiarTimer();
     const epochActual = epoch;
     const retraso = esMovimientoReducido() ? RETRASO_BOT_REDUCIDO_MS : RETRASO_BOT_MS;
     timerPendiente = setTimeout(() => ejecutarJugada(epochActual), retraso);

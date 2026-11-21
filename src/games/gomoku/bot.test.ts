@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialState, esJugadaValida, playMove } from './engine';
+import { createInitialState, esJugadaValida, playMove, type GomokuState } from './engine';
 import { elegirMovimiento } from './bot';
 import type { Dificultad } from '../../lib/bot/tipos';
 
@@ -11,11 +11,23 @@ function crearRng(semilla: number): () => number {
   };
 }
 
-function simular(dif1: Dificultad, dif2: Dificultad, rng: () => number) {
+function jugadaAzar(state: GomokuState, rng: () => number): number {
+  const vacias: number[] = [];
+  for (let i = 0; i < state.board.length; i++) {
+    if (state.board[i] === null) vacias.push(i);
+  }
+  return vacias[Math.floor(rng() * vacias.length)];
+}
+
+function simular(
+  dif1: Dificultad | 'azar',
+  dif2: Dificultad | 'azar',
+  rng: () => number
+) {
   let state = createInitialState();
   while (state.status === 'playing') {
     const dif = state.currentPlayer === 1 ? dif1 : dif2;
-    const mov = elegirMovimiento(state, dif, rng);
+    const mov = dif === 'azar' ? jugadaAzar(state, rng) : elegirMovimiento(state, dif, rng);
     expect(esJugadaValida(mov)).toBe(true);
     const next = playMove(state, mov);
     expect(next).not.toBe(state);
@@ -72,16 +84,43 @@ describe('gomoku bot', () => {
     }
   });
 
-  it('calibración: dificil > medio > facil', () => {
+  it('facil omite una victoria inmediata de 5 en línea cuando rng >= 0.35 y hay otras casillas', () => {
+    let sGanar = createInitialState();
+    for (const [m1, m2] of [
+      [37, 0],
+      [38, 1],
+      [39, 2],
+      [40, 3],
+    ]) {
+      sGanar = playMove(sGanar, m1);
+      sGanar = playMove(sGanar, m2);
+    }
+
+    const movOmitido = elegirMovimiento(sGanar, 'facil', () => 0.5);
+    expect(esJugadaValida(movOmitido)).toBe(true);
+    expect(sGanar.board[movOmitido]).toBeNull();
+    expect([36, 41]).not.toContain(movOmitido);
+
+    const movGanador = elegirMovimiento(sGanar, 'facil', () => 0.1);
+    expect([36, 41]).toContain(movGanador);
+  });
+
+  it('calibración: dificil > medio > facil y azar gana a facil', () => {
     const rng = crearRng(909);
     let dificilGana = 0;
     let medioGana = 0;
+    let azarGana = 0;
     const N = 20;
+    const M = 60;
     for (let i = 0; i < N; i++) {
       if (simular('dificil', 'medio', rng) === 1) dificilGana++;
       if (simular('medio', 'facil', rng) === 1) medioGana++;
     }
+    for (let i = 0; i < M; i++) {
+      if (simular('azar', 'facil', rng) === 1) azarGana++;
+    }
     expect(dificilGana).toBeGreaterThan(N * 0.65);
     expect(medioGana).toBeGreaterThan(N * 0.65);
+    expect(azarGana).toBeGreaterThan(M * 0.1);
   });
 });
