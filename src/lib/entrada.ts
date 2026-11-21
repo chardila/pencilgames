@@ -1,13 +1,16 @@
-// Persistencia del recorrido de entrada a un juego: qué reglas ya se leyeron
-// y qué modo de juego (local/remoto) se eligió la última vez. Ver
+import { esDificultad, type Dificultad } from './bot/tipos';
+
+// Persistencia del recorrido de entrada a un juego: qué reglas ya se leyeron,
+// qué modo de juego (solo/local/remoto) y qué dificultad se eligió. Ver
 // specs/03-reducir-friccion-de-entrada.md. Mismo patrón de try/catch
 // silencioso que players.ts: si localStorage no está disponible (modo
 // privado, cuota llena), el flujo de hoy (mostrar todo) sigue funcionando.
 
 const REGLAS_VISTAS_KEY = 'pencilgames:reglas-vistas';
 const MODO_KEY = 'pencilgames:modo';
+const DIFICULTAD_KEY = 'pencilgames:dificultad';
 
-export type Modo = 'local' | 'remoto';
+export type Modo = 'solo' | 'local' | 'remoto';
 
 function parseArray(raw: string | null): unknown[] {
   if (!raw) return [];
@@ -54,7 +57,7 @@ export function olvidarReglasVistas(slug: string): void {
 export function getModoGuardado(): Modo | null {
   try {
     const valor = localStorage.getItem(MODO_KEY);
-    return valor === 'local' || valor === 'remoto' ? valor : null;
+    return valor === 'solo' || valor === 'local' || valor === 'remoto' ? valor : null;
   } catch {
     return null;
   }
@@ -71,6 +74,23 @@ export function guardarModo(modo: Modo): void {
 export function olvidarModo(): void {
   try {
     localStorage.removeItem(MODO_KEY);
+  } catch {
+    // localStorage no disponible: no persiste, no rompe el flujo.
+  }
+}
+
+export function getDificultadGuardada(): Dificultad {
+  try {
+    const valor = localStorage.getItem(DIFICULTAD_KEY);
+    return esDificultad(valor) ? valor : 'facil';
+  } catch {
+    return 'facil';
+  }
+}
+
+export function guardarDificultad(dificultad: Dificultad): void {
+  try {
+    localStorage.setItem(DIFICULTAD_KEY, dificultad);
   } catch {
     // localStorage no disponible: no persiste, no rompe el flujo.
   }
