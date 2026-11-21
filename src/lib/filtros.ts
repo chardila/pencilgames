@@ -8,17 +8,20 @@ export interface JuegoFiltrable {
   descripcion: string;
   duracion: Duracion;
   tipo: Tipo;
+  solo: boolean;
 }
 
 export interface Filtros {
   duraciones: ReadonlySet<Duracion>;
   tipos: ReadonlySet<Tipo>;
+  solo: boolean;
   consulta: string;
 }
 
 export function coincide(juego: JuegoFiltrable, filtros: Filtros): boolean {
   if (filtros.duraciones.size > 0 && !filtros.duraciones.has(juego.duracion)) return false;
   if (filtros.tipos.size > 0 && !filtros.tipos.has(juego.tipo)) return false;
+  if (filtros.solo && !juego.solo) return false;
   const consulta = filtros.consulta.trim().toLowerCase();
   if (consulta === '') return true;
   return (

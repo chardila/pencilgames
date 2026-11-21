@@ -26,6 +26,16 @@ import {
   registrarVictoria,
   type Marcador,
 } from './marcador';
+import { getMiNombre } from './miNombre';
+import {
+  crearControladorBot,
+  type ControladorBot,
+} from './bot/controladorBot';
+import {
+  NOMBRE_BOT,
+  esDificultad,
+  type Dificultad,
+} from './bot/tipos';
 
 export interface GameSessionConfig<TMovimiento> {
   indicadorTurnoEl?: HTMLElement | null;
@@ -48,6 +58,11 @@ export interface GameSessionConfig<TMovimiento> {
    * partida en curso. Debe ser serializable a JSON.
    */
   obtenerSnapshot?: () => unknown;
+  /**
+   * Calcula la siguiente jugada del robot en modo solitario. Si falta, el
+   * juego sigue funcionando en modos local y remoto como hasta ahora.
+   */
+  elegirMovimientoBot?: (dificultad: Dificultad) => TMovimiento | null;
 }
 
 // Elementos tocables de los tableros que se deshabilitan con `disabled`:
@@ -150,18 +165,56 @@ export function iniciarSesionJuego<TMovimiento>(
   // snapshot que queda no es el tablero inicial: vaciar la pila no equivale
   // a una partida sin empezar y no debe borrar la partida guardada.
   let pilaRecortada = false;
-  let marcador: Marcador = obtenerMarcador(slug);
   // Se une a la próxima frase que arme mostrarTurno, para que "Jugada
   // deshecha"/"Partida reiniciada" llegue al mismo cambio de texto del
   // role="status" (spec 02, R6) en vez de un cambio aparte que el lector de
   // pantalla podría no alcanzar a anunciar.
   let anuncioPendiente: string | null = null;
 
+  const controladorBot: ControladorBot | null = config.elegirMovimientoBot
+    ? crearControladorBot<TMovimiento>({
+        elegirMovimiento: config.elegirMovimientoBot,
+        validarMovimiento: config.validarMovimiento,
+        aplicarMovimiento: config.onMovimientoRemoto,
+        obtenerSnapshot: config.obtenerSnapshot,
+      })
+    : null;
+
+  function esRemoto(): boolean {
+    return canal !== null;
+  }
+
+  function esSolo(): boolean {
+    return controladorBot !== null && controladorBot.estaActivo();
+  }
+
+  function claveMarcador(): string {
+    return esSolo() ? `${slug}:solo` : slug;
+  }
+
+  let marcador: Marcador = obtenerMarcador(claveMarcador());
+
+  function nombreHumanoSolo(): string {
+    return getMiNombre() ?? getPlayerNames()[1];
+  }
+
+  function nombresMarcador(): PlayerNames {
+    return esSolo() ? { 1: nombreHumanoSolo(), 2: NOMBRE_BOT } : nombres;
+  }
+
+  function aplicarNombresSolo(): void {
+    if (!controladorBot) return;
+    const humano = controladorBot.getAsientoHumano();
+    const bot = controladorBot.getAsientoBot();
+    nombres[humano] = nombreHumanoSolo();
+    nombres[bot] = NOMBRE_BOT;
+  }
+
   // Persistencia de la partida local en curso (spec 06).
   let timeoutGuardado: ReturnType<typeof setTimeout> | null = null;
 
   function puedePersistir(): boolean {
-    return miAsiento === null && !!config.obtenerSnapshot;
+    return !esRemoto() && !!config.obtenerSnapshot;
   }
 
   function hayPartidaPersistible(): boolean {
@@ -176,6 +229,14 @@ export function iniciarSesionJuego<TMovimiento>(
       snapshot: config.obtenerSnapshot!(),
       pila: pilaDeshacer,
       pilaRecortada,
+      ...(esSolo() && controladorBot
+        ? {
+            solo: {
+              dificultad: controladorBot.getDificultad(),
+              asientoHumano: controladorBot.getAsientoHumano(),
+            },
+          }
+        : {}),
     });
   }
 
@@ -220,12 +281,17 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function alRestaurarPartida(): void {
-    if (miAsiento !== null || !config.onDeshacer) return;
+    if (esRemoto() || !config.onDeshacer) return;
     const guardada = leerPartida(slug);
     if (!guardada) return;
+    if (guardada.solo && controladorBot && !esSolo()) {
+      controladorBot.activar(guardada.solo.dificultad, guardada.solo.asientoHumano);
+      miAsiento = guardada.solo.asientoHumano;
+      marcador = obtenerMarcador(claveMarcador());
+    }
     nombres[1] = guardada.nombres[1];
     nombres[2] = guardada.nombres[2];
-    savePlayerNames(nombres);
+    if (!guardada.solo) savePlayerNames(nombres);
     pilaDeshacer = guardada.pila;
     pilaRecortada = guardada.pilaRecortada === true;
     actualizarBotonDeshacer();
@@ -250,19 +316,19 @@ export function iniciarSesionJuego<TMovimiento>(
     if (!boton) return;
     // En remoto, deshacer no existe (fuera de alcance de la spec 02): se
     // oculta en vez de solo deshabilitarse.
-    boton.hidden = miAsiento !== null;
+    boton.hidden = esRemoto();
     boton.disabled = pilaDeshacer.length === 0;
   }
 
   function actualizarMarcadorUI(): void {
     const el = getMarcadorEl();
     if (!el) return;
-    el.textContent = formatearMarcador(marcador, nombres);
+    el.textContent = formatearMarcador(marcador, nombresMarcador());
   }
 
   function guardarParaDeshacer(snapshot: unknown): void {
     senales.marcar('toque');
-    if (miAsiento !== null) return; // sin pila propia en modo remoto
+    if (esRemoto() || controladorBot?.estaAplicandoJugada()) return; // sin pila propia en remoto ni jugadas del bot
     pilaDeshacer.push(structuredClone(snapshot));
     if (pilaDeshacer.length > PROFUNDIDAD_DESHACER) {
       pilaDeshacer.shift();
@@ -304,7 +370,8 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function alClicControlDeshacer(): void {
-    if (miAsiento !== null || pilaDeshacer.length === 0) return;
+    if (esRemoto() || pilaDeshacer.length === 0) return;
+    controladorBot?.cancelarTurno();
     const snapshot = pilaDeshacer.pop();
     actualizarBotonDeshacer();
     if (pilaDeshacer.length === 0 && !pilaRecortada) descartarPartida();
@@ -318,12 +385,12 @@ export function iniciarSesionJuego<TMovimiento>(
   function alClicPosibleVolverALista(evento: Event): void {
     const objetivo = evento.target as HTMLElement | null;
     const link = objetivo?.closest?.('a[href="/"]');
-    if (link) limpiarMarcador(slug);
+    if (link) limpiarMarcador(claveMarcador());
   }
 
   function alActualizarNombresLocales(evento: Event): void {
     const customEvent = evento as CustomEvent<PlayerNames>;
-    if (customEvent.detail && miAsiento === null) {
+    if (customEvent.detail && !esRemoto() && !esSolo()) {
       nombres[1] = customEvent.detail[1];
       nombres[2] = customEvent.detail[2];
       limpiarMarcador(slug);
@@ -334,7 +401,73 @@ export function iniciarSesionJuego<TMovimiento>(
     }
   }
 
+  function reiniciarTableroAlCambiarModo(): void {
+    retirarConfeti();
+    partidaTerminada = false;
+    pilaDeshacer = [];
+    pilaRecortada = false;
+    registro = [];
+    actualizarBotonDeshacer();
+    descartarPartida();
+    config.onAplicarReinicio();
+  }
+
+  function alModoSolo(evento: Event): void {
+    if (!controladorBot || esRemoto()) return;
+    const detalle = (
+      evento as CustomEvent<{
+        dificultad?: unknown;
+        asientoHumano?: Player;
+        restaurando?: boolean;
+      }>
+    ).detail;
+    const dificultad: Dificultad = esDificultad(detalle?.dificultad)
+      ? detalle.dificultad
+      : 'facil';
+    const asientoHumano: Player = detalle?.asientoHumano === 2 ? 2 : 1;
+
+    controladorBot.activar(dificultad, asientoHumano);
+    miAsiento = asientoHumano;
+    aplicarNombresSolo();
+    victoriaRegistrada = false;
+    marcador = obtenerMarcador(claveMarcador());
+    actualizarBotonDeshacer();
+    actualizarMarcadorUI();
+
+    if (!detalle?.restaurando) {
+      reiniciarTableroAlCambiarModo();
+    }
+  }
+
+  function alCambiarDificultadSolo(evento: Event): void {
+    if (!esSolo() || !controladorBot) return;
+    const dificultad = (evento as CustomEvent<{ dificultad?: unknown }>).detail?.dificultad;
+    if (!esDificultad(dificultad)) return;
+    controladorBot.setDificultad(dificultad);
+    if (!partidaTerminada) programarGuardado();
+  }
+
+  function alModoLocal(): void {
+    if (esRemoto() || !esSolo() || !controladorBot) return;
+    controladorBot.desactivar();
+    miAsiento = null;
+    const locales = getPlayerNames();
+    nombres[1] = locales[1];
+    nombres[2] = locales[2];
+    victoriaRegistrada = false;
+    marcador = obtenerMarcador(claveMarcador());
+    actualizarMarcadorUI();
+    reiniciarTableroAlCambiarModo();
+  }
+
   function alCanalRemotoListo(evento: Event): void {
+    const veniaDeSolo = esSolo();
+    controladorBot?.desactivar();
+    if (veniaDeSolo) {
+      const locales = getPlayerNames();
+      nombres[1] = locales[1];
+      nombres[2] = locales[2];
+    }
     const detalle = (
       evento as CustomEvent<{ channel: MoveChannel; miNombre: string }>
     ).detail;
@@ -350,10 +483,10 @@ export function iniciarSesionJuego<TMovimiento>(
     marcador = obtenerMarcador(slug);
     descartarPartida();
 
-    // Si se venía de una partida local en curso (con jugadas en el registro
-    // o en la pila de deshacer), se reinicia el tablero para que ambos
-    // rivales arranquen sincronizados desde el tablero limpio y el turno 1.
-    const teniaPartidaPrevia = registro.length > 0 || pilaDeshacer.length > 0;
+    // Si se venía de una partida local o solitaria en curso (con jugadas
+    // en el registro o en la pila de deshacer), se reinicia el tablero para
+    // que ambos rivales arranquen sincronizados desde el tablero limpio y el turno 1.
+    const teniaPartidaPrevia = veniaDeSolo || registro.length > 0 || pilaDeshacer.length > 0;
     registro = [];
     desincronizado = false;
     pilaDeshacer = [];
@@ -647,6 +780,9 @@ export function iniciarSesionJuego<TMovimiento>(
     alActualizarNombresLocales
   );
   document.addEventListener('canal-remoto-listo', alCanalRemotoListo);
+  document.addEventListener('modo-elegido-solo', alModoSolo);
+  document.addEventListener('dificultad-solo-cambiada', alCambiarDificultadSolo);
+  document.addEventListener('modo-elegido-local', alModoLocal);
   document.addEventListener('click', alClicPosibleVolverALista);
   document.addEventListener('partida-restaurar', alRestaurarPartida);
   document.addEventListener('visibilitychange', alCambiarVisibilidad);
@@ -700,7 +836,9 @@ export function iniciarSesionJuego<TMovimiento>(
   }
 
   function reiniciar(): void {
+    controladorBot?.cancelarTurno();
     retirarConfeti();
+    partidaTerminada = false;
     victoriaRegistrada = false;
     epoca++;
     registro = [];
@@ -711,6 +849,18 @@ export function iniciarSesionJuego<TMovimiento>(
     descartarPartida();
     config.onAplicarReinicio();
     canal?.enviar({ tipo: 'reiniciar' });
+  }
+
+  function revanchaSolo(): void {
+    if (!esSolo() || !controladorBot) {
+      reiniciar();
+      return;
+    }
+    const nuevoAsiento = controladorBot.alternarAsiento();
+    miAsiento = nuevoAsiento;
+    aplicarNombresSolo();
+    actualizarMarcadorUI();
+    reiniciar();
   }
 
   function mostrarTurno(opciones: MostrarTurnoOptions): void {
@@ -733,56 +883,65 @@ export function iniciarSesionJuego<TMovimiento>(
     ultimoTurnoOpciones = opciones;
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
-    if (!ind) return;
+    if (ind) {
+      const fichas: Record<Player, FichaJugador> = {
+        1: {
+          nombre: nombres[1],
+          puntaje: opciones.puntajes?.[1],
+          simbolo: opciones.simbolos?.[1],
+        },
+        2: {
+          nombre: nombres[2],
+          puntaje: opciones.puntajes?.[2],
+          simbolo: opciones.simbolos?.[2],
+        },
+      };
 
-    const fichas: Record<Player, FichaJugador> = {
-      1: {
-        nombre: nombres[1],
-        puntaje: opciones.puntajes?.[1],
-        simbolo: opciones.simbolos?.[1],
-      },
-      2: {
-        nombre: nombres[2],
-        puntaje: opciones.puntajes?.[2],
-        simbolo: opciones.simbolos?.[2],
-      },
-    };
+      let estadoReconexion: 'propia' | 'rival' | undefined = undefined;
+      if (estadoConexion === 'reconectando') {
+        estadoReconexion = 'propia';
+      } else if (estadoConexion === 'reconectando-rival') {
+        estadoReconexion = 'rival';
+      }
 
-    let estadoReconexion: 'propia' | 'rival' | undefined = undefined;
-    if (estadoConexion === 'reconectando') {
-      estadoReconexion = 'propia';
-    } else if (estadoConexion === 'reconectando-rival') {
-      estadoReconexion = 'rival';
-    }
+      renderTurnIndicator(ind, {
+        jugador: opciones.jugador,
+        fichas,
+        miAsiento,
+        detalle: opciones.detalle,
+        repiteTurno: opciones.repiteTurno,
+        motivoRepeticion: opciones.motivoRepeticion,
+        estadoReconexion,
+        textoEspera: esSolo() ? 'pensando…' : undefined,
+      });
 
-    renderTurnIndicator(ind, {
-      jugador: opciones.jugador,
-      fichas,
-      miAsiento,
-      detalle: opciones.detalle,
-      repiteTurno: opciones.repiteTurno,
-      motivoRepeticion: opciones.motivoRepeticion,
-      estadoReconexion,
-    });
-
-    if (anuncioPendiente) {
-      const prosa = ind.querySelector<HTMLElement>('.indicador-turno__prosa');
-      if (prosa) prosa.textContent = `${anuncioPendiente} ${prosa.textContent}`;
-      anuncioPendiente = null;
+      if (anuncioPendiente) {
+        const prosa = ind.querySelector<HTMLElement>('.indicador-turno__prosa');
+        if (prosa) prosa.textContent = `${anuncioPendiente} ${prosa.textContent}`;
+        anuncioPendiente = null;
+      }
     }
 
     if (ban && !desincronizado) hideWinnerBanner(ban);
+    controladorBot?.alCambiarTurno(opciones.jugador);
   }
 
   function mostrarFinDeJuego(opciones: MostrarFinDeJuegoOptions): void {
+    controladorBot?.cancelarTurno();
     descartarPartida();
     // Los juegos llaman aquí en cada render mientras la partida está ganada
     // (reconexión, cambio de nombres): el confeti solo sale en la transición.
     const yaTerminada = partidaTerminada;
     partidaTerminada = true;
-    // Victoria con ganador; un empate se celebra más bajo (como un punto).
-    if (opciones.ganador === 1 || opciones.ganador === 2) senales.mejorar('victoria');
-    else if (opciones.ganador === null) senales.mejorar('punto');
+    const ganoBot =
+      esSolo() &&
+      opciones.ganador !== undefined &&
+      opciones.ganador !== null &&
+      opciones.ganador !== miAsiento;
+    const ganoHumano = !ganoBot && (opciones.ganador === 1 || opciones.ganador === 2);
+    // Victoria con ganador humano; derrota contra el robot o empate se señalan más bajo (punto).
+    if (ganoBot || opciones.ganador === null) senales.mejorar('punto');
+    else if (ganoHumano) senales.mejorar('victoria');
     const ind = getIndicadorTurno();
     const ban = getBannerGanador();
     if (ind) ocultarTurnIndicator(ind);
@@ -790,21 +949,30 @@ export function iniciarSesionJuego<TMovimiento>(
     // remoto (reconexión, nombre del rival) sumaría la victoria otra vez.
     if (opciones.ganador !== undefined && !victoriaRegistrada) {
       victoriaRegistrada = true;
-      marcador = registrarVictoria(slug, opciones.ganador);
+      const ganadorMarcador: Player | null =
+        opciones.ganador === null
+          ? null
+          : esSolo()
+            ? opciones.ganador === miAsiento
+              ? 1
+              : 2
+            : opciones.ganador;
+      marcador = registrarVictoria(claveMarcador(), ganadorMarcador);
       actualizarMarcadorUI();
     }
     if (ban) {
       showWinnerBanner(ban, {
-        titulo: opciones.titulo,
+        titulo: ganoBot ? `🤖 Ganó ${NOMBRE_BOT}` : opciones.titulo,
         detalle: opciones.detalle,
-        onReiniciar: reiniciar,
+        onReiniciar: esSolo() ? revanchaSolo : reiniciar,
       });
     }
     // Después de pintar el banner: la celebración nunca tapa el resultado.
-    if (!yaTerminada && (opciones.ganador === 1 || opciones.ganador === 2)) lanzarConfeti();
+    if (!yaTerminada && ganoHumano) lanzarConfeti();
   }
 
   function destruir(): void {
+    controladorBot?.desactivar();
     cancelarSync();
     if (timeoutInicioSync !== null) {
       clearTimeout(timeoutInicioSync);
@@ -825,6 +993,9 @@ export function iniciarSesionJuego<TMovimiento>(
       alActualizarNombresLocales
     );
     document.removeEventListener('canal-remoto-listo', alCanalRemotoListo);
+    document.removeEventListener('modo-elegido-solo', alModoSolo);
+    document.removeEventListener('dificultad-solo-cambiada', alCambiarDificultadSolo);
+    document.removeEventListener('modo-elegido-local', alModoLocal);
     document.removeEventListener('click', alClicPosibleVolverALista);
     document.removeEventListener('pointerup', alPrimerToque);
     document.removeEventListener('pointerdown', alTocarCasillaDeshabilitada);

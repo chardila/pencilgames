@@ -34,3 +34,5 @@ export const ICONO_EDAD = '🧒';
 export function textoEdad(edad: number): string {
   return `${edad}+ años`;
 }
+
+export const ETIQUETA_SOLO: Etiqueta = { icono: '🤖', texto: '1 jugador' };

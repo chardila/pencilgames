@@ -97,6 +97,7 @@ const casillas = Array.from({ length: TOTAL }, (_, i) => i);
     INDICE_VENENO,
     type ChompState,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const tablero = document.getElementById('tablero')!;
@@ -122,6 +123,7 @@ const casillas = Array.from({ length: TOTAL }, (_, i) => i);
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function render(): void {

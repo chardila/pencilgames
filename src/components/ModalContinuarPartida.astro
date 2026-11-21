@@ -69,8 +69,8 @@ const { slug } = Astro.props;
 </style>
 
 <script>
-  import { guardarModo } from '../lib/entrada';
-  import { borrarPartida } from '../lib/partidaGuardada';
+  import { guardarDificultad, guardarModo } from '../lib/entrada';
+  import { borrarPartida, leerPartida } from '../lib/partidaGuardada';
 
   const modal = document.getElementById('modal-continuar-partida')!;
   const continuar = document.getElementById('modal-continuar-si')!;
@@ -84,7 +84,23 @@ const { slug } = Astro.props;
 
   continuar.addEventListener('click', () => {
     modal.hidden = true;
-    // Una partida guardada solo existe en modo local: se salta reglas y modo.
+    // Una partida guardada existe en modo local o solitario: se salta reglas y modo.
+    const guardada = leerPartida(slug);
+    if (guardada?.solo) {
+      guardarModo('solo');
+      guardarDificultad(guardada.solo.dificultad);
+      document.dispatchEvent(
+        new CustomEvent('modo-elegido-solo', {
+          detail: {
+            dificultad: guardada.solo.dificultad,
+            asientoHumano: guardada.solo.asientoHumano,
+            restaurando: true,
+          },
+        })
+      );
+      document.dispatchEvent(new CustomEvent('partida-restaurar'));
+      return;
+    }
     guardarModo('local');
     document.dispatchEvent(new CustomEvent('modo-elegido-local'));
     document.dispatchEvent(new CustomEvent('partida-restaurar'));

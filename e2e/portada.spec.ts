@@ -42,6 +42,22 @@ test('un filtro reduce la lista', async ({ page }) => {
   expect(visibles).toBeLessThan(slugsDelCatalogo().length);
 });
 
+test('los 6 juegos del lote solitario muestran la etiqueta 1 jugador', async ({ page }) => {
+  const slugsSolo = ['tres-en-raya', 'puntos-y-cajas', 'obstruccion', 'nim', 'chomp', 'gomoku'];
+  for (const slug of slugsSolo) {
+    await expect(page.locator(`.indice__item[data-slug="${slug}"]`)).toContainText('1 jugador');
+  }
+  await expect(page.locator('.indice__item[data-slug="hex"]')).not.toContainText('1 jugador');
+});
+
+test('el filtro "Jugar solo" deja exactamente los 6 juegos solitarios', async ({ page }) => {
+  await page.locator('[data-grupo="jugadores"] .filtro[data-valor="solo"]').click();
+  await expect(page.locator(TARJETAS)).toHaveCount(6);
+  for (const slug of ['tres-en-raya', 'puntos-y-cajas', 'obstruccion', 'nim', 'chomp', 'gomoku']) {
+    await expect(page.locator(`.indice__item[data-slug="${slug}"]`)).toBeVisible();
+  }
+});
+
 test('clic en una tarjeta navega al juego', async ({ page }) => {
   await page.locator('.indice__item[data-slug="hex"] a').click();
   await expect(page).toHaveURL(/\/juegos\/hex\/?$/);

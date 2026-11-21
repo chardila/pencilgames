@@ -142,4 +142,23 @@ describe('partidaGuardada', () => {
     expect(hayPartidaGuardada('gomoku', T0)).toBe(false);
     expect(() => borrarPartida('gomoku')).not.toThrow();
   });
+
+  it('conserva los datos de modo solitario cuando se incluyen', () => {
+    const solo = { dificultad: 'medio' as const, asientoHumano: 2 as const };
+    guardarPartida('gomoku', { ...DATOS, solo }, T0);
+    expect(leerPartida('gomoku', T0 + 1000)).toEqual({ v: 1, ts: T0, ...DATOS, solo });
+  });
+
+  it('descarta y borra entradas con campo solo mal formado', () => {
+    const conSoloInvalido = [
+      JSON.stringify({ v: 1, ts: T0, ...DATOS, solo: null }),
+      JSON.stringify({ v: 1, ts: T0, ...DATOS, solo: { dificultad: 'brutal', asientoHumano: 1 } }),
+      JSON.stringify({ v: 1, ts: T0, ...DATOS, solo: { dificultad: 'facil', asientoHumano: 3 } }),
+    ];
+    for (const raw of conSoloInvalido) {
+      storage.setItem(CLAVE, raw);
+      expect(leerPartida('gomoku', T0)).toBeNull();
+      expect(storage.getItem(CLAVE)).toBeNull();
+    }
+  });
 });
