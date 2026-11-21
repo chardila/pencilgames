@@ -1,20 +1,66 @@
+---
+import { DIFICULTADES, DIFICULTAD_INFO } from '../lib/bot/tipos';
+
+interface Props {
+  soportaSolo?: boolean;
+}
+
+const { soportaSolo = false } = Astro.props;
+---
+
 <div
   id="modal-modo-juego"
   class="modal-modo-juego"
   role="dialog"
   aria-modal="true"
   aria-labelledby="modal-modo-juego-titulo"
+  data-soporta-solo={soportaSolo ? 'true' : 'false'}
   hidden
 >
   <div class="modal-modo-juego__contenido">
     <h2 id="modal-modo-juego-titulo">¿Cómo van a jugar?</h2>
-    <button type="button" id="modal-modo-juego-local" class="modal-modo-juego__boton">
-      📱 Misma tableta
-    </button>
-    <button type="button" id="modal-modo-juego-remoto" class="modal-modo-juego__boton">
-      🌐 Por internet
-    </button>
-    <a href="/" class="modal-modo-juego__volver">← Volver a los juegos</a>
+
+    <div id="modal-modo-juego-paso-modo" class="modal-modo-juego__paso">
+      {
+        soportaSolo && (
+          <button type="button" id="modal-modo-juego-solo" class="modal-modo-juego__boton">
+            🤖 Jugar solo
+          </button>
+        )
+      }
+      <button type="button" id="modal-modo-juego-local" class="modal-modo-juego__boton">
+        📱 Misma tableta
+      </button>
+      <button type="button" id="modal-modo-juego-remoto" class="modal-modo-juego__boton">
+        🌐 Por internet
+      </button>
+      <a href="/" class="modal-modo-juego__volver">← Volver a los juegos</a>
+    </div>
+
+    {
+      soportaSolo && (
+        <div id="modal-modo-juego-paso-dificultad" class="modal-modo-juego__paso" hidden>
+          {DIFICULTADES.map(nivel => {
+            const info = DIFICULTAD_INFO[nivel];
+            return (
+              <button
+                type="button"
+                class="modal-modo-juego__dificultad"
+                data-dificultad={nivel}
+              >
+                <span class="modal-modo-juego__dificultad-titulo">
+                  {info.icono} {info.texto}
+                </span>
+                <span class="modal-modo-juego__dificultad-desc">{info.descripcion}</span>
+              </button>
+            );
+          })}
+          <button type="button" id="modal-modo-juego-volver-modo" class="modal-modo-juego__volver-btn">
+            ← Otro modo
+          </button>
+        </div>
+      )
+    }
   </div>
 </div>
 
@@ -45,6 +91,16 @@
     gap: 0.75rem;
   }
 
+  .modal-modo-juego__paso {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .modal-modo-juego__paso[hidden] {
+    display: none;
+  }
+
   .modal-modo-juego__boton {
     padding: 0.75rem;
     border: none;
@@ -53,8 +109,32 @@
     color: var(--color-on-accent);
     font-size: 1.1rem;
     font-weight: 700;
-    min-height: var(--tap-target-min);
+    min-height: 3rem;
     min-width: var(--tap-target-min);
+  }
+
+  .modal-modo-juego__dificultad {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg);
+    color: var(--color-text);
+    min-height: 3.5rem;
+    text-align: left;
+  }
+
+  .modal-modo-juego__dificultad-titulo {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .modal-modo-juego__dificultad-desc {
+    font-size: 0.85rem;
+    opacity: 0.85;
   }
 
   .modal-modo-juego__volver {
@@ -69,14 +149,40 @@
     text-decoration: none;
     text-align: center;
   }
+
+  .modal-modo-juego__volver-btn {
+    padding: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 700;
+    min-height: 3rem;
+  }
 </style>
 
 <script>
-  import { getModoGuardado, guardarModo, olvidarModo } from '../lib/entrada';
+  import { esDificultad } from '../lib/bot/tipos';
+  import {
+    getDificultadGuardada,
+    getModoGuardado,
+    guardarDificultad,
+    guardarModo,
+    olvidarModo,
+  } from '../lib/entrada';
 
   const modal = document.getElementById('modal-modo-juego')!;
+  const titulo = document.getElementById('modal-modo-juego-titulo')!;
+  const pasoModo = document.getElementById('modal-modo-juego-paso-modo')!;
+  const pasoDificultad = document.getElementById('modal-modo-juego-paso-dificultad');
+  const botonSolo = document.getElementById('modal-modo-juego-solo');
   const botonLocal = document.getElementById('modal-modo-juego-local')!;
   const botonRemoto = document.getElementById('modal-modo-juego-remoto')!;
+  const botonVolverModo = document.getElementById('modal-modo-juego-volver-modo');
+  const botonesDificultad = Array.from(
+    modal.querySelectorAll<HTMLButtonElement>('.modal-modo-juego__dificultad')
+  );
+  const soportaSolo = modal.dataset.soportaSolo === 'true';
 
   // Se acuerda si ya se eligió modo para no volver a mostrar este paso
   // cuando se reabren las instrucciones a mitad de partida (botón "?" de
@@ -87,17 +193,36 @@
 
   // Distingue el cancelar de "por internet" ANTES de que el tablero esté a
   // la vista (había que dejar elegir modo otra vez) del cancelar del atajo
-  // de mitad de partida en ModalJugadores (el tablero ya está en pantalla:
+  // de mitad de partida en la cabecera (el tablero ya está en pantalla:
   // no hay que taparlo con "¿Cómo van a jugar?" de nuevo).
   let tableroVisible = false;
 
-  // El modo local también puede quedar decidido sin pasar por aquí (spec 06:
-  // "Continuar" una partida guardada salta reglas y modo). Sin esto, cancelar
-  // luego "por internet" tomaría el tablero por no visible y taparía la
-  // partida restaurada con "¿Cómo van a jugar?".
+  function mostrarPasoModo(): void {
+    titulo.textContent = '¿Cómo van a jugar?';
+    pasoModo.hidden = false;
+    if (pasoDificultad) pasoDificultad.hidden = true;
+  }
+
+  function mostrarPasoDificultad(): void {
+    titulo.textContent = 'Elige la dificultad';
+    pasoModo.hidden = true;
+    if (pasoDificultad) pasoDificultad.hidden = false;
+  }
+
+  // El modo local o solitario también puede quedar decidido sin pasar por aquí
+  // (p. ej. "Continuar" una partida guardada salta reglas y modo). Sin esto,
+  // cancelar luego "por internet" tomaría el tablero por no visible y taparía
+  // la partida restaurada con "¿Cómo van a jugar?".
   document.addEventListener('modo-elegido-local', () => {
     modoYaElegido = true;
     tableroVisible = true;
+    modal.hidden = true;
+  });
+
+  document.addEventListener('modo-elegido-solo', () => {
+    modoYaElegido = true;
+    tableroVisible = true;
+    modal.hidden = true;
   });
 
   document.addEventListener('instrucciones-cerradas', () => {
@@ -109,6 +234,16 @@
     // modal de sala (crear/unirse), no el tablero directo: conectarse sigue
     // siendo una acción explícita.
     const modoGuardado = getModoGuardado();
+    if (modoGuardado === 'solo' && soportaSolo) {
+      modoYaElegido = true;
+      tableroVisible = true;
+      document.dispatchEvent(
+        new CustomEvent('modo-elegido-solo', {
+          detail: { dificultad: getDificultadGuardada() },
+        })
+      );
+      return;
+    }
     if (modoGuardado === 'local') {
       modoYaElegido = true;
       tableroVisible = true;
@@ -123,6 +258,7 @@
       return;
     }
 
+    mostrarPasoModo();
     modal.hidden = false;
   });
 
@@ -133,7 +269,7 @@
   // pulsar "¡Jugar!" repetía el flujo de modo, cerrando la sala en espera.
   // Modo que había guardado antes de intentar "remoto", para poder
   // restaurarlo si cancela sin conectar (en vez de borrar una preferencia
-  // 'local' previa que el usuario nunca tocó).
+  // 'local' o 'solo' previa que el usuario nunca tocó).
   let modoPrevioAntesDeRemoto: ReturnType<typeof getModoGuardado> = null;
 
   document.addEventListener('abrir-modal-remoto', ((evento: CustomEvent<{ modoPrevio?: ReturnType<typeof getModoGuardado> }>) => {
@@ -153,6 +289,7 @@
     if (modoPrevioAntesDeRemoto) guardarModo(modoPrevioAntesDeRemoto);
     else olvidarModo();
     modoYaElegido = false;
+    mostrarPasoModo();
     modal.hidden = false;
   });
 
@@ -170,6 +307,29 @@
     tableroVisible = true;
     modal.hidden = true;
   });
+
+  botonSolo?.addEventListener('click', () => {
+    mostrarPasoDificultad();
+  });
+
+  botonVolverModo?.addEventListener('click', () => {
+    mostrarPasoModo();
+  });
+
+  for (const boton of botonesDificultad) {
+    boton.addEventListener('click', () => {
+      const nivel = boton.dataset.dificultad;
+      if (!esDificultad(nivel)) return;
+      modoYaElegido = true;
+      tableroVisible = true;
+      modal.hidden = true;
+      guardarModo('solo');
+      guardarDificultad(nivel);
+      document.dispatchEvent(
+        new CustomEvent('modo-elegido-solo', { detail: { dificultad: nivel } })
+      );
+    });
+  }
 
   botonLocal.addEventListener('click', () => {
     modoYaElegido = true;
