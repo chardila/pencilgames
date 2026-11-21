@@ -224,4 +224,25 @@ describe('controladorBot', () => {
     vi.advanceTimersByTime(RETRASO_BOT_MS);
     expect(elegirMovimiento).toHaveBeenCalledWith('dificil');
   });
+
+  it('alternarAsiento cancela cualquier timer pendiente del bot', () => {
+    const elegirMovimiento = vi.fn(() => 5);
+    const aplicarMovimiento = vi.fn();
+    const ctrl = crearControladorBot<number>({
+      elegirMovimiento,
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      aplicarMovimiento,
+      esMovimientoReducido: () => false,
+    });
+
+    ctrl.activar('facil', 1);
+    ctrl.alCambiarTurno(2);
+    vi.advanceTimersByTime(250);
+
+    expect(ctrl.alternarAsiento()).toBe(2);
+    vi.advanceTimersByTime(1000);
+
+    expect(elegirMovimiento).not.toHaveBeenCalled();
+    expect(aplicarMovimiento).not.toHaveBeenCalled();
+  });
 });

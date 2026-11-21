@@ -89,6 +89,7 @@ export function crearControladorBot<TMovimiento>(
   }
 
   function alternarAsiento(): Player {
+    cancelarTurno();
     asientoHumano = asientoHumano === 1 ? 2 : 1;
     bloqueadoPorSinCambio = false;
     return asientoHumano;
