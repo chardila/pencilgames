@@ -7,22 +7,26 @@ const hex: JuegoFiltrable = {
   descripcion: 'Conecta tus dos lados opuestos del tablero.',
   duracion: 'medio',
   tipo: 'conectar',
+  solo: false,
 };
 const nim: JuegoFiltrable = {
   nombre: 'Nim',
   descripcion: 'Retira estrellas por turnos.',
   duracion: 'rapido',
   tipo: 'bloquear',
+  solo: true,
 };
 
 function filtros(parcial: {
   duraciones?: Duracion[];
   tipos?: Tipo[];
+  solo?: boolean;
   consulta?: string;
 }): Filtros {
   return {
     duraciones: new Set(parcial.duraciones ?? []),
     tipos: new Set(parcial.tipos ?? []),
+    solo: parcial.solo ?? false,
     consulta: parcial.consulta ?? '',
   };
 }
@@ -63,6 +67,13 @@ describe('coincide', () => {
   it('la consulta se combina con los filtros (AND)', () => {
     expect(coincide(nim, filtros({ consulta: 'nim', duraciones: ['medio'] }))).toBe(false);
     expect(coincide(nim, filtros({ consulta: 'nim', duraciones: ['rapido'] }))).toBe(true);
+  });
+
+  it('filtrar por solo deja únicamente los juegos jugables en solitario y se combina con AND', () => {
+    expect(coincide(nim, filtros({ solo: true }))).toBe(true);
+    expect(coincide(hex, filtros({ solo: true }))).toBe(false);
+    expect(coincide(nim, filtros({ solo: true, duraciones: ['rapido'] }))).toBe(true);
+    expect(coincide(nim, filtros({ solo: true, duraciones: ['medio'] }))).toBe(false);
   });
 });
 

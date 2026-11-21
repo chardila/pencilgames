@@ -1,6 +1,7 @@
 ---
 import {
   DURACION_INFO,
+  ETIQUETA_SOLO,
   ICONO_EDAD,
   TIPO_INFO,
   textoEdad,
@@ -17,11 +18,13 @@ interface Props {
   duracion: Duracion;
   edad: number;
   tipo: Tipo;
+  solo?: boolean;
 }
 
-const { href, slug, title, description, duracion, edad, tipo } = Astro.props;
+const { href, slug, title, description, duracion, edad, tipo, solo = false } = Astro.props;
 
 const etiquetas = [
+  ...(solo ? [ETIQUETA_SOLO] : []),
   DURACION_INFO[duracion],
   { icono: ICONO_EDAD, texto: textoEdad(edad) },
   TIPO_INFO[tipo],

@@ -58,6 +58,14 @@ const grupos = [
           </div>
         ))
       }
+      <div class="indice__grupo" role="group" aria-label="Jugadores" data-grupo="jugadores">
+        <span class="indice__grupo-titulo" aria-hidden="true">Jugadores</span>
+        <button type="button" class="filtro" data-todos aria-pressed="true">Todos</button>
+        <button type="button" class="filtro" data-valor="solo" aria-pressed="false">
+          <span aria-hidden="true">🤖</span>
+          Jugar solo
+        </button>
+      </div>
     </section>
 
     <input
@@ -78,6 +86,7 @@ const grupos = [
             data-descripcion={juego.data.description.toLowerCase()}
             data-duracion={juego.data.duracion}
             data-tipo={juego.data.tipo}
+            data-solo={juego.data.minJugadores === 1 ? 'true' : 'false'}
           >
             <GameCard
               href={`/juegos/${juego.id}`}
@@ -87,6 +96,7 @@ const grupos = [
               duracion={juego.data.duracion}
               edad={juego.data.edad}
               tipo={juego.data.tipo}
+              solo={juego.data.minJugadores === 1}
             />
           </div>
         ))
@@ -225,13 +235,14 @@ const grupos = [
 
   let duraciones = new Set<Duracion>();
   let tipos = new Set<Tipo>();
+  let solo = false;
 
   function grupoDe(boton: HTMLElement): string {
     return boton.closest<HTMLElement>('[data-grupo]')!.dataset.grupo!;
   }
 
   function aplicar() {
-    const filtros = { duraciones, tipos, consulta: buscador.value };
+    const filtros = { duraciones, tipos, solo, consulta: buscador.value };
     let visibles = 0;
 
     for (const item of items) {
@@ -241,6 +252,7 @@ const grupos = [
           descripcion: item.dataset.descripcion!,
           duracion: item.dataset.duracion as Duracion,
           tipo: item.dataset.tipo as Tipo,
+          solo: item.dataset.solo === 'true',
         },
         filtros
       );
@@ -251,7 +263,13 @@ const grupos = [
     sinResultados.hidden = visibles > 0;
 
     for (const boton of botones) {
-      const conjunto: ReadonlySet<string> = grupoDe(boton) === 'duracion' ? duraciones : tipos;
+      const grupo = grupoDe(boton);
+      if (grupo === 'jugadores') {
+        const activo = boton.hasAttribute('data-todos') ? !solo : solo;
+        boton.setAttribute('aria-pressed', String(activo));
+        continue;
+      }
+      const conjunto: ReadonlySet<string> = grupo === 'duracion' ? duraciones : tipos;
       const activo = boton.hasAttribute('data-todos')
         ? conjunto.size === 0
         : conjunto.has(boton.dataset.valor!);
@@ -264,10 +282,13 @@ const grupos = [
     if (!boton) return;
     const esTodos = boton.hasAttribute('data-todos');
 
-    if (grupoDe(boton) === 'duracion') {
+    const grupo = grupoDe(boton);
+    if (grupo === 'duracion') {
       duraciones = esTodos ? new Set() : alternar(duraciones, boton.dataset.valor as Duracion);
-    } else {
+    } else if (grupo === 'tipo') {
       tipos = esTodos ? new Set() : alternar(tipos, boton.dataset.valor as Tipo);
+    } else if (grupo === 'jugadores') {
+      solo = esTodos ? false : !solo;
     }
     aplicar();
   });
@@ -281,6 +302,7 @@ const grupos = [
     const conTeclado = botonLimpiar.matches(':focus-visible');
     duraciones = new Set();
     tipos = new Set();
+    solo = false;
     buscador.value = '';
     aplicar();
     if (conTeclado) buscador.focus();

@@ -3,6 +3,7 @@ import {
   DURACIONES,
   DURACION_INFO,
   EDADES,
+  ETIQUETA_SOLO,
   TIPOS,
   TIPO_INFO,
   textoEdad,
@@ -58,5 +59,21 @@ describe('catalogo', () => {
     for (const t of TIPOS) {
       expect(juegos.some(j => campo(j.texto, 'tipo') === t)).toBe(true);
     }
+  });
+
+  it('ETIQUETA_SOLO tiene icono y texto, y los 6 juegos iniciales declaran minJugadores: 1', () => {
+    expect(ETIQUETA_SOLO).toEqual({ icono: '🤖', texto: '1 jugador' });
+    const slugsSolo = juegos
+      .filter(j => campo(j.texto, 'minJugadores') === '1')
+      .map(j => j.slug)
+      .sort();
+    expect(slugsSolo).toEqual([
+      'chomp',
+      'gomoku',
+      'nim',
+      'obstruccion',
+      'puntos-y-cajas',
+      'tres-en-raya',
+    ]);
   });
 });
