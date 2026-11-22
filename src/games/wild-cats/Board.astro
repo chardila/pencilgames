@@ -222,6 +222,7 @@ const filas = [1, 2, 3, 4, 5];
     type WildCatsState,
     type Move,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const FICHAS = { 1: '●', 2: '▲' } as const;
@@ -249,6 +250,7 @@ const filas = [1, 2, 3, 4, 5];
 
   const sesion = iniciarSesionJuego<Move>({
     validarMovimiento: esJugadaValida,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
     onMovimientoRemoto: move => jugar(move, false),
     onAplicarReinicio: () => {
       state = createInitialState();
@@ -393,7 +395,9 @@ const filas = [1, 2, 3, 4, 5];
     if (prev.currentPlayer === 1) {
       // Confirmó J1: en pasar-y-jugar se tapa el tablero para J2.
       veloParaJ2 = sesion.miAsiento === null;
-      verRevelacion = false;
+      if (emitirRemoto || sesion.miAsiento === null) {
+        verRevelacion = false;
+      }
     } else {
       veloParaJ2 = false;
       verRevelacion = true;

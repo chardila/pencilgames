@@ -1,7 +1,7 @@
 ---
 title: "Col"
 description: "Colorea regiones del mapa, pero nunca dos de tu color pueden tocarse. Pierde quien se queda sin jugadas."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 9

@@ -237,6 +237,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
     type Punto,
   } from './engine';
   import { iniciarSesionJuego } from '../../lib/gameSession';
+  import { elegirMovimiento } from './bot';
 
   const SIMBOLOS = { 1: '●', 2: '▲' } as const;
 
@@ -268,6 +269,7 @@ const triangulos = verticesDeTriangulos().map((vs, i) => {
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function claveP(p: { q: number; r: number }): string {
