@@ -165,14 +165,20 @@ import { MAPAS } from './maps';
   let state: ColState = createInitialState(1);
   let jugadorInicialSiguiente: Player = 1;
   let pathsPorId: SVGElement[] = [];
+  let mapaRenderizado: number | null = null;
+
+  function limpiarSvg(): void {
+    pathsPorId.forEach(p => p.remove());
+    pathsPorId = [];
+    mapaRenderizado = null;
+  }
 
   const sesion = iniciarSesionJuego<ColMove>({
     validarMovimiento: esJugadaValida,
     onMovimientoRemoto: move => jugar(move, false),
     onAplicarReinicio: () => {
-      state = createInitialState(jugadorInicialSiguiente);
-      pathsPorId.forEach(p => p.remove());
-      pathsPorId = [];
+      state = createInitialState(sesion.esSolo ? 1 : jugadorInicialSiguiente);
+      limpiarSvg();
       render();
     },
     onRender: render,
@@ -207,12 +213,14 @@ import { MAPAS } from './maps';
       svg.appendChild(p);
       return p;
     });
+    mapaRenderizado = mapaId;
   }
 
   function render(): void {
     if (state.fase === 'seleccion') {
+      limpiarSvg();
       tableroEl.hidden = true;
-      const meTocaElegir = sesion.esMiTurno(state.currentPlayer);
+      const meTocaElegir = sesion.esSolo || sesion.esMiTurno(state.currentPlayer);
       selectorEl.hidden = !meTocaElegir;
       esperaEl.hidden = meTocaElegir;
       if (!meTocaElegir) {
@@ -229,7 +237,11 @@ import { MAPAS } from './maps';
     esperaEl.hidden = true;
     tableroEl.hidden = false;
 
-    if (state.mapaId !== null && pathsPorId.length !== MAPAS[state.mapaId].regiones.length) {
+    if (
+      state.mapaId !== null &&
+      (mapaRenderizado !== state.mapaId ||
+        pathsPorId.length !== MAPAS[state.mapaId].regiones.length)
+    ) {
       construirSvgDelMapa(state.mapaId);
     }
 

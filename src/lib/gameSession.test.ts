@@ -2416,6 +2416,8 @@ describe('gameSession — modo solitario contra el robot', () => {
 
     document.dispatchEvent(new Event('partida-restaurar'));
 
+    expect(h.sesion.esSolo).toBe(true);
+    expect(h.sesion.esRemoto).toBe(false);
     expect(h.sesion.miAsiento).toBe(2);
     expect(h.sesion.nombres).toEqual({ 1: 'Robot', 2: 'Lucía' });
     expect(mockDoc.getElementById('control-deshacer')!.disabled).toBe(false);
@@ -2467,5 +2469,188 @@ describe('gameSession — modo solitario contra el robot', () => {
     expect(memoryStorage.getItem('pencilgames:marcador:tres-en-raya:solo')).toBeNull();
     expect(memoryStorage.getItem('pencilgames:marcador:tres-en-raya')).not.toBeNull();
     h.sesion.destruir();
+  });
+
+  it('expone esRemoto y esSolo según el modo activo (local, solitario y remoto)', () => {
+    const h = crearJuegoSimulado();
+    expect(h.sesion.esRemoto).toBe(false);
+    expect(h.sesion.esSolo).toBe(false);
+
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    expect(h.sesion.esSolo).toBe(true);
+    expect(h.sesion.esRemoto).toBe(false);
+
+    document.dispatchEvent(new CustomEvent('modo-elegido-local'));
+    expect(h.sesion.esSolo).toBe(false);
+    expect(h.sesion.esRemoto).toBe(false);
+
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Carlos' },
+      })
+    );
+    expect(h.sesion.esRemoto).toBe(true);
+    expect(h.sesion.esSolo).toBe(false);
+
+    h.sesion.destruir();
+  });
+
+  it('esSolo permanece en false cuando no se pasa elegirMovimientoBot aunque lleguen eventos de modo solitario', () => {
+    guardarPartida('tres-en-raya', {
+      nombres: { 1: 'Robot', 2: 'Lucía' },
+      snapshot: { turno: 1, jugadas: [1], ganador: null },
+      pila: [],
+      solo: { dificultad: 'medio', asientoHumano: 2 },
+    });
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+      onDeshacer: vi.fn(),
+    });
+
+    expect(sesion.esSolo).toBe(false);
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'dificil' } })
+    );
+    expect(sesion.esSolo).toBe(false);
+    expect(sesion.miAsiento).toBeNull();
+
+    document.dispatchEvent(new Event('partida-restaurar'));
+    expect(sesion.esSolo).toBe(false);
+    expect(sesion.miAsiento).toBeNull();
+
+    sesion.destruir();
+  });
+
+  it('reiniciar() y revanchaSolo() ocultan #banner-ganador aunque onAplicarReinicio() no llame a mostrarTurno() (caso col en seleccion)', () => {
+    const onAplicarReinicio = vi.fn(); // Simula col volviendo a fase 'seleccion' sin llamar a mostrarTurno()
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender: vi.fn(),
+      elegirMovimientoBot: () => 1,
+    });
+    const banner = mockDoc.getElementById('banner-ganador')!;
+
+    // Modo local: fin de partida + Revancha/reiniciar()
+    sesion.mostrarFinDeJuego({ titulo: 'Ganó Jugador 1', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    const btnLocal = banner.querySelector<MockElement>('.banner-ganador__reiniciar')!;
+    btnLocal.dispatchEvent(new Event('click'));
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
+    expect(banner.hidden).toBe(true);
+
+    // Modo local: llamada directa a reiniciar() con banner abierto
+    sesion.mostrarFinDeJuego({ titulo: 'Ganó Jugador 2', ganador: 2 });
+    expect(banner.hidden).toBe(false);
+    sesion.reiniciar();
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(2);
+    expect(banner.hidden).toBe(true);
+
+    // Modo solitario: fin de partida + Revancha (revanchaSolo())
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    sesion.mostrarFinDeJuego({ titulo: 'Ganó Jugador 1', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    const btnSolo = banner.querySelector<MockElement>('.banner-ganador__reiniciar')!;
+    btnSolo.dispatchEvent(new Event('click'));
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(4); // 2 locales + 1 al entrar en solo + 1 en revanchaSolo
+    expect(sesion.miAsiento).toBe(2);
+    expect(banner.hidden).toBe(true);
+
+    sesion.destruir();
+  });
+
+  it('reinicios remotos, cambio de modo y canal-remoto-listo ocultan #banner-ganador aunque onAplicarReinicio() no llame a mostrarTurno()', () => {
+    const onAplicarReinicio = vi.fn();
+    let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: cb => {
+        receptorMensajes = cb;
+      },
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender: vi.fn(),
+      elegirMovimientoBot: () => 1,
+    });
+    const banner = mockDoc.getElementById('banner-ganador')!;
+
+    // 1) Cambio de modo (reiniciarTableroAlCambiarModo)
+    sesion.mostrarFinDeJuego({ titulo: 'Fin local', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    expect(banner.hidden).toBe(true);
+
+    // 2) Transición a remoto (alCanalRemotoListo cuando venía de partida previa)
+    sesion.mostrarFinDeJuego({ titulo: 'Fin solo', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Yo' },
+      })
+    );
+    expect(banner.hidden).toBe(true);
+
+    // 3) Reinicio remoto vía mensaje { tipo: 'reiniciar' }
+    sesion.mostrarFinDeJuego({ titulo: 'Fin remoto', ganador: 2 });
+    expect(banner.hidden).toBe(false);
+    receptorMensajes!({ tipo: 'reiniciar' });
+    expect(banner.hidden).toBe(true);
+    vi.runAllTimers();
+    vi.mocked(emitirSenal).mockClear();
+    sesion.jugadaInvalida();
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledWith('error');
+
+    // 4) Reinicio remoto vía sync-moves con época mayor
+    sesion.mostrarFinDeJuego({ titulo: 'Fin remoto 2', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    receptorMensajes!({ tipo: 'sync-moves', epoca: 5, desde: 0, movimientos: [] });
+    expect(banner.hidden).toBe(true);
+
+    // 5) canal-remoto-listo desde partida local finalizada sin pila/registro previos
+    const sesionLocalFin = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender: vi.fn(),
+    });
+    sesionLocalFin.mostrarFinDeJuego({ titulo: 'Fin local sin pila', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Yo' },
+      })
+    );
+    expect(banner.hidden).toBe(true);
+    sesionLocalFin.destruir();
+
+    sesion.destruir();
   });
 });

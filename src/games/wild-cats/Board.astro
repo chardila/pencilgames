@@ -393,7 +393,9 @@ const filas = [1, 2, 3, 4, 5];
     if (prev.currentPlayer === 1) {
       // Confirmó J1: en pasar-y-jugar se tapa el tablero para J2.
       veloParaJ2 = sesion.miAsiento === null;
-      verRevelacion = false;
+      if (emitirRemoto || sesion.miAsiento === null) {
+        verRevelacion = false;
+      }
     } else {
       veloParaJ2 = false;
       verRevelacion = true;

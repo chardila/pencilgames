@@ -201,6 +201,10 @@ import TableroJuego from '../../components/TableroJuego.astro';
     },
     onDeshacer: snapshot => {
       state = snapshot as YState;
+      if (state.size !== currentSize) {
+        currentSize = state.size;
+        construirTablero();
+      }
       render();
     },
     obtenerSnapshot: () => state,
@@ -356,7 +360,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       const isActivo = btnSize === state.size;
       btn.classList.toggle('btn-tamano--activo', isActivo);
       btn.setAttribute('aria-checked', isActivo ? 'true' : 'false');
-      btn.disabled = hayJugadas || sesion.miAsiento !== null;
+      btn.disabled = hayJugadas || sesion.esRemoto;
     });
 
     const grupos = svg.querySelectorAll<SVGGElement>('.y-grupo-celda');
@@ -413,7 +417,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   botonesTamano.forEach(btn => {
     btn.addEventListener('click', () => {
-      if (state.board.some(cel => cel !== null) || sesion.miAsiento !== null) return;
+      if (state.board.some(cel => cel !== null) || sesion.esRemoto) return;
       currentSize = Number(btn.dataset.tamano) as BoardSize;
       state = createInitialState(currentSize);
       construirTablero();

@@ -418,7 +418,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
     interstitial.hidden = !enInterstitial;
     if (enInterstitial) {
-      interstitialTexto.textContent = `Jugador ${state.currentPlayer} (${FICHAS[state.currentPlayer]}): coloca tu flota`;
+      interstitialTexto.textContent = `${sesion.nombres[state.currentPlayer]} (${FICHAS[state.currentPlayer]}): coloca tu flota`;
     }
     handoff.hidden = !enHandoff;
     if (enHandoff) {
