@@ -170,6 +170,7 @@ const SIZE = 6;
     type Move,
     type Marca,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const ROLES = { 1: 'Orden', 2: 'Caos' } as const;
@@ -199,6 +200,7 @@ const SIZE = 6;
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function render(): void {

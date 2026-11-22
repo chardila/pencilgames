@@ -1,7 +1,7 @@
 ---
 title: "Orden y Caos"
 description: "Un jugador quiere cinco iguales en línea y el otro quiere impedirlo. Los dos pueden poner X u O."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 9
