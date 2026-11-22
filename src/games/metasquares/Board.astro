@@ -146,6 +146,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
     type Player,
   } from './engine';
   import { iniciarSesionJuego } from '../../lib/gameSession';
+  import { elegirMovimiento } from './bot';
 
   const SIMBOLOS = { 1: '●', 2: '▲' } as const;
 
@@ -177,6 +178,7 @@ const celdas = Array.from({ length: TAMANO * TAMANO }, (_, i) => {
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function ordenarEnCiclo(corners: readonly number[]): number[] {

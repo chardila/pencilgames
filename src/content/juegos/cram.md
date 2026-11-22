@@ -1,7 +1,7 @@
 ---
 title: "Cram"
 description: "Coloca dominós como quieras y deja sin sitio al rival: gana quien hace la última jugada."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: rapido
 edad: 7

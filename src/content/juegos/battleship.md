@@ -1,7 +1,7 @@
 ---
 title: "Batalla naval"
 description: "Coloca tu flota, dispara a las aguas del rival y húndele todos los barcos antes de que él hunda los tuyos."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: largo
 edad: 7

@@ -124,6 +124,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
     type Point,
     type Fence,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const STEP = 80;
@@ -171,6 +172,7 @@ const VIEW_SIZE = MARGIN * 2 + STEP * (GRID_SIZE - 1);
       render();
     },
     obtenerSnapshot: () => ({ state, repiteTurno }),
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function puntoDe(row: number, col: number): SVGGElement {

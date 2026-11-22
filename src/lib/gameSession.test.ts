@@ -2112,3 +2112,545 @@ describe('gameSession — señales de feedback (spec 09)', () => {
     sesion.destruir();
   });
 });
+
+describe('gameSession — modo solitario contra el robot', () => {
+  let mockDoc: MockDocument;
+  let memoryStorage: MemoryStorage;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockDoc = new MockDocument();
+    memoryStorage = new MemoryStorage();
+    vi.stubGlobal('document', mockDoc as unknown as Document);
+    vi.stubGlobal('localStorage', memoryStorage as unknown as Storage);
+    vi.stubGlobal('location', { pathname: '/juegos/tres-en-raya/', reload: vi.fn() });
+    mockDoc.getElementById('banner-ganador')!.hidden = true;
+    vi.mocked(emitirSenal).mockClear();
+    vi.mocked(lanzarConfeti).mockClear();
+    vi.mocked(retirarConfeti).mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function crearJuegoSimulado() {
+    let estado = { turno: 1 as 1 | 2, jugadas: [] as number[], ganador: null as 1 | 2 | null };
+    const jugar = (mov: number) => {
+      estado = {
+        turno: estado.turno === 1 ? 2 : 1,
+        jugadas: [...estado.jugadas, mov],
+        ganador: estado.ganador,
+      };
+      render();
+    };
+    const elegirBot = vi.fn(() => 99);
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: mov => {
+        sesion.guardarParaDeshacer(estado);
+        jugar(mov);
+      },
+      onAplicarReinicio: () => {
+        estado = { turno: 1, jugadas: [], ganador: null };
+        render();
+      },
+      onRender: () => render(),
+      onDeshacer: snap => {
+        estado = snap as typeof estado;
+        render();
+      },
+      obtenerSnapshot: () => estado,
+      elegirMovimientoBot: elegirBot,
+    });
+
+    function render() {
+      if (estado.ganador) {
+        sesion.mostrarFinDeJuego({
+          titulo: `🎉 ¡Ganó ${sesion.nombres[estado.ganador]}!`,
+          detalle: 'Fin de prueba',
+          ganador: estado.ganador,
+        });
+      } else {
+        sesion.mostrarTurno({ jugador: estado.turno });
+      }
+    }
+
+    return {
+      sesion,
+      elegirBot,
+      getEstado: () => estado,
+      setGanador: (g: 1 | 2 | null) => {
+        estado.ganador = g;
+        render();
+      },
+      jugarHumano: (mov: number) => {
+        sesion.guardarParaDeshacer(estado);
+        jugar(mov);
+      },
+    };
+  }
+
+  it('activa el modo solitario con asiento 1 para el niño y Robot en asiento 2 usando getMiNombre()', () => {
+    memoryStorage.setItem('pencilgames:mi-nombre', 'Lucía');
+    const h = crearJuegoSimulado();
+
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+
+    expect(h.sesion.miAsiento).toBe(1);
+    expect(h.sesion.nombres).toEqual({ 1: 'Lucía', 2: 'Robot' });
+    expect(h.sesion.esMiTurno(1)).toBe(true);
+    expect(h.sesion.esMiTurno(2)).toBe(false);
+    expect(mockDoc.getElementById('control-deshacer')!.hidden).toBe(false);
+    expect(mockDoc.getElementById('marcador-partida')!.textContent).toBe('Lucía 0 · Robot 0');
+    h.sesion.destruir();
+  });
+
+  it('responde automáticamente tras la pausa mostrando "pensando…" y Deshacer revierte humano + bot en un toque', () => {
+    const h = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+
+    h.jugarHumano(1);
+    const indicador = mockDoc.getElementById('indicador-turno')!;
+    expect(indicador.textContent).toContain('pensando…');
+
+    vi.advanceTimersByTime(500);
+    expect(h.elegirBot).toHaveBeenCalledWith('facil');
+    expect(h.getEstado().jugadas).toEqual([1, 99]);
+    expect(h.getEstado().turno).toBe(1);
+
+    // Deshacer debe volver al estado antes de la jugada del humano en un solo clic.
+    const deshacer = mockDoc.getElementById('control-deshacer')!;
+    expect(deshacer.disabled).toBe(false);
+    deshacer.dispatchEvent(new Event('click'));
+    expect(h.getEstado().jugadas).toEqual([]);
+    expect(h.getEstado().turno).toBe(1);
+    expect(deshacer.disabled).toBe(true);
+    h.sesion.destruir();
+  });
+
+  it('deshacer mientras el robot está pensando cancela su jugada pendiente', () => {
+    const h = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'medio' } })
+    );
+
+    h.jugarHumano(5);
+    vi.advanceTimersByTime(200);
+    mockDoc.getElementById('control-deshacer')!.dispatchEvent(new Event('click'));
+    vi.advanceTimersByTime(1000);
+
+    expect(h.elegirBot).not.toHaveBeenCalled();
+    expect(h.getEstado().jugadas).toEqual([]);
+    h.sesion.destruir();
+  });
+
+  it('al pulsar Revancha alterna el asiento inicial y mantiene el marcador por identidad sin cruzar puntos', () => {
+    const h = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+
+    // Partida 1: gana humano (asiento 1) -> confeti y victoria
+    h.jugarHumano(1);
+    h.setGanador(1);
+    expect(lanzarConfeti).toHaveBeenCalledTimes(1);
+    expect(mockDoc.getElementById('marcador-partida')!.textContent).toBe('Jugador 1 1 · Robot 0');
+
+    // Pulsa Revancha en el banner -> ahora el humano pasa a asiento 2 y el Robot abre (asiento 1)
+    const btnRevancha = mockDoc
+      .getElementById('banner-ganador')!
+      .querySelector<MockElement>('.banner-ganador__reiniciar')!;
+    btnRevancha.dispatchEvent(new Event('click'));
+
+    expect(h.sesion.miAsiento).toBe(2);
+    expect(h.sesion.nombres).toEqual({ 1: 'Robot', 2: 'Jugador 1' });
+    // El robot abre automáticamente: Deshacer sigue deshabilitado hasta que el niño juegue.
+    expect(mockDoc.getElementById('control-deshacer')!.disabled).toBe(true);
+    vi.advanceTimersByTime(500);
+    expect(h.getEstado().jugadas).toEqual([99]);
+    expect(h.getEstado().turno).toBe(2);
+
+    // Partida 2: gana Robot (ahora asiento 1) -> sin confeti, título amable, marcador 1-1
+    vi.mocked(lanzarConfeti).mockClear();
+    h.setGanador(1);
+    expect(lanzarConfeti).not.toHaveBeenCalled();
+    expect(
+      mockDoc
+        .getElementById('banner-ganador')!
+        .querySelector<MockElement>('.banner-ganador__titulo')!.textContent
+    ).toBe('🤖 Ganó Robot');
+    expect(
+      mockDoc
+        .getElementById('banner-ganador')!
+        .querySelector<MockElement>('.banner-ganador__detalle')!.textContent
+    ).toBe('Fin de prueba');
+    expect(mockDoc.getElementById('marcador-partida')!.textContent).toBe('Jugador 1 1 · Robot 1');
+
+    // Reiniciar desde barra inferior mantiene el asiento actual (humano = 2)
+    h.sesion.reiniciar();
+    expect(h.sesion.miAsiento).toBe(2);
+    h.sesion.destruir();
+  });
+
+  it('cambiar dificultad en caliente aplica en la siguiente jugada sin reiniciar el tablero', () => {
+    const h = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    h.jugarHumano(1);
+    vi.advanceTimersByTime(500);
+
+    document.dispatchEvent(
+      new CustomEvent('dificultad-solo-cambiada', { detail: { dificultad: 'dificil' } })
+    );
+    expect(h.getEstado().jugadas).toEqual([1, 99]);
+
+    h.jugarHumano(2);
+    vi.advanceTimersByTime(500);
+    expect(h.elegirBot).toHaveBeenLastCalledWith('dificil');
+    h.sesion.destruir();
+  });
+
+  it('persiste y restaura partida solitaria sin sobrescribir pencilgames:jugadores', () => {
+    memoryStorage.setItem(
+      'pencilgames:jugadores',
+      JSON.stringify({ 1: 'Ana', 2: 'Beto' })
+    );
+    const h1 = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'medio' } })
+    );
+    h1.jugarHumano(4);
+    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(300); // debounce de guardado
+    h1.sesion.destruir();
+
+    const guardada = leerPartida('tres-en-raya')!;
+    expect(guardada.solo).toEqual({ dificultad: 'medio', asientoHumano: 1 });
+
+    // Nueva sesión simula recarga + clic en Continuar
+    const h2 = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', {
+        detail: {
+          dificultad: guardada.solo!.dificultad,
+          asientoHumano: guardada.solo!.asientoHumano,
+          restaurando: true,
+        },
+      })
+    );
+    document.dispatchEvent(new Event('partida-restaurar'));
+
+    expect(h2.getEstado().jugadas).toEqual([4, 99]);
+    expect(h2.sesion.miAsiento).toBe(1);
+    // Los nombres familiares de 2 jugadores no se contaminaron con "Robot".
+    expect(JSON.parse(memoryStorage.getItem('pencilgames:jugadores')!)).toEqual({
+      1: 'Ana',
+      2: 'Beto',
+    });
+    h2.sesion.destruir();
+  });
+
+  it('pasar de modo solitario a local o remoto desactiva el bot limpiamente', () => {
+    const h = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    h.jugarHumano(1);
+    document.dispatchEvent(new CustomEvent('modo-elegido-local'));
+    vi.advanceTimersByTime(1000);
+
+    expect(h.elegirBot).not.toHaveBeenCalled();
+    expect(h.sesion.miAsiento).toBeNull();
+    expect(h.sesion.nombres).toEqual({ 1: 'Jugador 1', 2: 'Jugador 2' });
+    expect(h.getEstado().jugadas).toEqual([]);
+    h.sesion.destruir();
+  });
+
+  it('pasar de modo solitario a remoto desactiva el bot, limpia el tablero y no deja "Robot" como nombre rival', () => {
+    const h = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    expect(h.sesion.nombres).toEqual({ 1: 'Jugador 1', 2: 'Robot' });
+    h.jugarHumano(1); // deja al bot pensando y jugadas = [1]
+
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Carlos' },
+      })
+    );
+    vi.advanceTimersByTime(1000);
+
+    expect(h.elegirBot).not.toHaveBeenCalled();
+    expect(h.sesion.miAsiento).toBe(1);
+    expect(h.sesion.nombres).toEqual({ 1: 'Carlos', 2: 'Jugador 2' });
+    expect(h.getEstado().jugadas).toEqual([]);
+    expect(mockDoc.getElementById('control-deshacer')!.hidden).toBe(true);
+    expect(mockDoc.getElementById('marcador-partida')!.textContent).toBe('Carlos 0 · Jugador 2 0');
+    h.sesion.destruir();
+  });
+
+  it('partida-restaurar activa el modo solitario automáticamente si la entrada guardada tiene solo', () => {
+    guardarPartida('tres-en-raya', {
+      nombres: { 1: 'Robot', 2: 'Lucía' },
+      snapshot: { turno: 1, jugadas: [99, 3], ganador: null },
+      pila: [{ turno: 2, jugadas: [99], ganador: null }],
+      solo: { dificultad: 'dificil', asientoHumano: 2 },
+    });
+    const h = crearJuegoSimulado();
+
+    document.dispatchEvent(new Event('partida-restaurar'));
+
+    expect(h.sesion.esSolo).toBe(true);
+    expect(h.sesion.esRemoto).toBe(false);
+    expect(h.sesion.miAsiento).toBe(2);
+    expect(h.sesion.nombres).toEqual({ 1: 'Robot', 2: 'Lucía' });
+    expect(mockDoc.getElementById('control-deshacer')!.disabled).toBe(false);
+    vi.advanceTimersByTime(500);
+    expect(h.elegirBot).toHaveBeenCalledWith('dificil');
+    expect(h.getEstado().jugadas).toEqual([99, 3, 99]);
+    h.sesion.destruir();
+  });
+
+  it('empate en modo solitario suena punto, no lanza confeti, no suma puntos y Revancha alterna asiento', () => {
+    const h = crearJuegoSimulado();
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    h.jugarHumano(1);
+    h.sesion.mostrarFinDeJuego({ titulo: '🤝 ¡Empate!', ganador: null });
+    vi.runAllTimers();
+
+    expect(lanzarConfeti).not.toHaveBeenCalled();
+    expect(emitirSenal).toHaveBeenCalledWith('punto');
+    expect(emitirSenal).not.toHaveBeenCalledWith('victoria');
+    expect(mockDoc.getElementById('marcador-partida')!.textContent).toBe('Jugador 1 0 · Robot 0');
+
+    const btnRevancha = mockDoc
+      .getElementById('banner-ganador')!
+      .querySelector<MockElement>('.banner-ganador__reiniciar')!;
+    btnRevancha.dispatchEvent(new Event('click'));
+    expect(h.sesion.miAsiento).toBe(2);
+    h.sesion.destruir();
+  });
+
+  it('salir a "/" en modo solitario limpia únicamente el marcador :solo sin afectar el marcador local', () => {
+    const h = crearJuegoSimulado();
+    h.sesion.mostrarFinDeJuego({ titulo: 'Ganó Jugador 1', ganador: 1 });
+    expect(memoryStorage.getItem('pencilgames:marcador:tres-en-raya')).not.toBeNull();
+
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    h.sesion.mostrarFinDeJuego({ titulo: 'Ganó Jugador 1', ganador: 1 });
+    expect(memoryStorage.getItem('pencilgames:marcador:tres-en-raya:solo')).not.toBeNull();
+
+    const link = new MockElement();
+    link.closest = ((sel: string) => (sel === 'a[href="/"]' ? link : null)) as any;
+    const clickEvent = new Event('click');
+    Object.defineProperty(clickEvent, 'target', { value: link, configurable: true });
+    document.dispatchEvent(clickEvent);
+
+    expect(memoryStorage.getItem('pencilgames:marcador:tres-en-raya:solo')).toBeNull();
+    expect(memoryStorage.getItem('pencilgames:marcador:tres-en-raya')).not.toBeNull();
+    h.sesion.destruir();
+  });
+
+  it('expone esRemoto y esSolo según el modo activo (local, solitario y remoto)', () => {
+    const h = crearJuegoSimulado();
+    expect(h.sesion.esRemoto).toBe(false);
+    expect(h.sesion.esSolo).toBe(false);
+
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    expect(h.sesion.esSolo).toBe(true);
+    expect(h.sesion.esRemoto).toBe(false);
+
+    document.dispatchEvent(new CustomEvent('modo-elegido-local'));
+    expect(h.sesion.esSolo).toBe(false);
+    expect(h.sesion.esRemoto).toBe(false);
+
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: vi.fn(),
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Carlos' },
+      })
+    );
+    expect(h.sesion.esRemoto).toBe(true);
+    expect(h.sesion.esSolo).toBe(false);
+
+    h.sesion.destruir();
+  });
+
+  it('esSolo permanece en false cuando no se pasa elegirMovimientoBot aunque lleguen eventos de modo solitario', () => {
+    guardarPartida('tres-en-raya', {
+      nombres: { 1: 'Robot', 2: 'Lucía' },
+      snapshot: { turno: 1, jugadas: [1], ganador: null },
+      pila: [],
+      solo: { dificultad: 'medio', asientoHumano: 2 },
+    });
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio: vi.fn(),
+      onRender: vi.fn(),
+      onDeshacer: vi.fn(),
+    });
+
+    expect(sesion.esSolo).toBe(false);
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'dificil' } })
+    );
+    expect(sesion.esSolo).toBe(false);
+    expect(sesion.miAsiento).toBeNull();
+
+    document.dispatchEvent(new Event('partida-restaurar'));
+    expect(sesion.esSolo).toBe(false);
+    expect(sesion.miAsiento).toBeNull();
+
+    sesion.destruir();
+  });
+
+  it('reiniciar() y revanchaSolo() ocultan #banner-ganador aunque onAplicarReinicio() no llame a mostrarTurno() (caso col en seleccion)', () => {
+    const onAplicarReinicio = vi.fn(); // Simula col volviendo a fase 'seleccion' sin llamar a mostrarTurno()
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender: vi.fn(),
+      elegirMovimientoBot: () => 1,
+    });
+    const banner = mockDoc.getElementById('banner-ganador')!;
+
+    // Modo local: fin de partida + Revancha/reiniciar()
+    sesion.mostrarFinDeJuego({ titulo: 'Ganó Jugador 1', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    const btnLocal = banner.querySelector<MockElement>('.banner-ganador__reiniciar')!;
+    btnLocal.dispatchEvent(new Event('click'));
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(1);
+    expect(banner.hidden).toBe(true);
+
+    // Modo local: llamada directa a reiniciar() con banner abierto
+    sesion.mostrarFinDeJuego({ titulo: 'Ganó Jugador 2', ganador: 2 });
+    expect(banner.hidden).toBe(false);
+    sesion.reiniciar();
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(2);
+    expect(banner.hidden).toBe(true);
+
+    // Modo solitario: fin de partida + Revancha (revanchaSolo())
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    sesion.mostrarFinDeJuego({ titulo: 'Ganó Jugador 1', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    const btnSolo = banner.querySelector<MockElement>('.banner-ganador__reiniciar')!;
+    btnSolo.dispatchEvent(new Event('click'));
+    expect(onAplicarReinicio).toHaveBeenCalledTimes(4); // 2 locales + 1 al entrar en solo + 1 en revanchaSolo
+    expect(sesion.miAsiento).toBe(2);
+    expect(banner.hidden).toBe(true);
+
+    sesion.destruir();
+  });
+
+  it('reinicios remotos, cambio de modo y canal-remoto-listo ocultan #banner-ganador aunque onAplicarReinicio() no llame a mostrarTurno()', () => {
+    const onAplicarReinicio = vi.fn();
+    let receptorMensajes: ((msg: MensajeJuego) => void) | null = null;
+    const mockCanal: MoveChannel = {
+      asiento: 1,
+      estado: 'conectado',
+      enviar: vi.fn(),
+      alRecibir: cb => {
+        receptorMensajes = cb;
+      },
+      alCambiarEstado: vi.fn(),
+      cerrar: vi.fn(),
+    };
+
+    const sesion = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender: vi.fn(),
+      elegirMovimientoBot: () => 1,
+    });
+    const banner = mockDoc.getElementById('banner-ganador')!;
+
+    // 1) Cambio de modo (reiniciarTableroAlCambiarModo)
+    sesion.mostrarFinDeJuego({ titulo: 'Fin local', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    document.dispatchEvent(
+      new CustomEvent('modo-elegido-solo', { detail: { dificultad: 'facil' } })
+    );
+    expect(banner.hidden).toBe(true);
+
+    // 2) Transición a remoto (alCanalRemotoListo cuando venía de partida previa)
+    sesion.mostrarFinDeJuego({ titulo: 'Fin solo', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Yo' },
+      })
+    );
+    expect(banner.hidden).toBe(true);
+
+    // 3) Reinicio remoto vía mensaje { tipo: 'reiniciar' }
+    sesion.mostrarFinDeJuego({ titulo: 'Fin remoto', ganador: 2 });
+    expect(banner.hidden).toBe(false);
+    receptorMensajes!({ tipo: 'reiniciar' });
+    expect(banner.hidden).toBe(true);
+    vi.runAllTimers();
+    vi.mocked(emitirSenal).mockClear();
+    sesion.jugadaInvalida();
+    vi.runAllTimers();
+    expect(emitirSenal).toHaveBeenCalledWith('error');
+
+    // 4) Reinicio remoto vía sync-moves con época mayor
+    sesion.mostrarFinDeJuego({ titulo: 'Fin remoto 2', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    receptorMensajes!({ tipo: 'sync-moves', epoca: 5, desde: 0, movimientos: [] });
+    expect(banner.hidden).toBe(true);
+
+    // 5) canal-remoto-listo desde partida local finalizada sin pila/registro previos
+    const sesionLocalFin = iniciarSesionJuego<number>({
+      validarMovimiento: (p): p is number => typeof p === 'number',
+      onMovimientoRemoto: vi.fn(),
+      onAplicarReinicio,
+      onRender: vi.fn(),
+    });
+    sesionLocalFin.mostrarFinDeJuego({ titulo: 'Fin local sin pila', ganador: 1 });
+    expect(banner.hidden).toBe(false);
+    document.dispatchEvent(
+      new CustomEvent('canal-remoto-listo', {
+        detail: { channel: mockCanal, miNombre: 'Yo' },
+      })
+    );
+    expect(banner.hidden).toBe(true);
+    sesionLocalFin.destruir();
+
+    sesion.destruir();
+  });
+});

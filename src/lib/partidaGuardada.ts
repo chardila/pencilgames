@@ -1,4 +1,5 @@
-import type { PlayerNames } from './players';
+import type { Player, PlayerNames } from './players';
+import { esDificultad, type Dificultad } from './bot/tipos';
 
 // Persistencia de la partida local en curso (spec 06). Estado serializable,
 // nunca DOM. Mismo patrón de try/catch silencioso que marcador.ts: si
@@ -10,6 +11,11 @@ export const CADUCIDAD_MS = 24 * 60 * 60 * 1000;
 // futuro" nunca caducaría, así que se descarta.
 const TOLERANCIA_FUTURO_MS = 60 * 60 * 1000;
 
+export interface DatosPartidaSolo {
+  dificultad: Dificultad;
+  asientoHumano: Player;
+}
+
 export interface DatosPartida {
   nombres: PlayerNames;
   snapshot: unknown;
@@ -17,6 +23,7 @@ export interface DatosPartida {
   // La pila perdió jugadas antiguas: el snapshot más viejo no es el tablero
   // inicial. Opcional para no invalidar entradas anteriores.
   pilaRecortada?: boolean;
+  solo?: DatosPartidaSolo;
 }
 
 export interface PartidaGuardada extends DatosPartida {
@@ -85,7 +92,14 @@ function esEntradaValida(parsed: unknown): parsed is PartidaGuardada {
   const nombres = p.nombres as Record<string, unknown> | null | undefined;
   if (typeof nombres?.[1] !== 'string' || typeof nombres?.[2] !== 'string') return false;
   if (!Array.isArray(p.pila)) return false;
-  return typeof p.snapshot === 'object' && p.snapshot !== null;
+  if (typeof p.snapshot !== 'object' || p.snapshot === null) return false;
+  if ('solo' in p && p.solo !== undefined) {
+    if (typeof p.solo !== 'object' || p.solo === null) return false;
+    const solo = p.solo as Record<string, unknown>;
+    if (!esDificultad(solo.dificultad)) return false;
+    if (solo.asientoHumano !== 1 && solo.asientoHumano !== 2) return false;
+  }
+  return true;
 }
 
 export function leerPartida(

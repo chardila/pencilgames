@@ -45,6 +45,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
 <script>
   import { createInitialState, esJugadaValida, playMove, type TresEnRayaState } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const tablero = document.getElementById('tablero')!;
@@ -69,6 +70,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function render(): void {

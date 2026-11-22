@@ -1,11 +1,11 @@
 ---
 title: "Gatos Salvajes"
 description: "Elige en secreto una casilla a la vez que tu rival: si coinciden, chocan; si no, ambos colocan."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: rapido
 edad: 7
-tipo: conectar
+tipo: adivinar
 ---
 
 1. El tablero es una rejilla de 5×5. El Jugador 1 usa ● y el Jugador 2 usa ▲.

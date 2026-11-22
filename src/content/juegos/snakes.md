@@ -1,7 +1,7 @@
 ---
 title: "Serpientes"
 description: "Haz crecer tu serpiente punto a punto. Pierde quien se queda sin espacio para avanzar."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 7
