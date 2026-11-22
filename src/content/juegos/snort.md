@@ -1,7 +1,7 @@
 ---
 title: "Snort"
 description: "Coloca fichas lejos de las del rival: pierde quien se queda sin sitio donde jugar."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: rapido
 edad: 7

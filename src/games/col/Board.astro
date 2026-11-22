@@ -151,6 +151,7 @@ import { MAPAS } from './maps';
     type Player,
   } from './engine';
   import { MAPAS } from './maps';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const selectorEl = document.getElementById('col-selector')!;
@@ -196,6 +197,7 @@ import { MAPAS } from './maps';
       render();
     },
     obtenerSnapshot: () => empaquetarSnapshot(state, jugadorInicialSiguiente),
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function construirSvgDelMapa(mapaId: number): void {
