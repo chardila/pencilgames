@@ -119,6 +119,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     type Player,
   } from './engine';
   import { iniciarSesionJuego } from '../../lib/gameSession';
+  import { elegirMovimiento } from './bot';
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const FICHAS = { 1: '●', 2: '▲' } as const;
@@ -155,6 +156,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function construirTablero(): void {

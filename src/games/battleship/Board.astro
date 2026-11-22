@@ -271,6 +271,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
     type Move,
     type Player,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const FICHAS = { 1: '●', 2: '▲' } as const;
@@ -348,6 +349,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
       render();
     },
     obtenerSnapshot: () => ({ state, flotaPrevia, listoParaColocar, handoffPendiente }),
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function jugar(move: Move, emitirRemoto = true): void {
@@ -418,7 +420,7 @@ const numeros = Array.from({ length: TAMANO }, (_, i) => i + 1);
 
     interstitial.hidden = !enInterstitial;
     if (enInterstitial) {
-      interstitialTexto.textContent = `Jugador ${state.currentPlayer} (${FICHAS[state.currentPlayer]}): coloca tu flota`;
+      interstitialTexto.textContent = `${sesion.nombres[state.currentPlayer]} (${FICHAS[state.currentPlayer]}): coloca tu flota`;
     }
     handoff.hidden = !enHandoff;
     if (enHandoff) {

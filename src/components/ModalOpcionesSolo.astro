@@ -1,0 +1,222 @@
+---
+import { DIFICULTADES, DIFICULTAD_INFO } from '../lib/bot/tipos';
+---
+
+<div
+  id="modal-opciones-solo"
+  class="modal-opciones-solo"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-opciones-solo-titulo"
+  hidden
+>
+  <div class="modal-opciones-solo__contenido">
+    <h2 id="modal-opciones-solo-titulo">Dificultad del robot</h2>
+    <div class="modal-opciones-solo__niveles">
+      {
+        DIFICULTADES.map(nivel => {
+          const info = DIFICULTAD_INFO[nivel];
+          return (
+            <button
+              type="button"
+              class="modal-opciones-solo__nivel"
+              data-dificultad={nivel}
+              aria-pressed="false"
+            >
+              <span class="modal-opciones-solo__nivel-titulo">
+                {info.icono} {info.texto}
+              </span>
+              <span class="modal-opciones-solo__nivel-desc">{info.descripcion}</span>
+            </button>
+          );
+        })
+      }
+    </div>
+
+    <div id="modal-opciones-solo-cambio-modo" class="modal-opciones-solo__modos" hidden>
+      <button type="button" id="modal-opciones-solo-a-local" class="modal-opciones-solo__secundario">
+        📱 Misma tableta
+      </button>
+      <button type="button" id="modal-opciones-solo-a-remoto" class="modal-opciones-solo__secundario">
+        🌐 Por internet
+      </button>
+    </div>
+
+    <button type="button" id="modal-opciones-solo-cerrar" class="modal-opciones-solo__cerrar">
+      Cerrar
+    </button>
+  </div>
+</div>
+
+<style>
+  .modal-opciones-solo {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing);
+    z-index: 20;
+  }
+
+  .modal-opciones-solo[hidden] {
+    display: none;
+  }
+
+  .modal-opciones-solo__contenido {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 24rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .modal-opciones-solo__niveles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .modal-opciones-solo__nivel {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg);
+    color: var(--color-text);
+    min-height: 3.5rem;
+    text-align: left;
+  }
+
+  .modal-opciones-solo__nivel[aria-pressed='true'] {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    border-color: var(--color-text);
+  }
+
+  .modal-opciones-solo__nivel-titulo {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .modal-opciones-solo__nivel-desc {
+    font-size: 0.85rem;
+    opacity: 0.85;
+  }
+
+  .modal-opciones-solo__modos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-line);
+  }
+
+  .modal-opciones-solo__modos[hidden] {
+    display: none;
+  }
+
+  .modal-opciones-solo__secundario,
+  .modal-opciones-solo__cerrar {
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 700;
+    min-height: 3rem;
+  }
+</style>
+
+<script>
+  import { esDificultad, type Dificultad } from '../lib/bot/tipos';
+  import { getDificultadGuardada, guardarDificultad, guardarModo } from '../lib/entrada';
+
+  const modal = document.getElementById('modal-opciones-solo')!;
+  const titulo = document.getElementById('modal-opciones-solo-titulo')!;
+  const botonesNivel = Array.from(
+    modal.querySelectorAll<HTMLButtonElement>('.modal-opciones-solo__nivel')
+  );
+  const bloqueModos = document.getElementById('modal-opciones-solo-cambio-modo')!;
+  const botonALocal = document.getElementById('modal-opciones-solo-a-local')!;
+  const botonARemoto = document.getElementById('modal-opciones-solo-a-remoto')!;
+  const botonCerrar = document.getElementById('modal-opciones-solo-cerrar')!;
+  const abrirDesdeLocal = document.getElementById('boton-jugar-solo');
+  const abrirEnSolo = document.getElementById('boton-dificultad-solo');
+
+  let origen: 'desde-local' | 'en-solo' = 'en-solo';
+  let dificultadActual: Dificultad = getDificultadGuardada();
+
+  function marcarNivelActivo(): void {
+    for (const boton of botonesNivel) {
+      const activo = origen === 'en-solo' && boton.dataset.dificultad === dificultadActual;
+      boton.setAttribute('aria-pressed', String(activo));
+    }
+  }
+
+  function abrir(modoOrigen: 'desde-local' | 'en-solo'): void {
+    origen = modoOrigen;
+    titulo.textContent =
+      origen === 'desde-local' ? '¿Con qué dificultad quieres jugar?' : 'Dificultad del robot';
+    bloqueModos.hidden = origen === 'desde-local';
+    botonCerrar.textContent = origen === 'desde-local' ? 'Cancelar' : 'Cerrar';
+    marcarNivelActivo();
+    modal.hidden = false;
+  }
+
+  document.addEventListener('modo-elegido-solo', (evento => {
+    const d = (evento as CustomEvent<{ dificultad?: unknown }>).detail?.dificultad;
+    if (esDificultad(d)) dificultadActual = d;
+  }) as EventListener);
+
+  document.addEventListener('dificultad-solo-cambiada', (evento => {
+    const d = (evento as CustomEvent<{ dificultad?: unknown }>).detail?.dificultad;
+    if (esDificultad(d)) dificultadActual = d;
+  }) as EventListener);
+
+  abrirDesdeLocal?.addEventListener('click', () => abrir('desde-local'));
+  abrirEnSolo?.addEventListener('click', () => abrir('en-solo'));
+
+  for (const boton of botonesNivel) {
+    boton.addEventListener('click', () => {
+      const nivel = boton.dataset.dificultad;
+      if (!esDificultad(nivel)) return;
+      dificultadActual = nivel;
+      guardarDificultad(nivel);
+      modal.hidden = true;
+      if (origen === 'desde-local') {
+        guardarModo('solo');
+        document.dispatchEvent(
+          new CustomEvent('modo-elegido-solo', { detail: { dificultad: nivel } })
+        );
+      } else {
+        document.dispatchEvent(
+          new CustomEvent('dificultad-solo-cambiada', { detail: { dificultad: nivel } })
+        );
+      }
+    });
+  }
+
+  botonALocal.addEventListener('click', () => {
+    modal.hidden = true;
+    guardarModo('local');
+    document.dispatchEvent(new CustomEvent('modo-elegido-local'));
+  });
+
+  botonARemoto.addEventListener('click', () => {
+    modal.hidden = true;
+    document.dispatchEvent(new CustomEvent('abrir-modal-remoto'));
+  });
+
+  botonCerrar.addEventListener('click', () => {
+    modal.hidden = true;
+  });
+</script>

@@ -175,6 +175,10 @@ const { title, slug } = Astro.props;
     tableroVisible = true;
     botonRemoto.hidden = true;
   });
+  document.addEventListener('modo-elegido-solo', () => {
+    tableroVisible = true;
+    botonRemoto.hidden = true;
+  });
   document.addEventListener('abrir-modal-remoto', () => {
     botonRemoto.hidden = true;
   });

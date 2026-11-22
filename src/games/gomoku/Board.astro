@@ -68,6 +68,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
     playMove,
     type GomokuState,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const FICHAS = { 1: '●', 2: '▲' } as const;
@@ -95,6 +96,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function render(): void {

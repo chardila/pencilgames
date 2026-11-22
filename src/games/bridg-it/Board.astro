@@ -182,6 +182,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     type BridgItState,
     type Edge,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const tablero = document.getElementById('bridgit-tablero')!;
@@ -205,6 +206,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function jugar(edge: Edge, emitirRemoto = true): void {
