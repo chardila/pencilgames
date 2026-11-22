@@ -265,6 +265,7 @@ const allEdges = getAllEdges().map(edge => {
     type Edge,
     type Vertex,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const svg = document.getElementById('svg-sim') as unknown as SVGSVGElement;
@@ -309,6 +310,7 @@ const allEdges = getAllEdges().map(edge => {
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function render(): void {

@@ -1,7 +1,7 @@
 ---
 title: "Bridg-It"
 description: "Traza puentes en tu retícula de puntos para conectar tus dos bordes antes que tu rival."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 9

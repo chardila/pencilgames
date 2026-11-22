@@ -1,7 +1,7 @@
 ---
 title: "MetaSquares"
 description: "Marca celdas y forma cuadrados perfectos con tus fichas: el primero en cinco gana."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 9

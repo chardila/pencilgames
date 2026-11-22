@@ -118,6 +118,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
     type CramState,
     type Move,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const tablero = document.getElementById('tablero')!;
@@ -150,6 +151,7 @@ const casillas = Array.from({ length: TAMANO * TAMANO }, (_, i) => i);
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function limpiarSeleccion(): void {

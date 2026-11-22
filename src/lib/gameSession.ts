@@ -91,6 +91,8 @@ export interface MostrarFinDeJuegoOptions
 export interface GameSession<TMovimiento> {
   nombres: PlayerNames;
   miAsiento: Player | null;
+  readonly esRemoto: boolean;
+  readonly esSolo: boolean;
   esMiTurno: (jugadorActual: Player) => boolean;
   enviarMovimiento: (movimiento: TMovimiento) => void;
   reiniciar: () => void;
@@ -307,6 +309,7 @@ export function iniciarSesionJuego<TMovimiento>(
       pilaRecortada = false;
       actualizarBotonDeshacer();
       descartarPartida();
+      ocultarBanner();
       config.onAplicarReinicio();
     }
   }
@@ -401,15 +404,27 @@ export function iniciarSesionJuego<TMovimiento>(
     }
   }
 
-  function reiniciarTableroAlCambiarModo(): void {
+  function ocultarBanner(): void {
+    const ban = getBannerGanador();
+    if (ban) hideWinnerBanner(ban);
+  }
+
+  function aplicarReinicioDePartida(): void {
     retirarConfeti();
     partidaTerminada = false;
+    victoriaRegistrada = false;
+    registro = [];
+    desincronizado = false;
     pilaDeshacer = [];
     pilaRecortada = false;
-    registro = [];
     actualizarBotonDeshacer();
-    descartarPartida();
+    ocultarBanner();
     config.onAplicarReinicio();
+  }
+
+  function reiniciarTableroAlCambiarModo(): void {
+    descartarPartida();
+    aplicarReinicioDePartida();
   }
 
   function alModoSolo(evento: Event): void {
@@ -486,12 +501,16 @@ export function iniciarSesionJuego<TMovimiento>(
     // Si se venía de una partida local o solitaria en curso (con jugadas
     // en el registro o en la pila de deshacer), se reinicia el tablero para
     // que ambos rivales arranquen sincronizados desde el tablero limpio y el turno 1.
-    const teniaPartidaPrevia = veniaDeSolo || registro.length > 0 || pilaDeshacer.length > 0;
+    const teniaPartidaPrevia =
+      veniaDeSolo || registro.length > 0 || pilaDeshacer.length > 0 || partidaTerminada;
     registro = [];
     desincronizado = false;
     pilaDeshacer = [];
     pilaRecortada = false;
     if (teniaPartidaPrevia) {
+      retirarConfeti();
+      partidaTerminada = false;
+      ocultarBanner();
       config.onAplicarReinicio();
     }
 
@@ -637,12 +656,7 @@ export function iniciarSesionJuego<TMovimiento>(
 
     if (msg.epoca > epoca) {
       epoca = msg.epoca;
-      registro = [];
-      desincronizado = false;
-      pilaDeshacer = [];
-      pilaRecortada = false;
-      actualizarBotonDeshacer();
-      config.onAplicarReinicio();
+      aplicarReinicioDePartida();
       aplicarLote(msg.movimientos);
       return;
     }
@@ -706,12 +720,7 @@ export function iniciarSesionJuego<TMovimiento>(
       }
     } else if (mensaje.tipo === 'reiniciar') {
       epoca++;
-      registro = [];
-      desincronizado = false;
-      pilaDeshacer = [];
-      pilaRecortada = false;
-      actualizarBotonDeshacer();
-      config.onAplicarReinicio();
+      aplicarReinicioDePartida();
     } else if (mensaje.tipo === 'sync-hola') {
       manejarSyncHola(mensaje);
     } else if (mensaje.tipo === 'sync-moves') {
@@ -837,17 +846,9 @@ export function iniciarSesionJuego<TMovimiento>(
 
   function reiniciar(): void {
     controladorBot?.cancelarTurno();
-    retirarConfeti();
-    partidaTerminada = false;
-    victoriaRegistrada = false;
     epoca++;
-    registro = [];
-    desincronizado = false;
-    pilaDeshacer = [];
-    pilaRecortada = false;
-    actualizarBotonDeshacer();
     descartarPartida();
-    config.onAplicarReinicio();
+    aplicarReinicioDePartida();
     canal?.enviar({ tipo: 'reiniciar' });
   }
 
@@ -1009,6 +1010,12 @@ export function iniciarSesionJuego<TMovimiento>(
     },
     get miAsiento() {
       return miAsiento;
+    },
+    get esRemoto() {
+      return esRemoto();
+    },
+    get esSolo() {
+      return esSolo();
     },
     esMiTurno,
     enviarMovimiento,
