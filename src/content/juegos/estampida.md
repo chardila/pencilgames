@@ -1,7 +1,7 @@
 ---
 title: "Estampida"
 description: "Elige una dirección y todas tus fichas se multiplican: gana quien ocupa más casillas."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 7

@@ -190,6 +190,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     type HexState,
     type BoardSize,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -218,9 +219,14 @@ import TableroJuego from '../../components/TableroJuego.astro';
     },
     onDeshacer: snapshot => {
       state = snapshot as HexState;
+      if (state.size !== currentSize) {
+        currentSize = state.size;
+        construirTablero();
+      }
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   const R = 28; // Radio del hexágono
@@ -411,7 +417,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       const isActivo = btnSize === size;
       btn.classList.toggle('btn-tamano--activo', isActivo);
       btn.setAttribute('aria-checked', isActivo ? 'true' : 'false');
-      btn.disabled = hayJugadas || sesion.miAsiento !== null;
+      btn.disabled = hayJugadas || sesion.esRemoto;
     });
 
     const grupos = svg.querySelectorAll<SVGGElement>('.hex-grupo-celda');
@@ -486,7 +492,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
 
   botonesTamano.forEach(btn => {
     btn.addEventListener('click', () => {
-      if (state.board.some(c => c !== null) || sesion.miAsiento !== null) return;
+      if (state.board.some(c => c !== null) || sesion.esRemoto) return;
       currentSize = Number(btn.dataset.tamano) as BoardSize;
       state = createInitialState(currentSize);
       construirTablero();

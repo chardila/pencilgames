@@ -115,6 +115,7 @@ const FLECHAS = [
     type Move,
     type Direccion,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const FICHAS = { 1: '●', 2: '▲' } as const;
@@ -151,6 +152,7 @@ const FLECHAS = [
       render();
     },
     obtenerSnapshot: () => ({ state, rivalSaltado }),
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function render(): void {

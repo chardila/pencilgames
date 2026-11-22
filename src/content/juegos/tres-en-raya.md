@@ -1,7 +1,7 @@
 ---
 title: "Tres en raya"
 description: "El clásico juego de ✕ y ●. Alinea tres para ganar."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: rapido
 edad: 5

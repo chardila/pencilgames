@@ -1,7 +1,7 @@
 ---
 title: "Puntos Caminantes"
 description: "Haz crecer tu grupo de puntos de casilla en casilla y quédate con más territorio que tu rival."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 9

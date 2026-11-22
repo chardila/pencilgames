@@ -1,4 +1,4 @@
-import type { Duracion, Tipo } from './catalogo';
+import type { Duracion, Edad, Tipo } from './catalogo';
 
 // Filtrado de la portada (spec 07). Funciones puras: el DOM solo las llama.
 // Un conjunto vacío significa "Todos" en esa dimensión.
@@ -8,17 +8,20 @@ export interface JuegoFiltrable {
   descripcion: string;
   duracion: Duracion;
   tipo: Tipo;
+  edad: Edad;
 }
 
 export interface Filtros {
   duraciones: ReadonlySet<Duracion>;
   tipos: ReadonlySet<Tipo>;
+  edades: ReadonlySet<Edad>;
   consulta: string;
 }
 
 export function coincide(juego: JuegoFiltrable, filtros: Filtros): boolean {
   if (filtros.duraciones.size > 0 && !filtros.duraciones.has(juego.duracion)) return false;
   if (filtros.tipos.size > 0 && !filtros.tipos.has(juego.tipo)) return false;
+  if (filtros.edades.size > 0 && !filtros.edades.has(juego.edad)) return false;
   const consulta = filtros.consulta.trim().toLowerCase();
   if (consulta === '') return true;
   return (

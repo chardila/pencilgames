@@ -1,7 +1,7 @@
 ---
 title: "Gomoku"
 description: "Alinea cinco o más fichas en un tablero de 9×9 antes que tu rival."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 7

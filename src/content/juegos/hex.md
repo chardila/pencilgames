@@ -1,7 +1,7 @@
 ---
 title: "Hex"
 description: "Conecta tus dos lados opuestos del tablero con una cadena ininterrumpida de hexágonos."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 9

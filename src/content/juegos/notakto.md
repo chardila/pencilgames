@@ -1,7 +1,7 @@
 ---
 title: "Notakto"
 description: "Tres en raya neutral: ambos ponen ✕ y pierde quien complete la línea."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: rapido
 edad: 7

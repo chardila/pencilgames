@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Duracion, Tipo } from './catalogo';
+import type { Duracion, Edad, Tipo } from './catalogo';
 import { alternar, coincide, type Filtros, type JuegoFiltrable } from './filtros';
 
 const hex: JuegoFiltrable = {
@@ -7,22 +7,26 @@ const hex: JuegoFiltrable = {
   descripcion: 'Conecta tus dos lados opuestos del tablero.',
   duracion: 'medio',
   tipo: 'conectar',
+  edad: 9,
 };
 const nim: JuegoFiltrable = {
   nombre: 'Nim',
   descripcion: 'Retira estrellas por turnos.',
   duracion: 'rapido',
   tipo: 'bloquear',
+  edad: 7,
 };
 
 function filtros(parcial: {
   duraciones?: Duracion[];
   tipos?: Tipo[];
+  edades?: Edad[];
   consulta?: string;
 }): Filtros {
   return {
     duraciones: new Set(parcial.duraciones ?? []),
     tipos: new Set(parcial.tipos ?? []),
+    edades: new Set(parcial.edades ?? []),
     consulta: parcial.consulta ?? '',
   };
 }
@@ -63,6 +67,14 @@ describe('coincide', () => {
   it('la consulta se combina con los filtros (AND)', () => {
     expect(coincide(nim, filtros({ consulta: 'nim', duraciones: ['medio'] }))).toBe(false);
     expect(coincide(nim, filtros({ consulta: 'nim', duraciones: ['rapido'] }))).toBe(true);
+  });
+
+  it('filtrar por edad deja solo los de esa edad (OR dentro de edad, AND con otros filtros)', () => {
+    expect(coincide(nim, filtros({ edades: [7] }))).toBe(true);
+    expect(coincide(hex, filtros({ edades: [7] }))).toBe(false);
+    expect(coincide(hex, filtros({ edades: [7, 9] }))).toBe(true);
+    expect(coincide(nim, filtros({ edades: [7], duraciones: ['rapido'] }))).toBe(true);
+    expect(coincide(nim, filtros({ edades: [7], duraciones: ['medio'] }))).toBe(false);
   });
 });
 

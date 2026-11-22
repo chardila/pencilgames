@@ -152,6 +152,7 @@ const SIZE = 4;
 <script>
   import { createInitialState, playLine, esLineId, type PuntosYCajasState, type LineId } from './engine';
   import { iniciarSesionJuego } from '../../lib/gameSession';
+  import { elegirMovimiento } from './bot';
 
   const tablero = document.getElementById('tablero')!;
   const lineas = Array.from(tablero.querySelectorAll<HTMLButtonElement>('.linea'));
@@ -179,6 +180,7 @@ const SIZE = 4;
       render();
     },
     obtenerSnapshot: () => ({ state, repiteTurno }),
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   function render(): void {
