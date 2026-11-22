@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getModoGuardado,
   guardarModo,
+  getDificultadGuardada,
+  guardarDificultad,
   alTerminarDeCargarScripts,
   haVistoReglas,
   marcarReglasVistas,
@@ -129,6 +131,11 @@ describe('modo guardado', () => {
     expect(getModoGuardado()).toBe('remoto');
   });
 
+  it('guarda y vuelve a leer el modo solo', () => {
+    guardarModo('solo');
+    expect(getModoGuardado()).toBe('solo');
+  });
+
   it('si el valor guardado no es un modo válido, devuelve null', () => {
     localStorage.setItem('pencilgames:modo', 'lo-que-sea');
     expect(getModoGuardado()).toBeNull();
@@ -143,6 +150,45 @@ describe('modo guardado', () => {
   it('olvidarModo sin nada guardado no lanza', () => {
     expect(() => olvidarModo()).not.toThrow();
     expect(getModoGuardado()).toBeNull();
+  });
+});
+
+describe('dificultad guardada', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', new MemoryStorage() as unknown as Storage);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('sin nada guardado, devuelve facil por defecto', () => {
+    expect(getDificultadGuardada()).toBe('facil');
+  });
+
+  it('guarda y vuelve a leer facil, medio y dificil', () => {
+    for (const nivel of ['facil', 'medio', 'dificil'] as const) {
+      guardarDificultad(nivel);
+      expect(getDificultadGuardada()).toBe(nivel);
+    }
+  });
+
+  it('si el valor guardado es inválido, devuelve facil', () => {
+    localStorage.setItem('pencilgames:dificultad', 'extremo');
+    expect(getDificultadGuardada()).toBe('facil');
+  });
+
+  it('si localStorage lanza, no rompe ni al leer ni al guardar', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('sin acceso');
+      },
+      setItem: () => {
+        throw new Error('cuota');
+      },
+    } as unknown as Storage);
+    expect(() => guardarDificultad('dificil')).not.toThrow();
+    expect(getDificultadGuardada()).toBe('facil');
   });
 });
 

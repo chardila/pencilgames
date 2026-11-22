@@ -1,7 +1,26 @@
 ---
+interface Props {
+  soportaSolo?: boolean;
+}
+
+const { soportaSolo = false } = Astro.props;
 ---
 
 <div class="acciones-cabecera">
+  {
+    soportaSolo && (
+      <button type="button" id="boton-jugar-solo" class="acciones-cabecera__boton" hidden>
+        🤖 Jugar solo
+      </button>
+    )
+  }
+  {
+    soportaSolo && (
+      <button type="button" id="boton-dificultad-solo" class="acciones-cabecera__boton" hidden>
+        🤖 Fácil
+      </button>
+    )
+  }
   <button type="button" id="modal-jugadores-abrir" class="acciones-cabecera__boton" hidden>
     ✏️ Cambiar nombres
   </button>
@@ -29,7 +48,7 @@
     background: var(--color-surface);
     color: var(--color-text);
     font-weight: 700;
-    min-height: var(--tap-target-min);
+    min-height: 3rem;
   }
 
   .acciones-cabecera__boton[hidden] {

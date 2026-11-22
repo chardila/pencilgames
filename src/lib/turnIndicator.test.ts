@@ -119,6 +119,22 @@ describe('turnIndicator', () => {
     );
   });
 
+  it('acepta textoEspera personalizado (modo solitario: "pensando…")', () => {
+    renderTurnIndicator(container as unknown as HTMLElement, {
+      jugador: 2,
+      fichas: { 1: { nombre: 'Ana' }, 2: { nombre: 'Robot' } },
+      miAsiento: 1,
+      textoEspera: 'pensando…',
+    });
+
+    expect(container.querySelector<MockElement>('.indicador-turno__espera')!.textContent).toBe(
+      'pensando…'
+    );
+    expect(container.querySelector<MockElement>('.indicador-turno__prosa')!.textContent).toBe(
+      'Turno de Robot, pensando'
+    );
+  });
+
   it('renderiza puntaje solo en las fichas que lo traen', () => {
     renderTurnIndicator(container as unknown as HTMLElement, {
       jugador: 1,

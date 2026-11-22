@@ -6,6 +6,7 @@ import ModalJuegoRemoto from '../../components/ModalJuegoRemoto.astro';
 import ModalModoJuego from '../../components/ModalModoJuego.astro';
 import ModalJugadores from '../../components/ModalJugadores.astro';
 import ModalContinuarPartida from '../../components/ModalContinuarPartida.astro';
+import ModalOpcionesSolo from '../../components/ModalOpcionesSolo.astro';
 import AccionesCabecera from '../../components/AccionesCabecera.astro';
 import TresEnRayaBoard from '../../games/tres-en-raya/Board.astro';
 import PuntosYCajasBoard from '../../games/puntos-y-cajas/Board.astro';
@@ -76,21 +77,23 @@ export async function getStaticPaths() {
 const { juego } = Astro.props;
 const { Content } = await render(juego);
 const Board = BOARDS[juego.id as keyof typeof BOARDS];
+const soportaSolo = juego.data.minJugadores === 1;
 ---
 
 <BaseLayout title={juego.data.title}>
   <header class="cabecera-juego">
     <a href="/" class="cabecera-juego__volver">← Juegos</a>
     <h1 class="cabecera-juego__titulo">{juego.data.title}</h1>
-    <AccionesCabecera />
+    <AccionesCabecera soportaSolo={soportaSolo} />
   </header>
   <ModalInstrucciones title={juego.data.title} slug={juego.id}>
     <Content />
   </ModalInstrucciones>
-  <ModalModoJuego />
+  <ModalModoJuego soportaSolo={soportaSolo} />
   <ModalJuegoRemoto />
   <ModalJugadores />
   <ModalContinuarPartida slug={juego.id} />
+  {soportaSolo && <ModalOpcionesSolo />}
   <div id="contenedor-tablero" data-slug={juego.id} hidden>
     <Board />
   </div>
@@ -132,19 +135,47 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
 </style>
 
 <script>
+  import { DIFICULTAD_INFO, esDificultad, type Dificultad } from '../../lib/bot/tipos';
   import { registrarReciente } from '../../lib/recientes';
 
   const contenedorTablero = document.getElementById('contenedor-tablero')!;
   registrarReciente(contenedorTablero.dataset.slug!);
   const botonCambiarNombres = document.getElementById('modal-jugadores-abrir')!;
   const botonPorInternet = document.getElementById('boton-jugar-por-internet')!;
+  const botonJugarSolo = document.getElementById('boton-jugar-solo');
+  const botonDificultadSolo = document.getElementById('boton-dificultad-solo');
+
+  function actualizarEtiquetaDificultad(dificultad: Dificultad): void {
+    if (!botonDificultadSolo) return;
+    const info = DIFICULTAD_INFO[dificultad];
+    botonDificultadSolo.textContent = `🤖 ${info.texto}`;
+  }
 
   document.addEventListener('modo-elegido-local', () => {
     contenedorTablero.hidden = false;
     botonCambiarNombres.hidden = false;
     // Solo tiene sentido en modo local: ya en remoto no hay a dónde cambiar.
     botonPorInternet.hidden = false;
+    if (botonJugarSolo) botonJugarSolo.hidden = false;
+    if (botonDificultadSolo) botonDificultadSolo.hidden = true;
   });
+
+  document.addEventListener('modo-elegido-solo', (evento => {
+    contenedorTablero.hidden = false;
+    botonCambiarNombres.hidden = true;
+    botonPorInternet.hidden = true;
+    if (botonJugarSolo) botonJugarSolo.hidden = true;
+    if (botonDificultadSolo) {
+      const nivel = (evento as CustomEvent<{ dificultad?: unknown }>).detail?.dificultad;
+      actualizarEtiquetaDificultad(esDificultad(nivel) ? nivel : 'facil');
+      botonDificultadSolo.hidden = false;
+    }
+  }) as EventListener);
+
+  document.addEventListener('dificultad-solo-cambiada', (evento => {
+    const nivel = (evento as CustomEvent<{ dificultad?: unknown }>).detail?.dificultad;
+    if (esDificultad(nivel)) actualizarEtiquetaDificultad(nivel);
+  }) as EventListener);
 
   document.addEventListener('canal-remoto-listo', () => {
     contenedorTablero.hidden = false;
@@ -157,5 +188,7 @@ const Board = BOARDS[juego.id as keyof typeof BOARDS];
     // (gameSession ignora ese guardado en cuanto hay asiento asignado), así
     // que sería un botón visible que no hace nada.
     botonCambiarNombres.hidden = true;
+    if (botonJugarSolo) botonJugarSolo.hidden = true;
+    if (botonDificultadSolo) botonDificultadSolo.hidden = true;
   });
 </script>
