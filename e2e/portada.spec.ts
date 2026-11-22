@@ -42,22 +42,27 @@ test('un filtro reduce la lista', async ({ page }) => {
   expect(visibles).toBeLessThan(slugsDelCatalogo().length);
 });
 
-test('todos los juegos del catálogo muestran la etiqueta 1 jugador', async ({ page }) => {
-  const slugs = slugsDelCatalogo();
-  expect(slugs).toHaveLength(27);
-  for (const slug of slugs) {
-    await expect(page.locator(`.indice__item[data-slug="${slug}"]`)).toContainText('1 jugador');
-  }
+test('ninguna tarjeta muestra la etiqueta redundante 1 jugador', async ({ page }) => {
+  await expect(page.locator('#grid-juegos')).not.toContainText('1 jugador');
 });
 
-test('el filtro "Jugar solo" deja todos los juegos del catálogo (27)', async ({ page }) => {
-  const slugs = slugsDelCatalogo();
-  expect(slugs).toHaveLength(27);
-  await page.locator('[data-grupo="jugadores"] .filtro[data-valor="solo"]').click();
-  await expect(page.locator(TARJETAS)).toHaveCount(slugs.length);
-  for (const slug of slugs) {
-    await expect(page.locator(`.indice__item[data-slug="${slug}"]`)).toBeVisible();
-  }
+test('el filtro "Para qué edad" filtra por edad y permite combinar varias edades', async ({ page }) => {
+  const filtro5 = page.locator('[data-grupo="edad"] .filtro[data-valor="5"]');
+  const filtro7 = page.locator('[data-grupo="edad"] .filtro[data-valor="7"]');
+  const todosEdad = page.locator('[data-grupo="edad"] .filtro[data-todos]');
+
+  await filtro5.click();
+  await expect(filtro5).toHaveAttribute('aria-pressed', 'true');
+  await expect(todosEdad).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator(TARJETAS)).toHaveCount(3);
+
+  await filtro7.click();
+  await expect(filtro7).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(TARJETAS)).toHaveCount(17);
+
+  await todosEdad.click();
+  await expect(todosEdad).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(TARJETAS)).toHaveCount(slugsDelCatalogo().length);
 });
 
 test('clic en una tarjeta navega al juego', async ({ page }) => {

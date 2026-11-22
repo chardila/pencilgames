@@ -3,7 +3,7 @@ title: "Triggle"
 description: "Traza líneas de 4 puntos en la malla triangular y conquista más triángulos que tu rival."
 minJugadores: 1
 maxJugadores: 2
-duracion: medio
+duracion: largo
 edad: 9
 tipo: dibujar
 ---

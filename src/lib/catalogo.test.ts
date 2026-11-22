@@ -3,7 +3,6 @@ import {
   DURACIONES,
   DURACION_INFO,
   EDADES,
-  ETIQUETA_SOLO,
   TIPOS,
   TIPO_INFO,
   textoEdad,
@@ -52,17 +51,19 @@ describe('catalogo', () => {
     expect(TIPOS as readonly string[]).toContain(campo(texto, 'tipo'));
   });
 
-  it('cada duración y cada tipo lo usa al menos un juego (los filtros nunca nacen vacíos)', () => {
+  it('cada duración, cada edad y cada tipo lo usa al menos un juego (los filtros nunca nacen vacíos)', () => {
     for (const d of DURACIONES) {
       expect(juegos.some(j => campo(j.texto, 'duracion') === d)).toBe(true);
+    }
+    for (const e of EDADES) {
+      expect(juegos.some(j => campo(j.texto, 'edad') === String(e))).toBe(true);
     }
     for (const t of TIPOS) {
       expect(juegos.some(j => campo(j.texto, 'tipo') === t)).toBe(true);
     }
   });
 
-  it('ETIQUETA_SOLO tiene icono y texto y los 27 juegos declaran minJugadores: 1', () => {
-    expect(ETIQUETA_SOLO).toEqual({ icono: '🤖', texto: '1 jugador' });
+  it('los 27 juegos declaran minJugadores: 1', () => {
     for (const j of juegos) {
       expect(campo(j.texto, 'minJugadores'), `${j.slug} debe declarar minJugadores: 1`).toBe('1');
     }

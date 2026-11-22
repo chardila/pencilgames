@@ -5,7 +5,7 @@ minJugadores: 1
 maxJugadores: 2
 duracion: rapido
 edad: 7
-tipo: conectar
+tipo: adivinar
 ---
 
 1. El tablero es una rejilla de 5×5. El Jugador 1 usa ● y el Jugador 2 usa ▲.

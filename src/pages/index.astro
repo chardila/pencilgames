@@ -4,7 +4,15 @@ import GameCard from '../components/GameCard.astro';
 import ConmutadorTema from '../components/ConmutadorTema.astro';
 import AvisoInstalar from '../components/AvisoInstalar.astro';
 import { getCollection } from 'astro:content';
-import { DURACIONES, DURACION_INFO, TIPOS, TIPO_INFO } from '../lib/catalogo';
+import {
+  DURACIONES,
+  DURACION_INFO,
+  EDADES,
+  ICONO_EDAD,
+  TIPOS,
+  TIPO_INFO,
+  textoEdad,
+} from '../lib/catalogo';
 
 const juegos = (await getCollection('juegos')).sort((a, b) =>
   a.data.title.localeCompare(b.data.title, 'es')
@@ -14,12 +22,17 @@ const grupos = [
   {
     id: 'duracion',
     titulo: 'Cuánto dura',
-    opciones: DURACIONES.map(valor => ({ valor, ...DURACION_INFO[valor] })),
+    opciones: DURACIONES.map(valor => ({ valor: String(valor), ...DURACION_INFO[valor] })),
+  },
+  {
+    id: 'edad',
+    titulo: 'Para qué edad',
+    opciones: EDADES.map(edad => ({ valor: String(edad), icono: ICONO_EDAD, texto: textoEdad(edad) })),
   },
   {
     id: 'tipo',
     titulo: 'Cómo se juega',
-    opciones: TIPOS.map(valor => ({ valor, ...TIPO_INFO[valor] })),
+    opciones: TIPOS.map(valor => ({ valor: String(valor), ...TIPO_INFO[valor] })),
   },
 ];
 ---
@@ -58,14 +71,6 @@ const grupos = [
           </div>
         ))
       }
-      <div class="indice__grupo" role="group" aria-label="Jugadores" data-grupo="jugadores">
-        <span class="indice__grupo-titulo" aria-hidden="true">Jugadores</span>
-        <button type="button" class="filtro" data-todos aria-pressed="true">Todos</button>
-        <button type="button" class="filtro" data-valor="solo" aria-pressed="false">
-          <span aria-hidden="true">🤖</span>
-          Jugar solo
-        </button>
-      </div>
     </section>
 
     <input
@@ -86,7 +91,7 @@ const grupos = [
             data-descripcion={juego.data.description.toLowerCase()}
             data-duracion={juego.data.duracion}
             data-tipo={juego.data.tipo}
-            data-solo={juego.data.minJugadores === 1 ? 'true' : 'false'}
+            data-edad={juego.data.edad}
           >
             <GameCard
               href={`/juegos/${juego.id}`}
@@ -96,7 +101,6 @@ const grupos = [
               duracion={juego.data.duracion}
               edad={juego.data.edad}
               tipo={juego.data.tipo}
-              solo={juego.data.minJugadores === 1}
             />
           </div>
         ))
@@ -222,7 +226,7 @@ const grupos = [
 </style>
 
 <script>
-  import type { Duracion, Tipo } from '../lib/catalogo';
+  import type { Duracion, Edad, Tipo } from '../lib/catalogo';
   import { alternar, coincide } from '../lib/filtros';
   import { obtenerRecientes } from '../lib/recientes';
 
@@ -234,15 +238,15 @@ const grupos = [
   const botones = Array.from(panelFiltros.querySelectorAll<HTMLButtonElement>('.filtro'));
 
   let duraciones = new Set<Duracion>();
+  let edades = new Set<Edad>();
   let tipos = new Set<Tipo>();
-  let solo = false;
 
   function grupoDe(boton: HTMLElement): string {
     return boton.closest<HTMLElement>('[data-grupo]')!.dataset.grupo!;
   }
 
   function aplicar() {
-    const filtros = { duraciones, tipos, solo, consulta: buscador.value };
+    const filtros = { duraciones, edades, tipos, consulta: buscador.value };
     let visibles = 0;
 
     for (const item of items) {
@@ -252,7 +256,7 @@ const grupos = [
           descripcion: item.dataset.descripcion!,
           duracion: item.dataset.duracion as Duracion,
           tipo: item.dataset.tipo as Tipo,
-          solo: item.dataset.solo === 'true',
+          edad: Number(item.dataset.edad) as Edad,
         },
         filtros
       );
@@ -264,15 +268,13 @@ const grupos = [
 
     for (const boton of botones) {
       const grupo = grupoDe(boton);
-      if (grupo === 'jugadores') {
-        const activo = boton.hasAttribute('data-todos') ? !solo : solo;
-        boton.setAttribute('aria-pressed', String(activo));
-        continue;
-      }
-      const conjunto: ReadonlySet<string> = grupo === 'duracion' ? duraciones : tipos;
       const activo = boton.hasAttribute('data-todos')
-        ? conjunto.size === 0
-        : conjunto.has(boton.dataset.valor!);
+        ? (grupo === 'duracion' ? duraciones.size === 0 : grupo === 'edad' ? edades.size === 0 : tipos.size === 0)
+        : (grupo === 'duracion'
+            ? duraciones.has(boton.dataset.valor as Duracion)
+            : grupo === 'edad'
+              ? edades.has(Number(boton.dataset.valor) as Edad)
+              : tipos.has(boton.dataset.valor as Tipo));
       boton.setAttribute('aria-pressed', String(activo));
     }
   }
@@ -285,10 +287,10 @@ const grupos = [
     const grupo = grupoDe(boton);
     if (grupo === 'duracion') {
       duraciones = esTodos ? new Set() : alternar(duraciones, boton.dataset.valor as Duracion);
+    } else if (grupo === 'edad') {
+      edades = esTodos ? new Set() : alternar(edades, Number(boton.dataset.valor) as Edad);
     } else if (grupo === 'tipo') {
       tipos = esTodos ? new Set() : alternar(tipos, boton.dataset.valor as Tipo);
-    } else if (grupo === 'jugadores') {
-      solo = esTodos ? false : !solo;
     }
     aplicar();
   });
@@ -301,8 +303,8 @@ const grupos = [
     // no abrir el teclado en pantalla.
     const conTeclado = botonLimpiar.matches(':focus-visible');
     duraciones = new Set();
+    edades = new Set();
     tipos = new Set();
-    solo = false;
     buscador.value = '';
     aplicar();
     if (conTeclado) buscador.focus();
