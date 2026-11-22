@@ -173,6 +173,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
     type BoardSize,
     type YState,
   } from './engine';
+  import { elegirMovimiento } from './bot';
   import { iniciarSesionJuego } from '../../lib/gameSession';
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -208,6 +209,7 @@ import TableroJuego from '../../components/TableroJuego.astro';
       render();
     },
     obtenerSnapshot: () => state,
+    elegirMovimientoBot: dificultad => elegirMovimiento(state, dificultad),
   });
 
   const R = 24; // radio del hexágono

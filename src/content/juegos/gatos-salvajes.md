@@ -1,7 +1,7 @@
 ---
 title: "Gatos Salvajes"
 description: "Elige en secreto una casilla a la vez que tu rival: si coinciden, chocan; si no, ambos colocan."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: rapido
 edad: 7

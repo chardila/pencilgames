@@ -1,7 +1,7 @@
 ---
 title: "Conquista"
 description: "Traza líneas entre puntos vecinos y cierra regiones para conquistar territorio."
-minJugadores: 2
+minJugadores: 1
 maxJugadores: 2
 duracion: medio
 edad: 9
