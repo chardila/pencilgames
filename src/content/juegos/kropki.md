@@ -3,7 +3,7 @@ title: "Kropki"
 description: "Rodea los puntos del rival con una cadena de los tuyos y captúralos."
 minJugadores: 1
 maxJugadores: 2
-duracion: medio
+duracion: largo
 edad: 9
 tipo: capturar
 ---
