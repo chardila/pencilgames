@@ -5,9 +5,9 @@ const CENTRO = Math.floor(TOTAL / 2); // (3, 3) = 24
 const INF = 255;
 const SCORE_VICTORIA = 60_000;
 const SCORE_COMPONENTE_EXACTA = 45_000;
-const MAX_NODOS_BUSQUEDA = 1_200;
-const MAX_NODOS_COMPONENTE_RAIZ = 1_500;
-const MAX_NODOS_COMPONENTE_NODO = 200;
+const MAX_NODOS_BUSQUEDA = 550;
+const MAX_NODOS_COMPONENTE_RAIZ = 500;
+const MAX_NODOS_COMPONENTE_NODO = 90;
 const MAX_PROFUNDIDAD = 12;
 
 const PARIDAD = new Uint8Array(TOTAL);
@@ -197,6 +197,103 @@ interface ResultadoCamino {
   nodos: number;
 }
 
+let camMejor = 0;
+let camMaxTeorico = 0;
+let camNodos = 0;
+let camMaxNodos = 0;
+let camAbortado = false;
+
+function dfsCamino(
+  board: Uint8Array,
+  pos: number,
+  depth: number,
+  remEven: number,
+  remOdd: number
+): void {
+  if (depth > camMejor) {
+    camMejor = depth;
+    if (camMejor >= camMaxTeorico) return;
+  }
+  camNodos++;
+  if (camNodos >= camMaxNodos) {
+    camAbortado = true;
+    return;
+  }
+
+  const rOther = PARIDAD[pos] === 0 ? remOdd : remEven;
+  const rSame = PARIDAD[pos] === 0 ? remEven : remOdd;
+  const cota = depth + 2 * Math.min(rOther, rSame) + (rOther > rSame ? 1 : 0);
+  if (cota <= camMejor) return;
+
+  const vecs = VECINOS[pos];
+  let c0 = -1;
+  let d0 = 9;
+  let c1 = -1;
+  let d1 = 9;
+  let c2 = -1;
+  let count = 0;
+
+  for (let i = 0; i < vecs.length; i++) {
+    const v = vecs[i];
+    if (board[v] !== 0) continue;
+    let deg = 0;
+    const vv = VECINOS[v];
+    for (let j = 0; j < vv.length; j++) {
+      if (board[vv[j]] === 0) deg++;
+    }
+    if (count === 0) {
+      c0 = v;
+      d0 = deg;
+    } else if (count === 1) {
+      if (deg < d0) {
+        c1 = c0;
+        d1 = d0;
+        c0 = v;
+        d0 = deg;
+      } else {
+        c1 = v;
+        d1 = deg;
+      }
+    } else if (count === 2) {
+      if (deg < d0) {
+        c2 = c1;
+        c1 = c0;
+        d1 = d0;
+        c0 = v;
+        d0 = deg;
+      } else if (deg < d1) {
+        c2 = c1;
+        c1 = v;
+        d1 = deg;
+      } else {
+        c2 = v;
+      }
+    }
+    count++;
+  }
+
+  if (count === 0) return;
+
+  const nextDepth = depth + 1;
+
+  board[c0] = 1;
+  if (PARIDAD[c0] === 0) dfsCamino(board, c0, nextDepth, remEven - 1, remOdd);
+  else dfsCamino(board, c0, nextDepth, remEven, remOdd - 1);
+  board[c0] = 0;
+  if (camAbortado || camMejor >= camMaxTeorico || count < 2) return;
+
+  board[c1] = 1;
+  if (PARIDAD[c1] === 0) dfsCamino(board, c1, nextDepth, remEven - 1, remOdd);
+  else dfsCamino(board, c1, nextDepth, remEven, remOdd - 1);
+  board[c1] = 0;
+  if (camAbortado || camMejor >= camMaxTeorico || count < 3) return;
+
+  board[c2] = 1;
+  if (PARIDAD[c2] === 0) dfsCamino(board, c2, nextDepth, remEven - 1, remOdd);
+  else dfsCamino(board, c2, nextDepth, remEven, remOdd - 1);
+  board[c2] = 0;
+}
+
 /**
  * Calcula el camino simple más largo desde `cabeza` en su componente conexa,
  * usando cota superior de paridad en O(1) y ordenamiento tipo Warnsdorff.
@@ -239,98 +336,14 @@ function caminoMasLargo(board: Uint8Array, cabeza: number, maxNodos: number): Re
   const maxTeorico = 2 * Math.min(startOther, startSame) + (startOther > startSame ? 1 : 0);
   if (maxTeorico <= 1) return { len: maxTeorico, maxTeorico, exact: true, nodos: 1 };
 
-  let mejor = 0;
-  let nodos = 0;
-  let abortado = false;
+  camMejor = 0;
+  camMaxTeorico = maxTeorico;
+  camNodos = 0;
+  camMaxNodos = maxNodos;
+  camAbortado = false;
 
-  function intentar(nxt: number, depth: number, remEven: number, remOdd: number): void {
-    board[nxt] = 1;
-    if (PARIDAD[nxt] === 0) {
-      dfs(nxt, depth + 1, remEven - 1, remOdd);
-    } else {
-      dfs(nxt, depth + 1, remEven, remOdd - 1);
-    }
-    board[nxt] = 0;
-  }
-
-  function dfs(pos: number, depth: number, remEven: number, remOdd: number): void {
-    if (depth > mejor) {
-      mejor = depth;
-      if (mejor >= maxTeorico) return;
-    }
-    nodos++;
-    if (nodos >= maxNodos) {
-      abortado = true;
-      return;
-    }
-
-    const rOther = PARIDAD[pos] === 0 ? remOdd : remEven;
-    const rSame = PARIDAD[pos] === 0 ? remEven : remOdd;
-    const cota = depth + 2 * Math.min(rOther, rSame) + (rOther > rSame ? 1 : 0);
-    if (cota <= mejor) return;
-
-    const vecs = VECINOS[pos];
-    let c0 = -1;
-    let d0 = 9;
-    let c1 = -1;
-    let d1 = 9;
-    let c2 = -1;
-    let d2 = 9;
-    let count = 0;
-
-    for (let i = 0; i < vecs.length; i++) {
-      const v = vecs[i];
-      if (board[v] !== 0) continue;
-      let deg = 0;
-      const vv = VECINOS[v];
-      for (let j = 0; j < vv.length; j++) {
-        if (board[vv[j]] === 0) deg++;
-      }
-      if (count === 0) {
-        c0 = v;
-        d0 = deg;
-      } else if (count === 1) {
-        if (deg < d0) {
-          c1 = c0;
-          d1 = d0;
-          c0 = v;
-          d0 = deg;
-        } else {
-          c1 = v;
-          d1 = deg;
-        }
-      } else if (count === 2) {
-        if (deg < d0) {
-          c2 = c1;
-          d2 = d1;
-          c1 = c0;
-          d1 = d0;
-          c0 = v;
-          d0 = deg;
-        } else if (deg < d1) {
-          c2 = c1;
-          d2 = d1;
-          c1 = v;
-          d1 = deg;
-        } else {
-          c2 = v;
-          d2 = deg;
-        }
-      }
-      count++;
-    }
-
-    if (count === 0) return;
-
-    intentar(c0, depth, remEven, remOdd);
-    if (abortado || mejor >= maxTeorico || count < 2) return;
-    intentar(c1, depth, remEven, remOdd);
-    if (abortado || mejor >= maxTeorico || count < 3) return;
-    intentar(c2, depth, remEven, remOdd);
-  }
-
-  dfs(cabeza, 0, nEven, nOdd);
-  return { len: mejor, maxTeorico, exact: !abortado, nodos };
+  dfsCamino(board, cabeza, 0, nEven, nOdd);
+  return { len: camMejor, maxTeorico, exact: !camAbortado, nodos: camNodos };
 }
 
 function puntuarComponentesSeparadas(
@@ -343,7 +356,7 @@ function puntuarComponentesSeparadas(
   const resMi = caminoMasLargo(board, miCabeza, maxNodosComp);
   const resRiv = caminoMasLargo(board, rivalCabeza, maxNodosComp);
   if (ctx) {
-    ctx.nodos += Math.floor((resMi.nodos + resRiv.nodos) / 4);
+    ctx.nodos += (resMi.nodos + resRiv.nodos) >> 1;
   }
   const diff = resMi.len - resRiv.len;
   if (resMi.len > resRiv.maxTeorico || (resRiv.exact && resMi.len > resRiv.len)) {
@@ -404,15 +417,27 @@ function evaluarEstado(
     }
   }
 
+  let miRaw = 0;
+  let rivRaw = 0;
+  let ties = 0;
+  let miEven = 0;
+  let miOdd = 0;
+  let rivEven = 0;
+  let rivOdd = 0;
+  let miDeg2 = 0;
+  let rivDeg2 = 0;
+
   let dist = 2;
   while (hA < tA || hB < tB) {
     const endA = tA;
     while (hA < endA) {
       const u = VOR_QUEUE_A[hA++];
       const vecs = VECINOS[u];
+      let freeDeg = 0;
       for (let i = 0; i < vecs.length; i++) {
         const v = vecs[i];
         if (board[v] !== 0) continue;
+        freeDeg++;
         const own = VOR_OWNER[v];
         if (own === 0) {
           VOR_OWNER[v] = 1;
@@ -422,15 +447,24 @@ function evaluarEstado(
           conectados = true;
         }
       }
+      if (VOR_OWNER[u] === 1) {
+        miRaw++;
+        if (PARIDAD[u] === 0) miEven++;
+        else miOdd++;
+        if (freeDeg >= 2) miDeg2++;
+      }
     }
 
     const endB = tB;
     while (hB < endB) {
       const u = VOR_QUEUE_B[hB++];
+      const ownU = VOR_OWNER[u];
       const vecs = VECINOS[u];
+      let freeDeg = 0;
       for (let i = 0; i < vecs.length; i++) {
         const v = vecs[i];
         if (board[v] !== 0) continue;
+        freeDeg++;
         const own = VOR_OWNER[v];
         if (own === 0) {
           VOR_OWNER[v] = 2;
@@ -443,6 +477,14 @@ function evaluarEstado(
             VOR_QUEUE_B[tB++] = v;
           }
         }
+      }
+      if (ownU === 2) {
+        rivRaw++;
+        if (PARIDAD[u] === 0) rivEven++;
+        else rivOdd++;
+        if (freeDeg >= 2) rivDeg2++;
+      } else if (ownU === 3) {
+        ties++;
       }
     }
 
@@ -457,44 +499,6 @@ function evaluarEstado(
       MAX_NODOS_COMPONENTE_NODO,
       ctx
     );
-  }
-
-  let miRaw = 0;
-  let rivRaw = 0;
-  let ties = 0;
-  let miEven = 0;
-  let miOdd = 0;
-  let rivEven = 0;
-  let rivOdd = 0;
-  let miDeg2 = 0;
-  let rivDeg2 = 0;
-
-  for (let i = 0; i < TOTAL; i++) {
-    const own = VOR_OWNER[i];
-    if (own === 0) continue;
-
-    if (own === 3) {
-      ties++;
-      continue;
-    }
-
-    let freeDeg = 0;
-    const vecs = VECINOS[i];
-    for (let j = 0; j < vecs.length; j++) {
-      if (board[vecs[j]] === 0) freeDeg++;
-    }
-
-    if (own === 1) {
-      miRaw++;
-      if (PARIDAD[i] === 0) miEven++;
-      else miOdd++;
-      if (freeDeg >= 2) miDeg2++;
-    } else {
-      rivRaw++;
-      if (PARIDAD[i] === 0) rivEven++;
-      else rivOdd++;
-      if (freeDeg >= 2) rivDeg2++;
-    }
   }
 
   const miOther = PARIDAD[miCabeza] === 0 ? miOdd : miEven;
@@ -633,20 +637,10 @@ function elegirDificil(
   bfsDistancias(board, rivalHead, BFS_DIST_B);
   let conectadoAlguno = false;
   for (let i = 0; i < libres.length; i++) {
-    board[libres[i]] = 1;
-    bfsDistancias(board, libres[i], BFS_DIST_A);
-    board[libres[i]] = 0;
     if (BFS_DIST_B[libres[i]] !== INF) {
       conectadoAlguno = true;
       break;
     }
-    for (let c = 0; c < TOTAL; c++) {
-      if (board[c] === 0 && BFS_DIST_A[c] !== INF && BFS_DIST_B[c] !== INF) {
-        conectadoAlguno = true;
-        break;
-      }
-    }
-    if (conectadoAlguno) break;
   }
 
   if (!conectadoAlguno) {
@@ -672,10 +666,11 @@ function elegirDificil(
 
   let mejoresGlobales: number[] = [libres[0]];
   const ctx: ContextoBusqueda = { nodos: 0, abortado: false };
-  const profundidades = [2, 4, 6, 8, 10, 12];
+  const profundidades = [2, 4, 5, 6, 7, 8, 10, 12];
 
   for (let p = 0; p < profundidades.length; p++) {
     const prof = profundidades[p];
+    if (prof >= 6 && ctx.nodos >= MAX_NODOS_BUSQUEDA * 0.55) break;
     let mejorScore = -Infinity;
     let mejoresIter: number[] = [];
     let alpha = -Infinity;

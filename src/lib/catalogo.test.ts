@@ -61,23 +61,10 @@ describe('catalogo', () => {
     }
   });
 
-  it('ETIQUETA_SOLO tiene icono y texto, los 6 juegos iniciales declaran minJugadores: 1 y todos declaran 1 o 2', () => {
+  it('ETIQUETA_SOLO tiene icono y texto y los 27 juegos declaran minJugadores: 1', () => {
     expect(ETIQUETA_SOLO).toEqual({ icono: '🤖', texto: '1 jugador' });
-    const slugsSolo = juegos
-      .filter(j => campo(j.texto, 'minJugadores') === '1')
-      .map(j => j.slug);
-    expect(slugsSolo).toEqual(
-      expect.arrayContaining([
-        'chomp',
-        'gomoku',
-        'nim',
-        'obstruccion',
-        'puntos-y-cajas',
-        'tres-en-raya',
-      ])
-    );
     for (const j of juegos) {
-      expect(['1', '2']).toContain(campo(j.texto, 'minJugadores'));
+      expect(campo(j.texto, 'minJugadores'), `${j.slug} debe declarar minJugadores: 1`).toBe('1');
     }
   });
 });
