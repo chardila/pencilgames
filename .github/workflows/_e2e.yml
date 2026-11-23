@@ -39,33 +39,36 @@ jobs:
             echo "Slugs: \`${{ steps.sel.outputs.slugs }}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # Quitar `&& steps.sel.outputs.suites != 'remoto'` al implementar la suite `remoto` (fase 2).
+      - name: Instalar dependencias del worker
+        if: steps.sel.outputs.suites == 'todas' || contains(steps.sel.outputs.suites, 'remoto')
+        run: npm --prefix worker ci
+
       - name: Cachear navegadores de Playwright
-        if: steps.sel.outputs.suites != '' && steps.sel.outputs.suites != 'remoto'
+        if: steps.sel.outputs.suites != ''
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Instalar Chromium
-        if: steps.sel.outputs.suites != '' && steps.sel.outputs.suites != 'remoto'
+        if: steps.sel.outputs.suites != ''
         run: npm run test:e2e:install
 
       - name: Build
-        if: steps.sel.outputs.suites != '' && steps.sel.outputs.suites != 'remoto'
+        if: steps.sel.outputs.suites != ''
         run: npm run build
         env:
-          PUBLIC_SIGNAL_WORKER_URL: https://signal.games.cardila.com
+          PUBLIC_SIGNAL_WORKER_URL: http://localhost:8787
 
       - name: Pruebas e2e
-        if: steps.sel.outputs.suites != '' && steps.sel.outputs.suites != 'remoto'
+        if: steps.sel.outputs.suites != ''
         run: npm run test:e2e
         env:
           E2E_SUITES: ${{ steps.sel.outputs.suites }}
           E2E_SLUGS: ${{ steps.sel.outputs.slugs }}
 
       - name: Subir reporte de Playwright
-        if: ${{ !cancelled() && steps.sel.outputs.suites != '' && steps.sel.outputs.suites != 'remoto' }}
+        if: ${{ !cancelled() && steps.sel.outputs.suites != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
