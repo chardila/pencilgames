@@ -31,6 +31,14 @@ Un juego nuevo queda cubierto solo con añadir su `.md` al catálogo. Si el
 adaptador genérico (`e2e/juegos/adaptadores.ts`) no encuentra dónde hacer clic,
 la prueba falla con `juego <slug> sin adaptador e2e`: añade ahí su entrada.
 
+> **Nota sobre PRs antiguos en CI:** en `pull_request` el diff se calcula contra
+> `github.event.pull_request.base.sha` sobre el merge ref. Al relanzar los
+> chequeos de un PR cuya base quedó detrás de `main`, el diff puede incluir
+> cambios ya integrados en `main` y seleccionar **más** suites de las necesarias
+> (nunca menos). Esta sobreselección es esperada y segura según el criterio
+> conservador; el resumen del job (`GITHUB_STEP_SUMMARY`) indica qué suites y
+> slugs se ejecutaron.
+
 ## Modo remoto (jugar por internet)
 
 Los 3 juegos soportan jugar entre dos computadoras por internet, uniéndose

@@ -26,6 +26,7 @@ const ARCHIVOS_NUCLEO = new Set([
   'vitest.config.ts',
 ]);
 const PREFIJOS_DOCS = ['docs/', 'specs/', 'abstract-games-by-category/'];
+const SLUG_VALIDO = /^[a-z0-9-]+$/;
 
 /** @returns {{tipo: 'docs'|'nucleo'|'worker'|'desconocido'} | {tipo: 'juego', slug: string}} */
 function clasificar(ruta) {
@@ -62,6 +63,7 @@ export function seleccionarSuites(archivos, catalogo) {
   if (tipos.includes('desconocido') || tipos.includes('nucleo')) return todas;
 
   const juegos = slugsDeArchivos(archivos);
+  if (juegos.some(slug => !SLUG_VALIDO.test(slug))) return todas;
   if (catalogo && juegos.some(slug => !catalogo.includes(slug))) return todas;
   return {
     todas: false,
