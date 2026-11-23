@@ -47,10 +47,12 @@ describe('seleccionarSuites', () => {
       { todas: false, portada: true, juegos: ['hex'], remoto: false },
     ],
     [
-      'rutas con espacios y no ASCII',
-      ['src/games/mi juego/ñ.astro'],
-      { todas: false, portada: true, juegos: ['mi juego'], remoto: false },
+      'rutas con espacios y no ASCII en archivo de juego válido',
+      ['src/games/hex/mi archivo ñ.astro'],
+      { todas: false, portada: true, juegos: ['hex'], remoto: false },
     ],
+    ['slug inválido con salto de línea', ['src/games/a\nb/x.astro'], TODAS],
+    ['slug inválido con espacios y no ASCII', ['src/games/mi juego/ñ.astro'], TODAS],
   ];
 
   it.each(casos)('%s', (_nombre, archivos, esperado) => {
